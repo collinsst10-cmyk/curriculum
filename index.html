@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=kclass-schedule-3">
+<link rel="stylesheet" href="style.css?v=202611262343">
 </head>
 <body>
 <header class="topbar">
@@ -28,10 +28,13 @@
     <span id="saveState" class="save-state">자동 저장됨</span>
     <span id="cloudState" class="save-state"></span>
     <button id="kslBell" class="btn bell" hidden title="한국어학급 시간표 조정이 필요한 일정">🔔 <b id="kslBellN">0</b></button>
+    <button id="btnPreview" class="btn preview" hidden title="관리자 계정으로 선생님들이 보는 화면을 확인합니다">👀 선생님 화면 보기</button>
     <button id="btnCloud" class="btn cloud">👤 로그인</button>
     <button id="btnPrint" class="btn">인쇄</button>
   </div>
 </header>
+
+<div id="previewBar" class="preview-bar" hidden>👀 지금 <b>선생님 화면</b>으로 보고 있습니다. 메뉴와 권한이 선생님과 같습니다. <button id="previewBack" class="btn small">관리자 화면으로 돌아가기</button></div>
 
 <nav class="tabs" id="tabs">
   <button data-tab="hview" data-group="haksa">학사일정</button>
@@ -62,27 +65,51 @@
 
   <!-- HOME -->
   <section id="tab-home" class="tab">
-    <div class="home-card">
-    <div class="home-hero">
-      <div class="hh-text">
-        <span class="hh-year" id="homeYear"></span>
-        <h2 id="homeTitle">함께 그리는<br>우리 학교의 내일</h2>
+    <div class="hx-hero">
+      <div class="hx-photo" role="img" aria-label="수업 중인 용원초 학생들"></div>
+      <div class="hx-text">
+        <div class="hx-kicker"><span></span>YONGWON ELEMENTARY SCHOOL</div>
+        <div class="hx-big">YONGWON<i></i></div>
+        <h2 id="homeTitle">함께 그리는 우리 학교의 내일</h2>
         <p id="homeSub">교육과정과 학교 일정을 한눈에 살펴보세요.</p>
+        <div class="hx-btns">
+          <button class="hx-btn fill" id="homeBtn1" data-go="curr"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span>교육과정 살펴보기</span></button>
+          <button class="hx-btn line" data-go="haksa"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4M8.5 15l2.3 2.3 4.7-4.6"/></svg><span>학사일정 확인</span></button>
+        </div>
+        <div class="hx-stats" id="homeKpi"></div>
+        <span id="homeYear" hidden></span>
       </div>
     </div>
-    <div class="home-stats" id="homeKpi"></div>
+
     <div id="homeGate" class="home-gate"></div>
-    <div class="home-panel" id="homePanel">
-      <div class="hp-col">
-        <h3><span class="hp-ico"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M8 12.5l3 3 5.5-6.5"/></svg></span><span id="homeTodoTitle">확인이 필요한 항목</span></h3>
-        <ul id="homeTodo" class="hp-list"></ul>
+
+    <div class="hx-grid" id="homePanel">
+      <div class="card hx-card">
+        <div class="hx-card-head">
+          <h2><span class="hx-ico">📅</span><span id="monthTitle">이번 달 주요 학사일정</span></h2>
+          <div class="row"><button class="btn small" id="monthPrev" aria-label="이전 달">◀</button><button class="btn small" id="monthNow">이번 달</button><button class="btn small" id="monthNext" aria-label="다음 달">▶</button></div>
+        </div>
+        <ul id="homeMonth" class="hx-mlist"></ul>
       </div>
-      <div class="hp-col">
-        <h3><span class="hp-ico"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/><circle cx="12" cy="15" r="1.3"/></svg></span>다가오는 학사일정</h3>
-        <ul id="homeNext" class="hp-dates"></ul>
+      <div class="card hx-card">
+        <div class="hx-card-head">
+          <h2><span class="hx-ico">📝</span>학교운영일지</h2>
+          <div class="row"><button class="btn small" id="logPrev" aria-label="이전 날">◀</button><input type="date" id="logDate"><button class="btn small" id="logNext" aria-label="다음 날">▶</button></div>
+        </div>
+        <div id="logView" class="log-view"></div>
+        <div id="logEditBox" class="log-edit" hidden>
+          <textarea id="logText" rows="8" placeholder="이 날의 학교운영일지 내용을 입력하거나 붙여 넣으세요."></textarea>
+          <div class="row"><button class="btn primary small" id="logSave">저장</button><button class="btn small danger" id="logDelete">삭제</button><span id="logStatus" class="hint"></span></div>
+        </div>
+        <div id="logRecent" class="log-recent"></div>
       </div>
     </div>
+
+    <div class="card hx-card hx-todo" id="homeTodoCard">
+      <h2><span class="hx-ico">✅</span><span id="homeTodoTitle">확인이 필요한 항목</span></h2>
+      <ul id="homeTodo" class="hp-list"></ul>
     </div>
+    <ul id="homeNext" hidden></ul>
     <div class="menu-grid" id="homeMenu" hidden>
       <button class="menu-card" data-go="haksa">
         <span class="mc-ico">📆</span><b>학사일정</b>
@@ -205,7 +232,7 @@
       <h2>한국어학급 1 주간 시간표</h2>
       <p id="kclassMode1" class="hint"></p>
       <form id="kclassOwner1" class="row" hidden>
-        <label>담임 구글 이메일 <input type="email" maxlength="254" required></label>
+        <label>담임 구글 이메일 <input type="email" maxlength="254" placeholder="비우고 지정하면 담임 해제"></label>
         <button class="btn small" type="submit">담임 지정</button>
       </form>
       <div class="tbl-scroll"><table class="tbl kclass-grid" id="kclassGrid1"></table></div>
@@ -219,7 +246,7 @@
       <h2>한국어학급 2 주간 시간표</h2>
       <p id="kclassMode2" class="hint"></p>
       <form id="kclassOwner2" class="row" hidden>
-        <label>담임 구글 이메일 <input type="email" maxlength="254" required></label>
+        <label>담임 구글 이메일 <input type="email" maxlength="254" placeholder="비우고 지정하면 담임 해제"></label>
         <button class="btn small" type="submit">담임 지정</button>
       </form>
       <div class="tbl-scroll"><table class="tbl kclass-grid" id="kclassGrid2"></table></div>
@@ -233,7 +260,7 @@
       <h2>한국어학급 3 주간 시간표</h2>
       <p id="kclassMode3" class="hint"></p>
       <form id="kclassOwner3" class="row" hidden>
-        <label>담임 구글 이메일 <input type="email" maxlength="254" required></label>
+        <label>담임 구글 이메일 <input type="email" maxlength="254" placeholder="비우고 지정하면 담임 해제"></label>
         <button class="btn small" type="submit">담임 지정</button>
       </form>
       <div class="tbl-scroll"><table class="tbl kclass-grid" id="kclassGrid3"></table></div>
@@ -573,15 +600,16 @@
   <div id="cloudBody"></div>
 </dialog>
 
-<script src="data.js?v=202611262145"></script>
-<script src="app.js?v=kclass-1"></script>
-<script src="features.js?v=202611262145"></script>
-<script src="cloud-config.js?v=202611262145"></script>
-<script src="cloud.js?v=202611262145"></script>
-<script src="activities.js?v=kclass-1"></script>
-<script src="haksa.js?v=202611262145"></script>
-<script src="menus.js?v=calendar-layout-2"></script>
-<script src="schedule.js?v=4"></script>
-<script src="kclass.js?v=1"></script>
+<script src="data.js?v=202611262343"></script>
+<script src="app.js?v=202611262343"></script>
+<script src="features.js?v=202611262343"></script>
+<script src="cloud-config.js?v=202611262343"></script>
+<script src="cloud.js?v=202611262343"></script>
+<script src="activities.js?v=202611262343"></script>
+<script src="haksa.js?v=202611262343"></script>
+<script src="menus.js?v=202611262343"></script>
+<script src="schedule.js?v=202611262343"></script>
+<script src="kclass.js?v=202611262343"></script>
+<script src="home.js?v=202611262343"></script>
 </body>
 </html>

@@ -859,46 +859,75 @@ function upcomingHaksa(limit) {
 }
 const mdLabel = ds => { const d = parse(ds); return `${d.getMonth() + 1}월 ${d.getDate()}일`; };
 
+/* HOME: 이번 달 주요 학사일정 (학사일정 + 교육활동) */
+let homeMonth = null;   // 표시 중인 달의 1일
+function homeMonthItems(y, m) {
+  const pre = `${y}-${pad(m + 1)}`, out = [];
+  // 학사일정: 같은 이름이 이어지는 날(방학 등)은 하나로
+  computeYear().filter(x => x.ds.startsWith(pre)).forEach(x => {
+    if (!x.name || x.type === 'weekend' || x.type === 'school') return;
+    const last = out[out.length - 1];
+    if (last && !last.act && last.name === x.name && (parse(x.ds) - parse(last.end)) <= 4 * 86400000) { last.end = x.ds; return; }
+    out.push({ start: x.ds, end: x.ds, name: x.name, type: x.type, ev: x.ev });
+  });
+  // 교육활동(외부강의 등, 취소 제외)
+  const acts = window.Activities ? Activities.items : {};
+  Object.entries(acts).filter(([d]) => d.startsWith(pre)).forEach(([d, list]) => list.filter(t => t.status !== 'canceled').forEach(t =>
+    out.push({ start: d, end: d, name: t.title, type: 'act', kind: t.kind, status: t.status, periods: t.periods })));
+  return out.sort((a, b) => a.start.localeCompare(b.start) || (a.type === 'act') - (b.type === 'act'));
+}
+const HOME_TAG = { holiday: ['공휴일', 'red'], closure: ['재량휴업일', 'amber'], vacation: ['방학', 'green'], event: ['교내행사', 'navy'] };
+
+function renderHomeMonth() {
+  if (!homeMonth) {
+    const now = new Date(), y = state.school.year;
+    const inYear = fmt(now) >= `${y}-03-01` && fmt(now) < `${y + 1}-03-01`;
+    homeMonth = inYear ? new Date(now.getFullYear(), now.getMonth(), 1) : new Date(y, 2, 1);
+  }
+  const y = homeMonth.getFullYear(), m = homeMonth.getMonth();
+  $('monthTitle').textContent = (y === new Date().getFullYear() ? '' : `${y}년 `) + `${m + 1}월 주요 학사일정`;
+  const items = homeMonthItems(y, m), today = fmt(new Date());
+  $('homeMonth').innerHTML = items.length ? items.map(it => {
+    const d = parse(it.start), [tag, tone] = it.type === 'act' ? [`${it.kind} · ${it.status === 'confirmed' ? '확정' : '신청'}`, it.status === 'confirmed' ? 'blue' : 'gray'] : (HOME_TAG[it.type] || ['일정', 'gray']);
+    const range = it.end !== it.start ? ` ~ ${parse(it.end).getMonth() + 1}.${parse(it.end).getDate()}` : '';
+    const time = it.type === 'act' ? (it.periods.length >= 6 ? '종일' : it.periods.join('·') + '교시') : it.ev ? `1~${it.ev.hrs}교시` : '';
+    return `<li class="${it.end < today ? 'past' : ''}"><span class="mday"><b>${d.getDate()}</b><small>${WD[d.getDay()]}</small></span>
+      <span class="mtxt"><b>${esc(it.name)}</b><small>${range ? `${d.getMonth() + 1}.${d.getDate()}${range} · ` : ''}${esc(time)}</small></span>
+      <span class="mtag ${tone}">${esc(tag)}</span></li>`;
+  }).join('') : '<li class="empty">이 달에는 등록된 학사일정이 없습니다.</li>';
+}
+
 function renderHome() {
   const s = state.school, st = dayStats();
   const teacher = isTeacherView();
   const locked = window.App.locked && window.App.locked();
   $('homeYear').textContent = `${s.year}학년도`;
-  $('homeSub').textContent = teacher ? '학교 학사일정을 확인하고, 교육활동 일정을 신청하세요.' : '교육과정과 학교 일정을 한눈에 살펴보세요.';
   if (window.App.renderGate) window.App.renderGate($('homeGate')); else $('homeGate').innerHTML = '';
-  // 승인된 상태에서는 안내 칸을 숨김(경고가 있을 때만 표시)
   const gateOk = !locked && !$('homeGate').querySelector('.neg');
   $('homeGate').hidden = gateOk && !!window.FIREBASE_CONFIG;
-  $('homeKpi').hidden = $('homePanel').hidden = !!locked;
+  $('homePanel').hidden = !!locked;
+  $('homeKpi').hidden = !!locked;
+
+  // 첫 번째 버튼: 관리자 = 교육과정 편성, 선생님 = 교육활동 신청
+  $('homeBtn1').dataset.go = teacher ? 'act' : 'curr';
+  $('homeBtn1').querySelector('span').textContent = teacher ? '교육활동 신청하기' : '교육과정 살펴보기';
+  $('homeTodoCard').hidden = teacher || !!locked;
   if (locked) return;
 
   const nClass = GRADES.reduce((t, g) => t + (Number(s.classes[g]) || 0), 0);
-  const today = fmt(new Date());
-  const mine = teacher && window.Activities && window.Cloud && Cloud.user
-    ? Object.values(Activities.items).flat().filter(t => t.ownerUid === Cloud.user.uid && t.date >= today && t.status !== 'canceled').sort((a, b) => a.date.localeCompare(b.date))
-    : [];
   const todos = teacher ? [] : homeTodos();
-  const stat = (ico, label, value) => `<div class="hs-item"><span class="hs-ico">${ico}</span><div><div class="hs-label">${label}</div><div class="hs-value">${value}</div></div></div>`;
-  $('homeKpi').innerHTML = stat(ICON.cal, '연간 수업일수', `${st.total}일`) + stat(ICON.people, '편성 학급', `${nClass}학급`) +
-    (teacher ? stat(ICON.act, '나의 교육활동', `${mine.length}건`) : stat(ICON.check, '확인할 항목', `${todos.length}건`));
+  const monthN = (() => { const n = new Date(); return homeMonthItems(n.getFullYear(), n.getMonth()).length; })();
+  const stat = (ico, value, label) => `<div class="hx-stat"><span class="hx-sico">${ico}</span><div><b>${value}</b><small>${label}</small></div></div>`;
+  $('homeKpi').innerHTML = stat(ICON.cal, `${st.total}일`, '연간 수업일수') + stat(ICON.people, `${nClass}학급`, '편성 학급') +
+    (teacher ? stat(ICON.check, `${monthN}건`, '이번 달 학사일정') : stat(ICON.check, `${todos.length}건`, '확인할 항목'));
 
-  // 왼쪽: 관리자 = 확인이 필요한 항목 / 선생님 = 나의 교육활동
-  if (teacher) {
-    $('homeTodoTitle').textContent = '나의 교육활동';
-    $('homeTodo').innerHTML = mine.length
-      ? mine.slice(0, 5).map(t => `<li><a href="#act"><span class="dot ${t.status === 'confirmed' ? 'ok' : ''}"></span>${esc(mdLabel(t.date))} ${esc(t.title)} <span class="st ${t.status}">${t.status === 'confirmed' ? '확정' : '신청'}</span></a></li>`).join('')
-      : '<li class="empty">신청한 교육활동이 없습니다. <a href="#act">교육활동 일정</a>에서 신청하세요.</li>';
-  } else {
-    $('homeTodoTitle').textContent = '확인이 필요한 항목';
+  renderHomeMonth();
+  if (!teacher) {
     $('homeTodo').innerHTML = todos.length
       ? todos.map(t => `<li title="${esc(t.tip.join('\n'))}"><a href="${t.href}"><span class="dot ${t.err ? 'err' : ''}"></span>${esc(t.label)}${t.n > 1 ? ` <span class="cnt">${t.n}</span>` : ''}</a></li>`).join('')
       : '<li class="empty">확인할 항목이 없습니다. 👍</li>';
   }
-  // 오른쪽: 다가오는 학사일정
-  const next = upcomingHaksa(5);
-  $('homeNext').innerHTML = next.length
-    ? next.map(r => `<li><a href="#hview"><span class="date-pill">${mdLabel(r.start)}${r.end !== r.start ? ' ~' : ''}</span><span>${esc(r.name)}</span></a></li>`).join('')
-    : '<li class="empty">남은 학사일정이 없습니다.</li>';
+  if (window.HomeLog) HomeLog.render();
 }
 /** 다시 그린 뒤에도 입력 중이던 칸에 커서를 유지 */
 function rerenderKeepFocus(fn) {

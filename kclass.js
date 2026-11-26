@@ -8,8 +8,11 @@
   let subscriptions = [];
   let generation = 0;
 
+  // 지정된 담임 또는 관리자가 편집 (보안 규칙도 같음)
   function canEdit(record) {
-    return Boolean(record && record.owner && Cloud.ready && record.owner === String(Cloud.email || '').toLowerCase());
+    if (!record || !Cloud.ready) return false;
+    if (Cloud.isAdmin()) return true;
+    return Boolean(record.owner && record.owner === String(Cloud.email || '').toLowerCase());
   }
 
   function render(number) {
@@ -24,7 +27,7 @@
     $('kclassMode' + number).textContent = !Cloud.ready ? '승인된 교직원 계정으로 로그인해 주세요.'
       : record?.error ? '시간표 또는 담임 권한을 불러오지 못했습니다.'
       : !record || record.owner === null || record.slots === null ? '시간표를 불러오는 중입니다.'
-      : editing ? '편집 가능 · 수업명과 원학급을 입력하고 저장하세요. 원학급 예시 3-1, 4-2'
+      : editing ? (Cloud.isAdmin() && record.owner !== String(Cloud.email || '').toLowerCase() ? '관리자 편집 가능 · ' : '편집 가능 · ') + '수업명과 원학급을 입력하고 저장하세요. 원학급 예시 3-1, 4-2'
       : record.owner ? '조회 전용 · 이 학급 담임이 시간표를 편집합니다.'
       : '조회 전용 · 관리자가 담임을 지정하면 편집할 수 있습니다.';
     const table = $('kclassGrid' + number);

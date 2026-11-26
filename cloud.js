@@ -29,13 +29,26 @@
   $('cloudClose').addEventListener('click', () => dlg.close());
   $('btnCloud').addEventListener('click', () => { dlg.showModal(); renderPanel($('cloudBody')); });
 
+  /* ---------- 관리자: '선생님 화면으로 보기' (이 탭에서만, 새로고침해도 유지) ---------- */
+  let preview = sessionStorage.getItem('viewAsTeacher') === '1';
+  const effAdmin = () => admin && !preview;   // 화면에서 쓰는 관리자 여부
+  function setPreview(on) {
+    preview = !!on;
+    sessionStorage.setItem('viewAsTeacher', preview ? '1' : '0');
+    refreshUi();
+    if (curTab !== 'home') showTab(curTab);   // 선생님에게 없는 메뉴면 HOME 으로
+    window.scrollTo(0, 0);
+  }
+  $('btnPreview').addEventListener('click', () => setPreview(!preview));
+  $('previewBack').addEventListener('click', () => setPreview(false));
+
   /* ---------- app.js 와의 연결 ---------- */
   Object.assign(window.App, {
     /** 로그인·승인 전이면 메뉴 잠금 (연결 실패 시에는 이 PC 모드로 허용) */
     locked: () => REQUIRE && !fbFailed && access !== 'approved',
-    isAdmin: () => admin,
+    isAdmin: effAdmin,
     /** 'admin' 편성·편집 / 'teacher' 조회 전용 / 'none' 로그인·승인 전. 클라우드를 안 쓰면 이 PC 도구로 'admin' */
-    role: () => (!window.FIREBASE_CONFIG || fbFailed) ? 'admin' : (user && access === 'approved') ? (admin ? 'admin' : 'teacher') : 'none',
+    role: () => (!window.FIREBASE_CONFIG || fbFailed) ? 'admin' : (user && access === 'approved') ? (effAdmin() ? 'admin' : 'teacher') : 'none',
     renderGate,
   });
   RENDER.data = () => renderPanel($('dataCloud'));
@@ -49,7 +62,9 @@
     get configured() { return !!window.FIREBASE_CONFIG && !fbFailed; },
     get profileName() { return profileName; },
     get email() { return myEmail(); },
-    isAdmin: () => admin,
+    isAdmin: effAdmin,
+    realAdmin: () => admin,            // 미리보기 중에도 실제 관리자인지
+    get previewing() { return admin && preview; },
   };
 
   function setStatus(msg) { $('cloudState').textContent = msg; $('btnCloud').title = msg + ' · ' + $('saveState').textContent; }
@@ -60,8 +75,12 @@
 
   function refreshUi() {
     $('btnCloud').textContent = user ? '👤 ' + (profileName || user.displayName || myEmail()).split(' ')[0] : '👤 로그인';
-    $('navAdmin').hidden = !admin;
-    $('homeAdmin').hidden = !admin;
+    $('navAdmin').hidden = !effAdmin();
+    $('homeAdmin').hidden = !effAdmin();
+    $('btnPreview').hidden = !(admin && access === 'approved');
+    $('btnPreview').textContent = preview ? '🛠 관리자 화면' : '👀 선생님 화면 보기';
+    $('previewBar').hidden = !(admin && preview);
+    document.body.classList.toggle('previewing', !!(admin && preview));
     document.dispatchEvent(new Event('cloud-change'));
     applyRoleView();
     const pending = window.App.pendingTab;
