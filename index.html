@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=202611270724">
+<link rel="stylesheet" href="style.css?v=202611270747">
 </head>
 <body>
 <header class="topbar">
@@ -19,7 +19,6 @@
     <button data-go="curr" class="admin-only">교육과정 편성</button>
     <button data-go="haksa">학사일정</button>
     <button data-go="tt" class="admin-only">시간표 편성</button>
-    <button data-go="act">교육활동 일정</button>
     <button data-go="kclass">이주배경학생</button>
     <button data-go="data" class="admin-only">자료 관리</button>
     <button data-go="stats" id="navStats" hidden>학교 현황</button>
@@ -39,6 +38,8 @@
 
 <nav class="tabs" id="tabs">
   <button data-tab="hview" data-group="haksa">학사일정</button>
+  <button data-tab="act" data-group="haksa">신규 학사일정 등록</button>
+  <button data-tab="ksl" data-group="haksa">한국어학급 연계</button>
   <button data-tab="school" data-group="curr">① 학교 정보</button>
   <button data-tab="env" data-group="curr">② 학교사용환경설정</button>
   <button data-tab="cal" data-group="curr">③ 학사일정 편성</button>
@@ -49,10 +50,8 @@
   <button data-tab="tt" data-group="tt">① 기초 시간표</button>
   <button data-tab="run" data-group="tt">② 시수 운영 확인</button>
   <button data-tab="jd" data-group="tt">③ 교과전담</button>
-  <button data-tab="act" data-group="act">① 일정 신청·관리</button>
   <button data-tab="kmig" data-group="kclass">이주배경학생 현황</button>
   <button data-tab="kclass" data-group="kclass">한국어학급 운영</button>
-  <button data-tab="ksl" data-group="act">② 한국어학급 연계</button>
   <button data-tab="data" data-group="data">클라우드·백업·내보내기</button>
   <button data-tab="stats1" data-group="stats" class="admin-tab">① 학생 현황</button>
   <button data-tab="stats2" data-group="stats" class="admin-tab">② 교직원 현황</button>
@@ -137,7 +136,7 @@
         <span>기초 시간표 · 시수 운영 확인(연간 시수표) · 교과전담</span>
       </button>
       <button class="menu-card" data-go="act">
-        <span class="mc-ico">📌</span><b>교육활동 일정</b>
+        <span class="mc-ico">📌</span><b>신규 학사일정 등록</b>
         <span>외부강의·교내행사 신청중/확정 관리 · 일정 겹침 자동 차단 · 한국어학급 시간표 연계</span>
       </button>
       <button class="menu-card admin-only" data-go="data">
@@ -455,7 +454,11 @@
           <span class="lg vacation">방학</span>
           <span class="lg weekend">주말</span>
           <span><span class="acts c">n</span> 교육활동</span>
-          <span class="hint">날짜 클릭: 선택 · Shift+클릭: 기간 선택</span>
+          <span class="lg kd-in">입학일·졸업일</span>
+          <span class="lg kd-end">종업일</span>
+          <span class="lg kd-s2">2학기 시작일</span>
+          <span class="lg kd-vac">방학 첫날·끝날</span>
+          <span class="hint">날짜 클릭: 선택 · Shift+클릭: 기간 선택 · 색 테두리 날짜는 끌어서 옮기기</span>
         </div>
         <div id="calGrid" class="cal-grid"></div>
       </div>
@@ -484,6 +487,8 @@
       </aside>
     </div>
 
+    <h2 class="sec-title">학사일정 현황</h2>
+    <div class="card hb" id="hbBoard"></div>
     <h2 class="sec-title">수업일수</h2>
     <div id="daysKpi" class="kpis"></div>
     <div class="days-layout">
@@ -730,23 +735,24 @@
   <div id="cloudBody"></div>
 </dialog>
 
-<script src="data.js?v=202611270724"></script>
-<script src="app.js?v=202611270724"></script>
-<script src="features.js?v=202611270724"></script>
-<script src="cloud-config.js?v=202611270724"></script>
-<script src="cloud.js?v=202611270724"></script>
-<script src="activities.js?v=202611270724"></script>
-<script src="haksa.js?v=202611270724"></script>
-<script src="menus.js?v=202611270724"></script>
-<script src="schedule.js?v=202611270724"></script>
-<script src="kclass.js?v=202611270724"></script>
-<script src="home.js?v=202611270724"></script>
-<script src="status.js?v=202611270724"></script>
-<script src="log.js?v=202611270724"></script>
-<script src="transfer.js?v=202611270724"></script>
-<script src="migrant.js?v=202611270724"></script>
-<script src="site.js?v=202611270724"></script>
-<script src="env.js?v=202611270724"></script>
-<script src="pyeonje.js?v=202611270724"></script>
+<script src="data.js?v=202611270747"></script>
+<script src="app.js?v=202611270747"></script>
+<script src="features.js?v=202611270747"></script>
+<script src="cloud-config.js?v=202611270747"></script>
+<script src="cloud.js?v=202611270747"></script>
+<script src="activities.js?v=202611270747"></script>
+<script src="haksa.js?v=202611270747"></script>
+<script src="menus.js?v=202611270747"></script>
+<script src="schedule.js?v=202611270747"></script>
+<script src="kclass.js?v=202611270747"></script>
+<script src="home.js?v=202611270747"></script>
+<script src="status.js?v=202611270747"></script>
+<script src="log.js?v=202611270747"></script>
+<script src="transfer.js?v=202611270747"></script>
+<script src="migrant.js?v=202611270747"></script>
+<script src="site.js?v=202611270747"></script>
+<script src="env.js?v=202611270747"></script>
+<script src="pyeonje.js?v=202611270747"></script>
+<script src="calextra.js?v=202611270747"></script>
 </body>
 </html>

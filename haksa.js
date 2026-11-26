@@ -57,7 +57,7 @@
     Object.entries(patch).forEach(([ds, e]) => { days[ds] = e ? e : F.deleteField(); });
     await F.setDoc(ref(), { days, ...stamp() }, { merge: true });
   }
-  const semDoc = s => { const f = semFull(s); return { s1Start: f.s1Start, s1End: f.s1End, s2Start: f.s2Start, s2End: f.s2End, summer: f.summer, winter: f.winter }; };
+  const semDoc = s => { const f = semFull(s); return { s1Start: f.s1Start, s1End: f.s1End, s2Start: f.s2Start, s2End: f.s2End, summer: f.summer, winter: f.winter, entrance: f.entrance || '', graduation: f.graduation || '' }; };
   async function writeSem(sem) {
     guard();
     await Cloud.fb.F.setDoc(ref(), { sem: semDoc(sem), ...stamp() }, { mergeFields: ['sem', 'updatedAt', 'updatedBy'] });

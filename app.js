@@ -64,6 +64,9 @@ function semFromInputs(v) {
     s2Start: fmt(addDays(parse(v.summer[1]), 1)),
     s2End: v.s2End,
     summer: v.summer, winter: v.winter,
+    // 입학일·졸업일은 그대로 유지(학사일정 현황에서 정함)
+    entrance: v.entrance ?? ((typeof calSemRaw === 'function' && calSemRaw() && calSemRaw().entrance) || ''),
+    graduation: v.graduation ?? ((typeof calSemRaw === 'function' && calSemRaw() && calSemRaw().graduation) || ''),
   };
 }
 
@@ -935,7 +938,7 @@ function renderHome() {
 
   // 첫 번째 버튼: 관리자 = 교육과정 편성, 선생님 = 교육활동 신청
   $('homeBtn1').dataset.go = teacher ? 'act' : 'curr';
-  $('homeBtn1').querySelector('span').textContent = teacher ? '교육활동 신청하기' : '교육과정 살펴보기';
+  $('homeBtn1').querySelector('span').textContent = teacher ? '신규 학사일정 등록' : '교육과정 살펴보기';
   if (locked) return;
 
   const nClass = GRADES.reduce((t, g) => t + (Number(s.classes[g]) || 0), 0);

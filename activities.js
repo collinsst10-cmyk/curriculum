@@ -245,7 +245,7 @@
   function renderAct() {
     ensureMonth(); subscribe();
     if (!Cloud.configured || !Cloud.ready) {
-      $('actNotice').innerHTML = `<div class="notice">교육활동 일정은 여러 선생님이 함께 쓰는 공용 일정이라 <b>승인된 계정으로 로그인</b>해야 사용할 수 있습니다.</div>`;
+      $('actNotice').innerHTML = `<div class="notice">신규 학사일정 등록은 여러 선생님이 함께 쓰는 공용 일정이라 <b>승인된 계정으로 로그인</b>해야 사용할 수 있습니다.</div>`;
     } else $('actNotice').innerHTML = loaded ? '' : '<div class="hint">일정을 불러오는 중…</div>';
     renderForm(); renderGrid(); renderList(); renderCheck();
   }

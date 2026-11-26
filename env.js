@@ -72,13 +72,12 @@
     const e = env();
     const total = GRADES.reduce((t, g) => t + (Number(state.school.classes[g]) || 0), 0);
     return `<div class="env-head"><h2>학급 현황 설정</h2><span class="hint">일반 학급 ${total}개 · 특수학급 ${e.special.length}개</span></div>
-      <p class="hint">학급 수는 ① 학교 정보와 같은 값입니다. 반 이름을 비우면 'N반'으로 씁니다. 담임 이름은 학급 시간표·명단에 쓰입니다.</p>
+      <p class="hint">학급(반)은 ① 학교 정보에 입력한 학급 수에 맞춰 자동으로 나옵니다. 학급 수를 바꾸려면 학교 정보에서 고치세요. 여기서는 담임 이름을 적습니다.</p>
       <div class="env-grades">${GRADES.map(g => { const n = Number(state.school.classes[g]) || 0; return `<section class="env-grade">
-        <div class="env-grade-h"><b>${g}학년</b><label>학급 수 ${nIn(`data-cnt="${g}" max="20"`, n, 58)}</label></div>
-        <table class="tbl env-tbl"><thead><tr><th>반</th><th>반 이름</th><th>담임</th></tr></thead><tbody>
-        ${Array.from({ length: n }, (_, i) => { const k = `${g}-${i + 1}`, ci = e.classInfo[k] || {}; return `<tr><th>${i + 1}</th>
-          <td><input data-ci="${k}" data-f="name" maxlength="12" placeholder="${i + 1}반" value="${esc(ci.name || '')}"></td>
-          <td><input data-ci="${k}" data-f="teacher" maxlength="20" placeholder="담임 이름" value="${esc(ci.teacher || '')}"></td></tr>`; }).join('') || '<tr><td colspan="3" class="hint">학급 수를 입력하세요</td></tr>'}
+        <div class="env-grade-h"><b>${g}학년</b><span class="hint">${n}학급</span></div>
+        <table class="tbl env-tbl"><thead><tr><th>학급</th><th>담임</th></tr></thead><tbody>
+        ${Array.from({ length: n }, (_, i) => { const k = `${g}-${i + 1}`, ci = e.classInfo[k] || {}; return `<tr><th class="env-cls-name">${i + 1}반</th>
+          <td><input data-ci="${k}" data-f="teacher" maxlength="20" placeholder="담임 이름" value="${esc(ci.teacher || '')}"></td></tr>`; }).join('') || '<tr><td colspan="2" class="hint">① 학교 정보에서 학급 수를 입력하세요</td></tr>'}
         </tbody></table></section>`; }).join('')}</div>
       <section class="env-sub"><div class="env-sub-h"><h3>특수학급</h3><button type="button" class="btn small" data-add="special">+ 특수학급 추가</button></div>
         <table class="tbl env-tbl"><thead><tr><th>학급 이름</th><th>담임</th><th>학생 수</th><th></th></tr></thead><tbody>
@@ -106,10 +105,10 @@
     return `<section class="sm-card">
       <div class="sm-btns"><button type="button" class="btn${mode === 'set' ? ' on' : ''}" data-mode="${kind}:set">${L.set}</button>
         <button type="button" class="btn${mode === 'rename' ? ' on' : ''}" data-mode="${kind}:rename">${L.ren}</button></div>
-      <table class="sm-list"><thead><tr><th>${L.col}</th><th class="h">시수</th></tr></thead><tbody>
+      <table class="sm-list"><thead><tr><th>${L.col}</th><th class="h">시수</th><th class="d"></th></tr></thead><tbody>
       ${items.map((n, i) => `<tr class="${i === sel ? 'sel' : ''}" data-pick="${kind}:${i}">
         <td>${mode === 'rename' && i === sel ? `<input class="sm-in" data-rename="${kind}:${i}" maxlength="20" value="${esc(n)}">` : esc(n || '(이름 없음)')}</td>
-        <td class="h">${hrs(n)}</td></tr>`).join('') || `<tr><td colspan="2" class="hint">${L.none}</td></tr>`}
+        <td class="h">${hrs(n)}</td><td class="d"><button type="button" class="sm-del" data-smrow="${kind}:${i}" title="${esc(n)} 삭제" aria-label="${esc(n)} 삭제">삭제</button></td></tr>`).join('') || `<tr><td colspan="3" class="hint">${L.none}</td></tr>`}
       </tbody></table>
       ${mode === 'set' ? `<div class="sm-tool"><input class="sm-in" data-newname="${kind}" maxlength="20" placeholder="${L.ph}">
           <button type="button" class="btn small primary" data-smadd="${kind}">추가</button>
@@ -393,24 +392,24 @@
         </div>
       </section>
 
-      <div class="bl-main">
-        <section class="bl-list">
-          <div class="bl-list-h"><b>교시별 시각</b>
-            <label class="bl-push"><input type="checkbox" data-bpush ${c.push !== false ? 'checked' : ''}> 시각을 바꾸면 뒤 교시도 함께 밀기</label></div>
-          <div class="bl-cols">${[0, 1, 2, 3, 4].map(row).join('')}</div>
-          <div class="bl-cols">${[5, 6, 7, 8, 9].map(row).join('')}</div>
-        </section>
-        <section class="bl-day">
-          <div class="bl-day-h"><b>하루 흐름</b><span>${used.length}개 교시 · 수업 ${Math.floor(teach / 60)}시간 ${teach % 60 ? (teach % 60) + '분' : ''} · ${used.length ? `${used[0].start} ~ ${used[used.length - 1].end}` : '-'}</span></div>
+      <section class="bl-day">
+        <div class="bl-day-h"><b>하루 흐름</b>
+          <span class="bl-sum"><em>${used.length}개 교시</em><em>수업 ${Math.floor(teach / 60)}시간${teach % 60 ? ' ' + (teach % 60) + '분' : ''}</em><em>등교 ${used.length ? used[0].start : '-'}</em><em>하교 ${used.length ? used[used.length - 1].end : '-'}</em></span></div>
+        <div class="bl-track-wrap">
           <div class="bl-track">
-            ${hours.map(h => `<span class="bl-tick" style="left:${pct(h * 60)}%"><i>${h}시</i></span>`).join('')}
             ${used.map((p, k) => { const nx = used[k + 1]; const gap = nx ? t2m(nx.start) - t2m(p.end) : 0;
-              return `<span class="bl-blk" style="left:${pct(t2m(p.start))}%;width:${((t2m(p.end) - t2m(p.start)) / span * 100).toFixed(2)}%" title="${p.n}교시 ${p.start}~${p.end}">${p.n}</span>` +
-                (gap >= 30 ? `<span class="bl-lunch" style="left:${pct(t2m(p.end))}%;width:${(gap / span * 100).toFixed(2)}%">점심</span>` : ''); }).join('')}
+              return `<span class="bl-blk" style="left:${pct(t2m(p.start))}%;width:${((t2m(p.end) - t2m(p.start)) / span * 100).toFixed(2)}%" title="${p.n}교시 ${p.start}~${p.end}">${p.n}<small>교시</small></span>` +
+                (gap >= 30 ? `<span class="bl-lunch" style="left:${pct(t2m(p.end))}%;width:${(gap / span * 100).toFixed(2)}%" title="점심 ${gap}분">점심</span>` : ''); }).join('')}
           </div>
-          <div class="bl-ends"><span>시작 ${used.length ? used[0].start : '-'}</span><span>하교 ${used.length ? used[used.length - 1].end : '-'}</span></div>
-        </section>
-      </div>`;
+          <div class="bl-axis">${hours.map(h => `<span style="left:${pct(h * 60)}%">${h}시</span>`).join('')}</div>
+        </div>
+      </section>
+      <section class="bl-list">
+        <div class="bl-list-h"><b>교시별 시각</b>
+          <label class="bl-push"><input type="checkbox" data-bpush ${c.push !== false ? 'checked' : ''}> 시각을 바꾸면 뒤 교시도 함께 밀기</label></div>
+        <div class="bl-cols">${[0, 1, 2, 3, 4].map(row).join('')}</div>
+        <div class="bl-cols">${[5, 6, 7, 8, 9].map(row).join('')}</div>
+      </section>`;
   }
 
   async function loadPrevBell() {
@@ -432,7 +431,7 @@
     const E = env();
     // 특별실·전담 목록: 줄 고르기 / 설정·이름 변경 모드 / 추가·삭제
     const pick = e.target.closest('[data-pick]');
-    if (pick && !e.target.closest('input')) {
+    if (pick && !e.target.closest('input') && !e.target.closest('[data-smrow]')) {
       const [k, i] = pick.dataset.pick.split(':');
       if (k === 'room') selRoom = Number(i); else selT = Number(i);
       render();
@@ -478,6 +477,7 @@
     if (bc) { bellSet().periods[Number(bc.dataset.bclear)] = { start: '', end: '' }; syncBellRows(); changed(); render(); return; }
     const sa = e.target.closest('[data-smadd]'); if (sa) { smAdd(sa.dataset.smadd); return; }
     const sd = e.target.closest('[data-smdel]'); if (sd) { smDel(sd.dataset.smdel); return; }
+    const sr = e.target.closest('[data-smrow]'); if (sr) { const [k, i] = sr.dataset.smrow.split(':'); if (k === 'room') selRoom = Number(i); else selT = Number(i); smDel(k); return; }
     const add = e.target.closest('[data-add]')?.dataset.add;
     if (add) {
       if (add === 'special') E.special.push({ name: '', teacher: '', students: 0 });

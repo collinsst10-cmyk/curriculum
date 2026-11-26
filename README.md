@@ -31,6 +31,7 @@
 | `site.js` | 관리자 › 홈페이지 관리: HOME 대표 사진 슬라이드 등록·순서·간격 |
 | `env.js` | 교육과정 편성 › ② 학교사용환경설정: 학급 현황·특별실-전담·검정교과·범교과 주제어·일과시간 (교육과정 문서 `state.env`에 저장) |
 | `pyeonje.js` | 교육과정 편성 › ⑤ 시수 편제: 창체 영역별 편성 여부, 오류점검, 전학년 초기화, 창체 기준시수, 편제 현황표, 편제표·작년 편제표, 작년편제 불러오기 (`state.yearArchive` 학년도별 사본) |
+| `calextra.js` | ③ 학사일정 편성 보강: 입학일·졸업일, 겨울방학 전 종업식, 핵심 날짜 끌어 옮기기, 학사일정 현황판, 요일별 기준시수, 단축-연장 수업(`state.shortDays`) — 수업 가능 시수 계산을 대체 |
 
 역할: **관리자** = 교육과정 편성·시간표 편성·자료 관리·관리자 메뉴 / **선생님** = HOME·학사일정(조회)·교육활동 일정(신청)·한국어 학급. 관리자는 상단 `👀 선생님 화면 보기`로 선생님 화면을 미리 볼 수 있습니다(이 창에서만, 데이터는 그대로).
 | `assets/` | 학교 로고(`logo.png`), 엠블럼 아이콘(`emblem.png`) |
@@ -38,7 +39,7 @@
 | `deploy.ps1`, `배포하기.cmd` | 로컬 폴더의 파일을 이 저장소로 올리는 배포 스크립트 |
 | `클라우드_설정_안내.md` | Firebase·GitHub Pages 설정과 운영 안내 |
 
-스크립트 로드 순서: `data.js → app.js → features.js → cloud-config.js → cloud.js → activities.js → haksa.js → menus.js → schedule.js → kclass.js → home.js → status.js → log.js → transfer.js → migrant.js → site.js → env.js → pyeonje.js` (모두 일반 `<script>`, 전역 함수·상태 공유)
+스크립트 로드 순서: `data.js → app.js → features.js → cloud-config.js → cloud.js → activities.js → haksa.js → menus.js → schedule.js → kclass.js → home.js → status.js → log.js → transfer.js → migrant.js → site.js → env.js → pyeonje.js → calextra.js` (모두 일반 `<script>`, 전역 함수·상태 공유)
 
 ## Firestore 데이터 구조
 

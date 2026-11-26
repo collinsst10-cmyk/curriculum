@@ -317,7 +317,7 @@
     if (access !== 'approved') { renderGate(body); return; }
     if (!admin) {   // 선생님: 계정 정보만
       body.innerHTML = `<p><b>${esc(profileName || myEmail())}</b> 선생님 (${esc(myEmail())})</p>
-        <p class="hint">학사일정은 관리자가 정한 학교 공용 학사일정을 조회하고, 교육활동 일정은 직접 신청할 수 있습니다.</p>
+        <p class="hint">학사일정은 관리자가 정한 학교 공용 학사일정을 조회하고, 학사일정 › 신규 학사일정 등록에서 일정을 직접 신청할 수 있습니다.</p>
         <button class="btn small" data-c="logout">로그아웃</button>`;
       body.onclick = async e => { const b = e.target.closest('[data-c="logout"]'); if (b) { await logout(); if (dlg.open) dlg.close(); } };
       return;
