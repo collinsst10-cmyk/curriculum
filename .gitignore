@@ -1,0 +1,13 @@
+# 이 PC 전용(저장소에 올리지 않음)
+.claude/
+배포용/
+
+# 백업 파일(학교 자료가 들어 있을 수 있음)
+*_백업.json
+*.backup.json
+
+# Windows·OneDrive·Office 임시 파일
+Thumbs.db
+desktop.ini
+~$*
+*.tmp

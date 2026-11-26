@@ -1,55 +1,62 @@
-﻿# 용원초등학교 교육과정 편성 도우미 - GitHub Pages 배포
-#  사용법: 배포하기.cmd 더블클릭  (또는 PowerShell 에서 .\deploy.ps1 -Message "변경 내용")
-#  - 웹에 필요한 파일만 골라 GitHub 저장소에 올립니다. 1~2분 뒤 사이트에 반영됩니다.
-#  - 작업용 사본은 %LOCALAPPDATA%\curriculum-deploy 에 둡니다(OneDrive 동기화와 분리).
+﻿# 용원초등학교 교육과정 편성 도우미 - GitHub 양방향 동기화(배포)
+#
+#  이 폴더가 곧 GitHub 저장소(collinsst10-cmyk/curriculum, main 브랜치)입니다.
+#   배포하기.cmd  : ① 이 PC의 변경 사항 커밋 → ② GitHub의 새 변경(예: ChatGPT 작업) 가져와 합치기 → ③ GitHub에 올리기(= 사이트 배포)
+#   가져오기.cmd  : GitHub의 새 변경만 이 PC로 가져오기 (올리지 않음)
+#
+#  같은 파일의 같은 부분을 양쪽에서 고쳐 자동으로 합칠 수 없으면, 아무것도 바꾸지 않고 멈춘 뒤 알려 줍니다.
+#  PowerShell 에서 직접:  .\deploy.ps1 -Message "변경 내용"   /   .\deploy.ps1 -PullOnly
 param(
   [string]$Message = "",
-  [string]$Trailer = ""
+  [string]$Trailer = "",
+  [switch]$PullOnly
 )
 $ErrorActionPreference = 'Stop'
-$Repo  = 'https://github.com/collinsst10-cmyk/curriculum.git'   # 저장소 소유자 또는 공동작업자 계정으로 올림
-$Site  = 'https://collinsst10-cmyk.github.io/curriculum/'
-$Src   = $PSScriptRoot
-$Work  = Join-Path $env:LOCALAPPDATA 'curriculum-deploy'
-$Files = 'index.html', 'style.css', 'data.js', 'app.js', 'features.js', 'cloud.js', 'cloud-config.js', 'activities.js',
-         'firestore.rules', 'README.md', 'deploy.ps1', '배포하기.cmd', '클라우드_설정_안내.md'
+$Site = 'https://collinsst10-cmyk.github.io/curriculum/'
+Set-Location $PSScriptRoot
 
 function Invoke-Git {
   & git @args
   if ($LASTEXITCODE -ne 0) { throw "git $($args -join ' ') 실패 (코드 $LASTEXITCODE)" }
 }
+function Get-Count([string]$range) { [int](git rev-list --count $range) }
 
-if (-not (Test-Path (Join-Path $Work '.git'))) {
-  Write-Host '처음 배포: 저장소를 내려받습니다...'
-  Invoke-Git clone $Repo $Work
-}
+if (-not (Test-Path (Join-Path $PSScriptRoot '.git'))) { throw '이 폴더가 GitHub 저장소와 연결되어 있지 않습니다.' }
 
-Push-Location $Work
-try {
-  Invoke-Git remote set-url origin $Repo
-  Invoke-Git config user.name 'collinsst10-cmyk'
-  Invoke-Git config user.email 'collinsst10-cmyk@users.noreply.github.com'
-  Invoke-Git config core.quotepath false
-  Invoke-Git config core.autocrlf false
-  # 작업용 사본은 프로젝트 폴더의 거울일 뿐이므로 항상 GitHub 최신 상태로 맞춘 뒤 파일을 덮어씀
-  Invoke-Git fetch origin
-  Invoke-Git reset --hard origin/main
-
-  foreach ($f in $Files) { Copy-Item (Join-Path $Src $f) $Work -Force }
-  New-Item -ItemType Directory -Force (Join-Path $Work 'assets') | Out-Null
-  Copy-Item (Join-Path $Src 'assets\*') (Join-Path $Work 'assets') -Force
-
+# ① 이 PC의 변경 사항 커밋 (가져오기만 할 때는 커밋하지 않고 잠시 보관했다가 되돌림)
+if (-not $PullOnly) {
   Invoke-Git add -A
   $changes = git status --porcelain
-  $ahead = [int](git rev-list --count '@{u}..HEAD')
-  if (-not $changes -and $ahead -eq 0) { Write-Host '바뀐 파일이 없어 배포할 것이 없습니다.'; return }
   if ($changes) {
-    Write-Host '올릴 변경 사항:'; $changes | ForEach-Object { Write-Host "  $_" }
-    if (-not $Message) { $Message = '배포 ' + (Get-Date -Format 'yyyy-MM-dd HH:mm') }
-    if ($Trailer) { Invoke-Git commit -m $Message -m $Trailer } else { Invoke-Git commit -m $Message }
-  } else { Write-Host '이전에 올리지 못한 변경 사항을 올립니다.' }
-  Invoke-Git push
-  Write-Host ''
-  Write-Host "배포 완료. 1~2분 뒤 $Site 에 반영됩니다."
+    Write-Host '이 PC에서 바뀐 파일:'; $changes | ForEach-Object { Write-Host "  $_" }
+    if (-not $Message) { $Message = '수정 ' + (Get-Date -Format 'yyyy-MM-dd HH:mm') }
+    if ($Trailer) { Invoke-Git commit -q -m $Message -m $Trailer } else { Invoke-Git commit -q -m $Message }
+  }
 }
-finally { Pop-Location }
+
+# ② GitHub의 새 변경 가져오기
+Invoke-Git fetch -q origin
+$behind = Get-Count 'HEAD..origin/main'
+if ($behind -gt 0) {
+  Write-Host ''
+  Write-Host "GitHub에 새 변경 $behind 건이 있어 가져옵니다:"
+  git log --oneline 'HEAD..origin/main' | ForEach-Object { Write-Host "  $_" }
+  & git pull -q --rebase --autostash origin main
+  if ($LASTEXITCODE -ne 0) {
+    & git rebase --abort 2>$null
+    Write-Host ''
+    Write-Host '⛔ 같은 파일의 같은 부분을 이 PC와 GitHub 양쪽에서 고쳐서 자동으로 합칠 수 없습니다.'
+    Write-Host '   이 PC의 파일은 원래 상태 그대로 두었습니다. Claude에게 "충돌 해결해 줘"라고 요청하세요.'
+    exit 1
+  }
+  Write-Host '가져오기 완료.'
+} else { Write-Host 'GitHub에 새 변경 없음.' }
+
+if ($PullOnly) { Write-Host ''; Write-Host '가져오기만 했습니다. (올리지 않음)'; return }
+
+# ③ GitHub에 올리기
+$ahead = Get-Count 'origin/main..HEAD'
+if ($ahead -eq 0) { Write-Host ''; Write-Host '올릴 변경이 없습니다. 이 PC와 GitHub가 같은 상태입니다.'; return }
+Invoke-Git push -q origin main
+Write-Host ''
+Write-Host "올리기 완료 ($ahead 건). 1~2분 뒤 $Site 에 반영됩니다."
