@@ -352,4 +352,4 @@ input.full { width: 100%; }
 @media (max-width: 600px) { #tab-home .home-hero-art { height: 165px; } }
 
 /* HOME 배경 위에서 로고 이미지의 흰 바탕을 자연스럽게 합성 */
-#tab-home .hero-logo { mix-blend-mode: multiply; }
+#tab-home .hero-logo { mix-blend-mode: normal; }
