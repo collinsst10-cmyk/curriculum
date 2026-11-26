@@ -66,28 +66,20 @@
       </div>
       <div id="homeGate"></div>
     </div>
-    <div id="homeKpi" class="kpis"></div>
-    <div class="menu-grid" id="homeMenu">
-      <button class="menu-card" data-go="curr">
-        <span class="mc-ico">📅</span><b>교육과정 편성</b>
-        <span>기본 정보 · 학사일정 · 수업일수·주차 · 시수 배정 · 편제표·검토</span>
-      </button>
-      <button class="menu-card" data-go="tt">
-        <span class="mc-ico">🗓️</span><b>시간표 편성</b>
-        <span>기초 시간표 · 시수 운영 확인(연간 시수표) · 교과전담</span>
-      </button>
-      <button class="menu-card" data-go="act">
-        <span class="mc-ico">📌</span><b>교육활동 일정</b>
-        <span>외부강의·교내행사 신청중/확정 관리 · 일정 겹침 자동 차단 · 한국어학급 시간표 연계</span>
-      </button>
-      <button class="menu-card" data-go="data">
-        <span class="mc-ico">☁️</span><b>자료 관리</b>
-        <span>클라우드 문서 · 공동 편집 · 백업 · 엑셀 내보내기</span>
-      </button>
-      <button class="menu-card" data-go="admin" id="homeAdmin" hidden>
-        <span class="mc-ico">🔐</span><b>관리자</b>
-        <span>사용 승인 요청 처리 · 허용 사용자 관리</span>
-      </button>
+    <div id="homeDashboard" class="home-dashboard" hidden>
+      <div class="home-section-title"><div><span class="home-eyebrow">OVERVIEW</span><h2>편성 현황</h2></div><span id="homeDocState" class="home-doc-state"></span></div>
+      <div id="homeKpi" class="home-stats"></div>
+      <div class="home-panels">
+        <section class="home-panel home-review" aria-labelledby="homeReviewTitle">
+          <div class="home-panel-head"><div><span class="home-eyebrow">CHECKLIST</span><h3 id="homeReviewTitle">확인이 필요한 항목</h3></div><a href="#table">전체 검토 보기 →</a></div>
+          <div id="homeIssues"></div>
+        </section>
+        <section class="home-panel home-schedule" aria-labelledby="homeScheduleTitle">
+          <div class="home-panel-head"><div><span class="home-eyebrow">CALENDAR</span><h3 id="homeScheduleTitle">다가오는 학사일정</h3></div><a href="#cal">학사일정 보기 →</a></div>
+          <div id="homeUpcoming"></div>
+        </section>
+      </div>
+      <button id="homeAdmin" data-go="admin" hidden>관리자</button>
     </div>
   </section>
 

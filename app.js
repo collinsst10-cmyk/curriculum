@@ -636,16 +636,33 @@ function goGroup(g) { showTab(lastInGroup[g] || GROUP_FIRST[g] || 'home'); }
 /* ---------- HOME ---------- */
 function renderHome() {
   const s = state.school, st = dayStats(), issues = collectIssues();
-  const nErr = issues.filter(x => x[0] === 'err').length, nWarn = issues.filter(x => x[0] === 'warn').length;
+  const locked = !!(window.App.locked && window.App.locked());
   $('homeTitle').textContent = `${s.year}학년도 교육과정 편성 도우미`;
-  const locked = window.App.locked && window.App.locked();
-  $('homeKpi').innerHTML = locked ? '' : `
-    <div class="kpi"><div class="t">연간 수업일수</div><div class="v">${st.total}일</div><div class="s">1학기 ${st.sem[1].days} · 2학기 ${st.sem[2].days}</div></div>
-    <div class="kpi"><div class="t">학급 수</div><div class="v">${GRADES.reduce((t, g) => t + (Number(s.classes[g]) || 0), 0)}학급</div><div class="s">${GRADES.map(g => s.classes[g]).join(' · ')}</div></div>
-    <div class="kpi"><div class="t">검토 결과</div><div class="v">${nErr ? `<span class="neg">오류 ${nErr}</span>` : '<span class="pos">오류 없음</span>'}</div><div class="s">경고 ${nWarn}건 · <a href="#table">자세히 보기</a></div></div>
-    <div class="kpi"><div class="t">저장 위치</div><div class="v" style="font-size:18px">${esc($('cloudState').textContent || '이 PC')}</div><div class="s"><a href="#data">자료 관리</a></div></div>`;
-  $('homeMenu').classList.toggle('locked', !!locked);
+  $('homeSub').textContent = '현재 편성 상태와 확인할 일을 한눈에 살펴보세요.';
   if (window.App.renderGate) window.App.renderGate($('homeGate')); else $('homeGate').innerHTML = '';
+  $('homeDashboard').hidden = locked;
+  if (locked) return;
+
+  const errors = issues.filter(x => x[0] === 'err');
+  const warnings = issues.filter(x => x[0] === 'warn');
+  const count = GRADES.reduce((total, g) => total + (Number(s.classes[g]) || 0), 0);
+  const cloud = $('cloudState').textContent || '이 PC에 저장';
+  $('homeDocState').textContent = cloud;
+  $('homeKpi').innerHTML = `
+    <a class="home-stat" href="#days"><span>연간 수업일수</span><strong>${st.total}<small>일</small></strong><em>1학기 ${st.sem[1].days}일 · 2학기 ${st.sem[2].days}일</em></a>
+    <a class="home-stat" href="#info"><span>편성 학급</span><strong>${count}<small>학급</small></strong><em>1~6학년 학교 정보 확인</em></a>
+    <a class="home-stat ${errors.length ? 'has-error' : ''}" href="#table"><span>검토할 항목</span><strong>${errors.length + warnings.length}<small>건</small></strong><em>오류 ${errors.length}건 · 경고 ${warnings.length}건</em></a>`;
+
+  const priority = [...errors, ...warnings].slice(0, 4);
+  $('homeIssues').innerHTML = priority.length
+    ? `<ul class="home-issue-list">${priority.map(([level, message]) => `<li class="${level}"><span class="home-issue-badge">${level === 'err' ? '오류' : '확인'}</span><span>${esc(message)}</span></li>`).join('')}</ul>`
+    : '<div class="home-empty"><span>✓</span><b>현재 확인할 항목이 없습니다.</b><p>교육과정 검토 결과를 모두 충족합니다.</p></div>';
+
+  const today = fmt(new Date());
+  const upcoming = computeYear().filter(d => d.ds >= today && d.name && (d.type === 'event' || d.type === 'closure' || d.type === 'vacation')).slice(0, 4);
+  $('homeUpcoming').innerHTML = upcoming.length
+    ? `<ul class="home-event-list">${upcoming.map(d => `<li><time datetime="${d.ds}">${esc(fmtK(d.ds))}</time><div><b>${esc(d.name)}</b><span>${esc(TYPE_LABEL[d.type] || '학사일정')}</span></div></li>`).join('')}</ul>`
+    : '<div class="home-empty"><span>◷</span><b>다가오는 등록 일정이 없습니다.</b><p>학사일정에서 행사를 추가하면 여기에 표시됩니다.</p></div>';
 }
 
 /** 다시 그린 뒤에도 입력 중이던 칸에 커서를 유지 */
