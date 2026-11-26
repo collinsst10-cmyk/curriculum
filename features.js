@@ -62,7 +62,7 @@ function renderTt() {
   const maxP = Math.max(...[0, 1, 2, 3, 4].map(d => periodsOf(g, d)));
   let html = `<tr><th>교시</th>${['월', '화', '수', '목', '금'].map(d => `<th>${d}</th>`).join('')}</tr>`;
   for (let p = 0; p < maxP; p++) {
-    html += `<tr><th>${p + 1}</th>`;
+    html += `<tr><th>${typeof periodHead === 'function' ? periodHead(p + 1) : p + 1}</th>`;
     for (let d = 0; d < 5; d++) {
       if (p >= periodsOf(g, d)) { html += '<td class="off">—</td>'; continue; }
       const k = grid[d][p];

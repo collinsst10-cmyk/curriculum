@@ -62,7 +62,7 @@
     if (!record || record.slots === null) { table.innerHTML = ''; return; }
     table.innerHTML = '<thead><tr><th scope="col">교시</th>' +
       days.map(day => '<th scope="col">' + WD[day] + '</th>').join('') + '</tr></thead><tbody>' +
-      periods.map(period => '<tr><th scope="row">' + period + '교시</th>' + days.map(day => {
+      periods.map(period => '<tr><th scope="row">' + periodHead(period, '교시') + '</th>' + days.map(day => {
         const items = ROLES.map(([role, label]) => {
           const c = cellOf(record.slots, day, period, role);
           if (!c || !(c.title || c.targets)) return '';

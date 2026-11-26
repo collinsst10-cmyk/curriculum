@@ -1,8 +1,35 @@
 'use strict';
 
+/* ---------- 학교사용환경설정 연결 ---------- */
+/** 일과시간 설정의 p교시 시각 "08:50~09:30" (없으면 '') */
+function periodTime(p) {
+  const rows = (state.env && state.env.bell && state.env.bell.rows) || [];
+  const cls = rows.filter(r => r.kind === 'class');
+  const r = cls.find(x => x.label.replace(/\s+/g, '') === `${p}교시`) || cls[p - 1];
+  return r && r.start && r.end ? `${r.start}~${r.end}` : '';
+}
+/** 시간표 왼쪽 교시 칸: "1교시" + 시각 */
+function periodHead(p, suffix = '') {
+  const t = periodTime(p);
+  return `${p}${suffix}${t ? `<small class="ptime">${t}</small>` : ''}`;
+}
+/** 특별실(시설) 이름 목록: 학교사용환경설정의 특별실 */
+function roomNames() {
+  return ((state.env && state.env.rooms) || []).map(r => (r.name || '').trim()).filter(Boolean);
+}
+const isRoomKind = k => !!k && k !== '전담과목' && k !== '외부강의';
+
+/** 이 배치가 쓰는 특별실: 시설 배치는 그 이름, 디지털튜터는 컴퓨터실,
+ *  전담과목은 특별실-전담 배정에서 그 학년·교과·반에 정한 특별실 */
 function scheduleFacility(entry) {
-  if (entry.kind === '체육관' || entry.kind === '컴퓨터실') return entry.kind;
+  if (isRoomKind(entry.kind)) return entry.kind;
   if (entry.kind === '외부강의' && entry.title.replace(/\s+/g, '') === '디지털튜터') return '컴퓨터실';
+  if (entry.kind === '전담과목' && Array.isArray(state.jundam) && typeof subjectsOf === 'function') {
+    const key = (subjectsOf(entry.grade).find(s => s.name === entry.title.trim()) || {}).key;
+    const r = key && state.jundam.find(j => j.room && Number(j.grade) === Number(entry.grade) && j.subj === key &&
+      (!j.classes || !j.classes.length || j.classes.includes(Number(entry.classNo))));
+    return r ? r.room : '';
+  }
   return '';
 }
 
@@ -23,8 +50,7 @@ function scheduleConflict(entries, candidate, editing) {
   const days = ['월', '화', '수', '목', '금'];
   const views = {
     all: ['통합 시간표', '', ''], english: ['영어', '전담과목', '영어'],
-    science: ['과학', '전담과목', '과학'], gym: ['체육관 사용', '체육관', '체육관'],
-    computer: ['컴퓨터실 사용', '컴퓨터실', '컴퓨터실'],
+    science: ['과학', '전담과목', '과학'],
     pungmul: ['풍물', '외부강의', '풍물'],
     gugak: ['국악', '외부강의', '국악'],
     tutor: ['디지털튜터', '외부강의', '디지털튜터'],
@@ -35,10 +61,22 @@ function scheduleConflict(entries, candidate, editing) {
   let editing = -1;
   let selected = null;
   const minimumGrade = area => ['english', 'science', 'pungmul'].includes(area) ? 3 : 1;
+  // 특별실 보기: 'room:과학실' 처럼 이름으로 (예전 gym·computer 보기도 이 방식으로)
+  const viewInfo = v => views[v] || (v.startsWith('room:') ? [v.slice(5) + ' 사용', v.slice(5), v.slice(5)] : views.all);
+  const colorOf = area => !area.startsWith('room:') ? area : area === 'room:체육관' ? 'gym' : area === 'room:컴퓨터실' ? 'computer' : 'room';
+  function ensureKind(kind) {
+    const sel = form.elements.namedItem('kind');
+    if (kind && ![...sel.options].some(o => o.value === kind)) sel.add(new Option(kind, kind));
+  }
+  function renderRoomViews() {
+    const used = state.schedule.filter(e => e.year === state.school.year && isRoomKind(e.kind)).map(e => e.kind);
+    const names = [...new Set([...roomNames(), ...used])];
+    $('scheduleRooms').innerHTML = names.map(n => `<button class="btn" data-view="room:${esc(n)}">${esc(n)} 사용</button>`).join('') ||
+      '<span class="hint">② 학교사용환경설정 › 특별실에 등록하면 여기 나옵니다</span>';
+  }
 
   function areaOf(entry) {
-    if (entry.kind === '체육관') return 'gym';
-    if (entry.kind === '컴퓨터실') return 'computer';
+    if (isRoomKind(entry.kind)) return 'room:' + entry.kind;
     if (entry.kind === '외부강의') {
       const title = entry.title.replace(/\s+/g, '');
       if (title === '풍물') return 'pungmul';
@@ -58,8 +96,9 @@ function scheduleConflict(entries, candidate, editing) {
     selected = null;
     form.reset();
     rejected = null;
-    form.elements.namedItem('kind').value = views[view][1];
-    form.elements.namedItem('title').value = views[view][2];
+    ensureKind(viewInfo(view)[1]);
+    form.elements.namedItem('kind').value = viewInfo(view)[1];
+    form.elements.namedItem('title').value = viewInfo(view)[2];
     $('scheduleCancel').hidden = true;
     $('scheduleDelete').hidden = true;
     status.textContent = '';
@@ -82,8 +121,7 @@ function scheduleConflict(entries, candidate, editing) {
   function shortTitle(entry) {
     const area = areaOf(entry);
     if (area === 'tutor') return '디지털';
-    if (area === 'gym') return '체육관';
-    if (area === 'computer') return '컴퓨터실';
+    if (area.startsWith('room:')) { const n = area.slice(5); return n.length > 5 ? n.slice(0, 5) : n; }
     const t = entry.title.trim();
     return t.length > 5 ? t.slice(0, 5) : t;
   }
@@ -94,7 +132,8 @@ function scheduleConflict(entries, candidate, editing) {
       currentYear = state.school.year;
       reset();
     }
-    $('scheduleTitle').textContent = views[view][0];
+    renderRoomViews();
+    $('scheduleTitle').textContent = viewInfo(view)[0];
     form.hidden = !selected;
     $('scheduleGuide').textContent = view === 'all'
       ? '모든 전담과목, 외부강의, 시설 사용 일정을 한곳에서 봅니다.'
@@ -114,7 +153,7 @@ function scheduleConflict(entries, candidate, editing) {
     }
     renderClassOptions();
     const title = form.elements.namedItem('title');
-    const fixedTitle = Boolean(views[view][2]);
+    const fixedTitle = Boolean(viewInfo(view)[2]);
     title.readOnly = fixedTitle;
     title.closest('label').hidden = fixedTitle;
     $('scheduleCancel').hidden = !selected;
@@ -123,16 +162,16 @@ function scheduleConflict(entries, candidate, editing) {
         !state.schedule.some(entry => entry.year === state.school.year && areaOf(entry) === key);
     }
     $('scheduleViews').querySelectorAll('[data-view]').forEach(button => {
-      button.classList.add('area-' + button.dataset.view);
+      button.classList.add('area-' + colorOf(button.dataset.view));
       button.setAttribute('aria-pressed', String(button.dataset.view === view));
     });
     const grade = Number($('scheduleGrade').value);
     const placements = state.schedule.map((entry, index) => ({ ...entry, index }))
-      .filter(entry => entry.year === state.school.year && (!grade || entry.grade === grade) && (view === 'all' || (entry.grade >= minGrade && (areaOf(entry) === view || (view === 'computer' && scheduleFacility(entry) === '컴퓨터실')))));
+      .filter(entry => entry.year === state.school.year && (!grade || entry.grade === grade) && (view === 'all' || (entry.grade >= minGrade && (areaOf(entry) === view || (view.startsWith('room:') && scheduleFacility(entry) === view.slice(5))))));
     grid.classList.toggle('area', view !== 'all');
     grid.innerHTML = '<tr><th>교시</th>' + days.map(day => `<th>${day}</th>`).join('') + '</tr>';
     for (let period = 1; period <= 8; period++) {
-      grid.insertAdjacentHTML('beforeend', `<tr><th>${period}</th>${days.map((_, weekday) => {
+      grid.insertAdjacentHTML('beforeend', `<tr><th>${periodHead(period)}</th>${days.map((_, weekday) => {
         const cells = placements.filter(entry => entry.weekday === weekday &&
           entry.start <= period && period <= entry.end);
         const conflicts = entry => scheduleConflict(state.schedule, { ...entry, start: period, end: period }, entry.index);
@@ -141,8 +180,8 @@ function scheduleConflict(entries, candidate, editing) {
         const marked = rejectedHere || cells.some(conflicts);
         return `<td class="${marked ? 'schedule-conflict' : ''}${selected?.weekday === weekday && selected.period === period ? ' schedule-selected' : ''}" ${view !== 'all' ? `data-slot="${weekday}:${period}"` : ''}><div class="schedule-square">
           ${marked ? '<span class="pill err">중복</span>' : ''}
-          ${cells.map(entry => `<button class="btn schedule-item area-${areaOf(entry)}" data-entry="${entry.index}"
-          title="${esc(entry.title)} · ${classLabel(entry)} · ${entry.start}~${entry.end}교시"><span class="sbadge">${esc(shortTitle(entry))}</span><span class="sdash"> - </span><span class="nowrap">${classLabel(entry)}</span></button>`).join('')}
+          ${cells.map(entry => `<button class="btn schedule-item area-${colorOf(areaOf(entry))}" data-entry="${entry.index}"
+          title="${esc(entry.title)} · ${classLabel(entry)} · ${entry.start}~${entry.end}교시${scheduleFacility(entry) ? ' · ' + esc(scheduleFacility(entry)) : ''}"><span class="sbadge">${esc(shortTitle(entry))}</span><span class="sdash"> - </span><span class="nowrap">${classLabel(entry)}</span></button>`).join('')}
           ${view !== 'all' && !cells.length ? `<button class="schedule-slot" type="button" aria-label="${days[weekday]}요일 ${period}교시 배치">+</button>` : ''}
         </div></td>`;
       }).join('')}</tr>`);
@@ -159,7 +198,7 @@ function scheduleConflict(entries, candidate, editing) {
       weekday: selected.weekday, start: selected.period,
       end: editing < 0 ? selected.period : state.schedule[editing].end,
     };
-    if (Boolean(views[view][2])) candidate.title = views[view][2];
+    if (Boolean(viewInfo(view)[2])) candidate.title = viewInfo(view)[2];
     if (candidate.grade < minimumGrade(areaOf(candidate))) {
       status.textContent = '이 활동은 3~6학년만 배치할 수 있습니다.';
       return;
@@ -213,6 +252,7 @@ function scheduleConflict(entries, candidate, editing) {
     selected = { weekday: entry.weekday, period: entry.start };
     rejected = null;
     render();
+    ensureKind(entry.kind);
     for (const key of ['kind', 'title', 'grade']) {
       form.elements.namedItem(key).value = entry[key];
     }

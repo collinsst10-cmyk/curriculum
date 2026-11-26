@@ -1167,3 +1167,7 @@ main:has(#tab-home.active) { max-width: none; padding: 0 0 24px; }
 .env-kind.class { background: #e7ecf7; color: #15306b; } .env-kind.lunch { background: #fff3dc; color: #8a5a00; }
 .env-bell tr.k-lunch td { background: #fffaf0; }
 @media (max-width: 900px) { .env-layout { grid-template-columns: 1fr; } .env-nav { position: static; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } }
+/* 일과시간 연결: 교시 칸 아래 시각 · 특별실 배치 색 */
+.ptime { display: block; font-size: 10.5px; color: #8a93a6; font-family: var(--f4); white-space: nowrap; margin-top: 2px; }
+.area-room { --c: #0f766e; --bg: #e6f6f3; }
+.schedule-rooms { display: contents; }
