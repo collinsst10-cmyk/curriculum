@@ -210,7 +210,15 @@ window.App = {
  * ========================================================= */
 const haksaShared = () => !!(window.Haksa && Haksa.active);
 const calDays = () => haksaShared() ? Haksa.days : state.days;
-const calSem = () => haksaShared() && Haksa.sem ? Haksa.sem : state.sem;
+const calSemRaw = () => haksaShared() && Haksa.sem ? Haksa.sem : state.sem;
+/** 이전에 저장된 2027학년도 1월 수업 기간의 누락을 읽을 때 보정한다. */
+function legacyJanuarySem(s) {
+  const winter = semFull(s).winter;
+  if (state.school.year !== 2027 || s.s2End !== '2028-01-07' ||
+      winter[0] < '2028-01-08' || winter[0] > '2028-01-24') return s;
+  return { ...s, s2End: '2028-01-21', winter: [winter[0] === '2028-01-08' ? '2028-01-22' : winter[0], winter[1]] };
+}
+const calSem = () => legacyJanuarySem(calSemRaw());
 const canEditCal = () => !haksaShared() || Haksa.canEdit();
 /** 날짜별 일정 쓰기. patch = { 'YYYY-MM-DD': 항목 | null(삭제) } */
 async function writeDays(patch) {
@@ -442,9 +450,10 @@ function renderCal() {
   const nd = (a, b) => Math.round((parse(b) - parse(a)) / 86400000) + 1;
   const stS = dayStats();
   $('semSummary').innerHTML = `1학기 ${fmtK(sem.s1Start)}~${fmtK(sem.s1End)} (수업 ${stS.sem[1].days}일) · 여름방학 ${nd(...sem.summer)}일 · 2학기 ${fmtK(sem.s2Start)}~${fmtK(sem.s2End)} (수업 ${stS.sem[2].days}일) · 겨울방학 ${nd(...sem.winter)}일 · <b>연간 수업일수 ${stS.total}일</b>`;
-  const oldJanuary = state.school.year === 2027 && sem.s2End === '2028-01-07' && sem.winter[0] === '2028-01-08';
+  const rawSem = semFull(calSemRaw());
+  const oldJanuary = rawSem !== legacyJanuarySem(rawSem);
   $('januaryFix').hidden = !oldJanuary;
-  if (oldJanuary) $('januaryFix').innerHTML = `<strong>1월 10~21일이 방학으로 설정되어 수업일수에서 빠져 있습니다.</strong><span>종업일을 1월 21일, 겨울방학 시작을 1월 22일로 바꾸면 해당 평일이 수업일로 계산됩니다.</span>${canEditCal() ? '<button id="btnJanuaryFix" class="btn small primary">일정 바로잡기</button>' : '<span>관리자가 학사일정을 수정할 수 있습니다.</span>'}`;
+  if (oldJanuary) $('januaryFix').innerHTML = `<strong>이전에 저장된 종업일이 1월 7일입니다.</strong><span>화면과 수업일수에는 1월 21일 종업으로 보정했습니다. 저장된 날짜도 맞추려면 아래 버튼을 누르세요.</span>${canEditCal() ? '<button id="btnJanuaryFix" class="btn small primary">저장된 날짜 바로잡기</button>' : '<span>저장된 날짜는 관리자만 수정할 수 있습니다.</span>'}`;
   // 저장 위치·권한 안내
   const shared = haksaShared();
   $('calWhere').innerHTML = shared
@@ -957,11 +966,12 @@ function bind() {
   });
   $('januaryFix').addEventListener('click', async e => {
     if (e.target.id !== 'btnJanuaryFix' || !canEditCal()) return;
-    const sem = semFull(calSem());
-    if (state.school.year !== 2027 || sem.s2End !== '2028-01-07' || sem.winter[0] !== '2028-01-08') return;
-    if (!confirm('2028년 1월 10~21일을 수업 기간으로 바꾸고, 종업일을 1월 21일·겨울방학 시작을 1월 22일로 저장할까요?')) return;
+    const sem = semFull(calSemRaw());
+    if (sem === legacyJanuarySem(sem)) return;
+    const fixed = legacyJanuarySem(sem);
+    if (!confirm(`2028년 1월 10~21일을 수업 기간으로 바꾸고, 종업일을 1월 21일·겨울방학 시작을 ${fmtK(fixed.winter[0])}로 저장할까요?`)) return;
     try {
-      await writeSem({ ...sem, s2End: '2028-01-21', winter: ['2028-01-22', sem.winter[1]] });
+      await writeSem(fixed);
       _yearCache = null; RENDER.cal();
     } catch (err) { alert('저장 실패: ' + err.message); }
   });
@@ -980,10 +990,16 @@ function bind() {
 
   // ② 학사일정
   $('calGrid').addEventListener('click', e => {
-    const c = e.target.closest('.day[data-ds]'); if (!c || !canEditCal()) return;
+    const c = e.target.closest('.day[data-ds]');
+    if (!c) { if (calPick.size) { calPick.clear(); calLastPick = null; renderCal(); } return; }
+    if (!canEditCal()) return;
     toggleCalPick(c.dataset.ds, e.shiftKey);
     renderCal();
   });
+  document.addEventListener('click', e => {
+    if (curTab !== 'cal' || !calPick.size || e.target.closest('#calGrid, #calEditor')) return;
+    calPick.clear(); calLastPick = null; renderCal();
+  }, true);
   $('edSel').addEventListener('click', e => { if (e.target.id === 'edClearPick') { calPick.clear(); calLastPick = null; renderCal(); } });
   ['edKind', 'edEtc'].forEach(id => $(id).addEventListener('change', renderCalSide));
   $('edName').addEventListener('input', renderCalSide);
