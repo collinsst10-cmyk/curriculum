@@ -20,10 +20,10 @@
   <nav class="mainnav" id="mainNav">
     <button data-go="home">HOME</button>
     <button data-go="haksa">학사일정</button>
-    <button data-go="curr">교육과정 편성</button>
-    <button data-go="tt">시간표 편성</button>
+    <button data-go="curr" data-tlabel="학교 교육과정">교육과정 편성</button>
+    <button data-go="tt" data-tlabel="시간표">시간표 편성</button>
     <button data-go="act">교육활동 일정</button>
-    <button data-go="data">자료 관리</button>
+    <button data-go="data" class="admin-only">자료 관리</button>
     <button data-go="admin" id="navAdmin" hidden>관리자</button>
   </nav>
   <div class="actions">
@@ -74,18 +74,18 @@
         <span>학기 기간 · 교내행사 · 방학 · 휴일 · 재량휴업일 (학교 공용) · 수업일수·주차 · 외부강의 함께 보기</span>
       </button>
       <button class="menu-card" data-go="curr">
-        <span class="mc-ico">📅</span><b>교육과정 편성</b>
+        <span class="mc-ico">📅</span><b data-tlabel="학교 교육과정">교육과정 편성</b>
         <span>기본 정보(학급 수·교시) · 시수 배정 · 편제표·검토</span>
       </button>
       <button class="menu-card" data-go="tt">
-        <span class="mc-ico">🗓️</span><b>시간표 편성</b>
+        <span class="mc-ico">🗓️</span><b data-tlabel="시간표">시간표 편성</b>
         <span>기초 시간표 · 시수 운영 확인(연간 시수표) · 교과전담</span>
       </button>
       <button class="menu-card" data-go="act">
         <span class="mc-ico">📌</span><b>교육활동 일정</b>
         <span>외부강의·교내행사 신청중/확정 관리 · 일정 겹침 자동 차단 · 한국어학급 시간표 연계</span>
       </button>
-      <button class="menu-card" data-go="data">
+      <button class="menu-card admin-only" data-go="data">
         <span class="mc-ico">☁️</span><b>자료 관리</b>
         <span>클라우드 문서 · 공동 편집 · 백업 · 엑셀 내보내기</span>
       </button>
@@ -247,7 +247,7 @@
         <b>학기 기간</b>
         <label>1학기 <input id="s1Start" type="date"> ~ <input id="s1End" type="date"></label>
         <label>2학기 <input id="s2Start" type="date"> ~ <input id="s2End" type="date"></label>
-        <button id="btnDefaultSem" class="btn small">기본값</button>
+        <button id="btnDefaultSem" class="btn small admin-only">기본값</button>
         <span class="hint">학기 밖 평일은 자동으로 방학</span>
       </div>
     </div>
@@ -266,7 +266,7 @@
         <div id="calGrid" class="cal-grid"></div>
       </div>
       <aside class="cal-side">
-        <div class="card sticky" id="calEditor">
+        <div class="card sticky admin-only" id="calEditor">
           <h2>학사일정 입력</h2>
           <p class="hint ro-note">학교 공용 학사일정은 관리자만 수정할 수 있습니다.</p>
           <div class="form">
@@ -309,7 +309,7 @@
           <h2>일정 목록 <span class="hint">(학사일정 + 교육활동)</span></h2>
           <div id="holidayWarn"></div>
           <div class="list-wrap"><table class="tbl compact" id="tblEvents"></table></div>
-          <button id="btnExportCal" class="btn small">학사일정 엑셀 저장</button>
+          <button id="btnExportCal" class="btn small ro-ok">학사일정 엑셀 저장</button>
         </div>
       </aside>
     </div>
@@ -333,7 +333,7 @@
     <div class="card">
       <div class="card-head">
         <h2>주차표</h2>
-        <button id="btnExportWeeks" class="btn small">주차표 엑셀 저장</button>
+        <button id="btnExportWeeks" class="btn small ro-ok">주차표 엑셀 저장</button>
       </div>
       <div class="tbl-scroll"><table class="tbl compact" id="tblWeeks"></table></div>
     </div>
@@ -341,15 +341,15 @@
 
   <!-- ⑤ 기초 시간표 -->
   <section id="tab-tt" class="tab">
-    <div class="grade-switch" id="ttGradeSwitch"></div>
+    <div class="grade-switch ro-ok" id="ttGradeSwitch"></div>
     <div class="card">
       <div class="card-head">
         <h2 id="ttTitle"></h2>
         <div class="row">
-          <select id="ttSem"><option value="1">1학기</option><option value="2">2학기</option></select>
-          <button id="btnTtAuto" class="btn small">배정 시수로 자동 편성</button>
-          <button id="btnTtCopy" class="btn small">다른 학기에 복사</button>
-          <button id="btnTtClear" class="btn small danger">비우기</button>
+          <select id="ttSem" class="ro-ok"><option value="1">1학기</option><option value="2">2학기</option></select>
+          <button id="btnTtAuto" class="btn small admin-only">배정 시수로 자동 편성</button>
+          <button id="btnTtCopy" class="btn small admin-only">다른 학기에 복사</button>
+          <button id="btnTtClear" class="btn small danger admin-only">비우기</button>
         </div>
       </div>
       <p class="hint">칸을 클릭해 과목을 고르세요. 요일별 교시 수는 ① 기본 정보에서 정합니다. 학년 공통 시간표로 계산합니다.</p>
@@ -362,13 +362,13 @@
 
   <!-- ⑥ 시수 운영 확인 -->
   <section id="tab-run" class="tab">
-    <div class="grade-switch" id="runGradeSwitch"></div>
+    <div class="grade-switch ro-ok" id="runGradeSwitch"></div>
     <div class="card">
       <div class="card-head">
         <h2 id="runTitle"></h2>
         <div class="row">
-          <button id="btnRunApply" class="btn small">운영 시수를 배정 시수로 반영</button>
-          <button id="btnExportRun" class="btn small">연간 시수표 엑셀 저장</button>
+          <button id="btnRunApply" class="btn small admin-only">운영 시수를 배정 시수로 반영</button>
+          <button id="btnExportRun" class="btn small ro-ok">연간 시수표 엑셀 저장</button>
         </div>
       </div>
       <p class="hint">기초 시간표 × 학사일정(수업일·공휴일·행사)으로 실제 운영될 시수를 계산해 배정 시수와 비교합니다.</p>
@@ -385,7 +385,7 @@
     <div class="card">
       <div class="card-head">
         <h2>교과전담 시수 배정</h2>
-        <button id="btnJdAdd" class="btn small primary">+ 배정 추가</button>
+        <button id="btnJdAdd" class="btn small primary admin-only">+ 배정 추가</button>
       </div>
       <p class="hint">학년·과목별 주당 전담 시수를 입력하면 학급 수를 곱해 전담교사별 주당 수업 시수를 계산합니다.</p>
       <table class="tbl" id="tblJd"></table>
@@ -398,13 +398,13 @@
 
   <!-- ④ 시수 배정 -->
   <section id="tab-hours" class="tab">
-    <div class="grade-switch" id="gradeSwitch"></div>
+    <div class="grade-switch ro-ok" id="gradeSwitch"></div>
     <div class="card">
       <div class="card-head">
         <h2 id="hoursTitle"></h2>
         <div class="row">
-          <button id="btnFillGrade" class="btn small">이 학년 기준 시수로 채우기</button>
-          <button id="btnFillAll" class="btn small">전 학년 기준 시수로 채우기</button>
+          <button id="btnFillGrade" class="btn small admin-only">이 학년 기준 시수로 채우기</button>
+          <button id="btnFillAll" class="btn small admin-only">전 학년 기준 시수로 채우기</button>
         </div>
       </div>
       <p class="hint">2022 개정 교육과정 시간 배당 기준. 교과(군)별 시수는 <b>학년군 단위로 20% 범위</b>에서 증감할 수 있으며, <b>체육·예술(음악/미술)은 감축할 수 없습니다.</b></p>
@@ -421,7 +421,7 @@
     <div class="card">
       <div class="card-head">
         <h2>검토 결과</h2>
-        <button id="btnExportTable" class="btn small">편제표 엑셀 저장</button>
+        <button id="btnExportTable" class="btn small ro-ok">편제표 엑셀 저장</button>
       </div>
       <ul id="issues" class="issues"></ul>
     </div>

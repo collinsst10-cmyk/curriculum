@@ -85,6 +85,12 @@ service cloud.firestore {
       allow write: if isAdmin() && year.matches('^[0-9]{4}$');
     }
 
+    // 선생님들께 게시한 학교 교육과정(조회 전용). 승인된 선생님은 읽기, 관리자만 게시
+    match /published/{doc} {
+      allow read: if isApproved();
+      allow write: if isAdmin();
+    }
+
     // 한국어학급 주간 시간표
     match /config/ksl {
       allow read, write: if isApproved();

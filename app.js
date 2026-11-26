@@ -112,8 +112,35 @@ function normalize(s) {
   return s;
 }
 
+/* =========================================================
+ * 역할별 화면: 관리자(편성·편집) / 선생님(게시된 교육과정·학사일정 조회 + 교육활동 신청)
+ * ========================================================= */
+const isTeacherView = () => !!(window.App && App.role && App.role() === 'teacher');
+// 선생님에게는 조회만 되는 화면
+const RO_SECTIONS = ['tab-cal', 'tab-days', 'tab-info', 'tab-hours', 'tab-table', 'tab-tt', 'tab-run', 'tab-jd'];
+function applyRoleView() {
+  const t = isTeacherView();
+  document.body.classList.toggle('role-teacher', t);
+  document.querySelectorAll('[data-tlabel]').forEach(b => {
+    if (!b.dataset.alabel) b.dataset.alabel = b.textContent;
+    b.textContent = t ? b.dataset.tlabel : b.dataset.alabel;
+  });
+  RO_SECTIONS.forEach(id => {
+    const sec = $(id); if (!sec) return;
+    sec.querySelectorAll('input, select, textarea, button').forEach(el => {
+      if (el.closest('.ro-ok')) return;
+      if (t) { if (!el.disabled) { el.disabled = true; el.dataset.ro = '1'; } }
+      else if (el.dataset.ro) { el.disabled = false; delete el.dataset.ro; }
+    });
+  });
+}
+// 화면이 다시 그려질 때마다(학년 전환 등) 조회 전용 상태를 유지
+new MutationObserver(() => { if (isTeacherView()) requestAnimationFrame(applyRoleView); })
+  .observe(document.querySelector('main'), { childList: true, subtree: true });
+
 let saveTimer;
 function save() {
+  if (isTeacherView()) { updateTitles(); return; }   // 선생님 화면은 조회 전용: 저장하지 않음
   _yearCache = null;
   $('saveState').textContent = '저장 중…';
   clearTimeout(saveTimer);
@@ -663,6 +690,7 @@ function showTab(t) {
   if (!RENDER[t] || !$('tab-' + t)) t = 'home';
   if (t !== 'home' && window.App.locked && window.App.locked()) { window.App.pendingTab = t; t = 'home'; }
   if (t === 'admin' && !(window.App.isAdmin && window.App.isAdmin())) t = 'home';
+  if (t === 'data' && isTeacherView()) t = 'home';
   curTab = t;
   const g = groupOf(t);
   lastInGroup[g] = t;
@@ -673,6 +701,7 @@ function showTab(t) {
   document.querySelectorAll('.tab').forEach(s => s.classList.toggle('active', s.id === 'tab-' + t));
   if (location.hash.slice(1) !== t) history.pushState(null, '', '#' + t);
   RENDER[t]();
+  applyRoleView();
   window.scrollTo(0, 0);
 }
 function goGroup(g) { showTab(lastInGroup[g] || GROUP_FIRST[g] || 'home'); }
@@ -681,13 +710,21 @@ function goGroup(g) { showTab(lastInGroup[g] || GROUP_FIRST[g] || 'home'); }
 function renderHome() {
   const s = state.school, st = dayStats(), issues = collectIssues();
   const nErr = issues.filter(x => x[0] === 'err').length, nWarn = issues.filter(x => x[0] === 'warn').length;
-  $('homeTitle').textContent = `${s.year}학년도 교육과정 편성 도우미`;
+  const teacher = isTeacherView();
+  $('homeTitle').textContent = teacher ? `${s.year}학년도 학교 교육과정` : `${s.year}학년도 교육과정 편성 도우미`;
+  $('homeSub').textContent = teacher
+    ? '학사일정과 학교 교육과정(시수·시간표·편제표)을 조회하고, 외부강의·교내행사를 신청합니다.'
+    : '학사일정부터 시수 배정, 시간표, 편제표까지 한 곳에서 계획합니다.';
   const locked = window.App.locked && window.App.locked();
+  const pub = window.App.publishedInfo ? App.publishedInfo() : null;
   $('homeKpi').innerHTML = locked ? '' : `
     <div class="kpi"><div class="t">연간 수업일수</div><div class="v">${st.total}일</div><div class="s">1학기 ${st.sem[1].days} · 2학기 ${st.sem[2].days}</div></div>
     <div class="kpi"><div class="t">학급 수</div><div class="v">${GRADES.reduce((t, g) => t + (Number(s.classes[g]) || 0), 0)}학급</div><div class="s">${GRADES.map(g => s.classes[g]).join(' · ')}</div></div>
-    <div class="kpi"><div class="t">검토 결과</div><div class="v">${nErr ? `<span class="neg">오류 ${nErr}</span>` : '<span class="pos">오류 없음</span>'}</div><div class="s">경고 ${nWarn}건 · <a href="#table">자세히 보기</a></div></div>
-    <div class="kpi"><div class="t">저장 위치</div><div class="v" style="font-size:18px">${esc($('cloudState').textContent || '이 PC')}</div><div class="s"><a href="#data">자료 관리</a></div></div>`;
+    ${teacher
+      ? `<div class="kpi"><div class="t">학교 교육과정</div><div class="v" style="font-size:18px">${pub ? '게시됨' : '<span class="neg">게시 전</span>'}</div><div class="s">${pub ? esc(pub) : '관리자가 게시하면 표시됩니다'}</div></div>
+         <div class="kpi"><div class="t">교육활동 일정</div><div class="v" style="font-size:18px">신청·조회</div><div class="s"><a href="#act">일정 신청하기</a></div></div>`
+      : `<div class="kpi"><div class="t">검토 결과</div><div class="v">${nErr ? `<span class="neg">오류 ${nErr}</span>` : '<span class="pos">오류 없음</span>'}</div><div class="s">경고 ${nWarn}건 · <a href="#table">자세히 보기</a></div></div>
+         <div class="kpi"><div class="t">저장 위치</div><div class="v" style="font-size:18px">${esc($('cloudState').textContent || '이 PC')}</div><div class="s"><a href="#data">자료 관리</a>${pub ? ` · 선생님께 게시: ${esc(pub)}` : ''}</div></div>`}`;
   $('homeMenu').classList.toggle('locked', !!locked);
   if (window.App.renderGate) window.App.renderGate($('homeGate')); else $('homeGate').innerHTML = '';
 }

@@ -165,6 +165,15 @@ input:focus, select:focus { outline: 2px solid var(--primary-weak); border-color
 .menu-grid.locked .menu-card { opacity: .45; pointer-events: none; }
 @media (max-width: 900px) { .hero { grid-template-columns: 1fr; } .mainnav { margin-left: 0; order: 3; width: 100%; } }
 
+/* 선생님 화면(조회 전용) */
+.role-teacher .admin-only { display: none !important; }
+.role-teacher #tab-cal .cal-layout { grid-template-columns: 1fr 340px; }
+.role-teacher input:disabled, .role-teacher select:disabled { background: #f7f9fc; color: var(--text); opacity: 1; border-color: #eef1f5; }
+.role-teacher .tbl.tt select:disabled { appearance: none; -webkit-appearance: none; background: transparent; cursor: default; }
+.role-teacher .tbl input:disabled { background: transparent; border-color: transparent; }
+.role-teacher button.x:disabled { display: none; }
+.role-teacher .day { cursor: default; }
+
 /* 등록 신청 양식 */
 .gate.signup label { display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
 .gate.signup input { width: 100%; }
