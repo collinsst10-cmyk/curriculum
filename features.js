@@ -62,7 +62,7 @@ function renderTt() {
   const maxP = Math.max(...[0, 1, 2, 3, 4].map(d => periodsOf(g, d)));
   let html = `<tr><th>교시</th>${['월', '화', '수', '목', '금'].map(d => `<th>${d}</th>`).join('')}</tr>`;
   for (let p = 0; p < maxP; p++) {
-    html += `<tr><th>${typeof periodHead === 'function' ? periodHead(p + 1) : p + 1}</th>`;
+    html += `<tr><th>${typeof periodHead === 'function' ? periodHead(p + 1, '', g) : p + 1}</th>`;
     for (let d = 0; d < 5; d++) {
       if (p >= periodsOf(g, d)) { html += '<td class="off">—</td>'; continue; }
       const k = grid[d][p];
@@ -249,7 +249,7 @@ $('runGradeSwitch').addEventListener('click', e => { const b = e.target.closest(
 $('btnRunApply').addEventListener('click', () => {
   const g = runGrade;
   if (!ttFilled(g)) { alert('기초 시간표를 먼저 편성하세요.'); return; }
-  if (!confirm(`${g}학년 ⑤ 시수 배정 값을 시간표로 계산한 운영 시수로 바꿉니다. 이후 ⑧ 편제표·검토에서 기준 충족 여부를 확인하세요. 계속할까요?`)) return;
+  if (!confirm(`${g}학년 ⑤ 시수 편제 값을 시간표로 계산한 운영 시수로 바꿉니다. 이후 ⑧ 편제표·검토에서 기준 충족 여부를 확인하세요. 계속할까요?`)) return;
   const run = runCalc(g);
   subjectsOf(g).forEach(x => { state.hours[g][x.key] = { s1: run.sem[1][x.key] || 0, s2: run.sem[2][x.key] || 0 }; });
   save(); renderRun();

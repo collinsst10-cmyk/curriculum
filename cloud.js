@@ -64,6 +64,7 @@
     get email() { return myEmail(); },
     isAdmin: effAdmin,
     realAdmin: () => admin,            // 미리보기 중에도 실제 관리자인지
+    listPlans: () => listPlans(),       // 작년 자료 불러오기 등에서 씀
     get previewing() { return admin && preview; },
   };
 

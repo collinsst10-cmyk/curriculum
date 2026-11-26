@@ -73,10 +73,13 @@ function defaultPeriods(g) {
 
 function split(v) { return { s1: Math.ceil(v / 2), s2: Math.floor(v / 2) }; }
 
+/** 창체 활동별 기준 시수: 시수 편제 › '창체 활동별 기준시수 설정'에서 바꾼 값이 있으면 그것 */
+function chaStdOf(b) { return (typeof state === 'object' && state && state.chaStd && state.chaStd[b.id]) || b.chaDef; }
 function defaultHours(g) {
   const b = bandOf(g); const h = {};
   b.groups.forEach(gr => gr.subs.forEach(s => { h[s.key] = split(s.def); }));
-  CHA_PARTS.forEach(p => { h[p.key] = split(b.chaDef[p.key]); });
+  const std = chaStdOf(b);
+  CHA_PARTS.forEach(p => { h[p.key] = split(std[p.key]); });
   h.sat = { s1: 0, s2: 0 };
   return h;
 }
@@ -172,6 +175,9 @@ function save() {
   $('saveState').textContent = '저장 중…';
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
+    // 학년도별 시수 편제 사본(다음 해 '작년편제 불러오기'·'작년시수 편제표'에 씀)
+    state.yearArchive = state.yearArchive || {};
+    state.yearArchive[state.school.year] = JSON.parse(JSON.stringify({ hours: state.hours, satName: state.satName, chaMode: state.chaMode || 'part', classes: state.school.classes }));
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
     $('saveState').textContent = '이 PC에 저장됨 ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
     if (window.App && App.onSave) App.onSave();   // 클라우드 동기화(cloud.js)
@@ -659,7 +665,7 @@ function renderHours() {
   $('gradeSwitch').innerHTML = GRADES.map(g => `<button class="btn ${g === curGrade ? 'on' : ''}" data-grade="${g}">${g}학년</button>`).join('');
   const g = curGrade, b = bandOf(g), chk = bandCheck(b);
   const other = b.grades.find(x => x !== g);
-  $('hoursTitle').textContent = `${g}학년 시수 배정 (${b.label}, 학급 수 ${state.school.classes[g]})`;
+  $('hoursTitle').textContent = `${g}학년 시수 편제 (${b.label}, 학급 수 ${state.school.classes[g]})`;
 
   let html = `<tr><th>교과(군)</th><th>과목</th><th>학년 기준<br><span class="hint">(참고)</span></th><th>1학기</th><th>2학기</th><th>연간</th><th>주당<br><span class="hint">(÷${STD_WEEKS})</span></th>
     <th>학년군 합계<br><span class="hint">(${b.grades.join('+')}학년)</span></th><th>학년군 기준</th><th>증감</th><th>판정</th></tr>`;
@@ -683,8 +689,15 @@ function renderHours() {
     <td class="num">${subjBand}</td><td class="num">${subjBase}</td><td class="num">${sign(subjBand - subjBase)}</td><td></td></tr>`;
 
   const eh = eventHours(g);
-  CHA_PARTS.forEach((p, i) => {
-    html += `<tr>${i === 0 ? `<td class="grp" rowspan="3">창의적<br>체험활동</td>` : ''}<td>${p.name}${eh[p.key] ? `<br><span class="hint">행사 ${eh[p.key]}시간 포함</span>` : ''}</td><td class="num">${b.chaDef[p.key]}</td>
+  // 창체 '영역별 시수 편성 안함': 한 줄(자율·자치 칸에 합계로 저장)
+  if (state.chaMode === 'total') {
+    const std = chaStdOf(b);
+    html += `<tr><td class="grp">창의적<br>체험활동</td><td>창체 (영역 구분 없음)</td><td class="num">${CHA_PARTS.reduce((t, p) => t + std[p.key], 0)}</td>
+      <td>${inp(g, 'cha_auto', 's1')}</td><td>${inp(g, 'cha_auto', 's2')}</td><td class="num"><b>${chaTotal(g)}</b></td><td class="num">${(chaTotal(g) / STD_WEEKS).toFixed(1)}</td>
+      <td class="num">${chk.cha.sum}</td><td class="num">${b.cha}</td><td class="num ${chk.cha.diff < 0 ? 'neg' : ''}">${sign(chk.cha.diff)}</td>
+      <td>${pill(chk.cha.level, chk.cha.level === 'ok' ? '적정' : '기준 미달')}</td></tr>`;
+  } else CHA_PARTS.forEach((p, i) => {
+    html += `<tr>${i === 0 ? `<td class="grp" rowspan="3">창의적<br>체험활동</td>` : ''}<td>${p.name}${eh[p.key] ? `<br><span class="hint">행사 ${eh[p.key]}시간 포함</span>` : ''}</td><td class="num">${chaStdOf(b)[p.key]}</td>
       <td>${inp(g, p.key, 's1')}</td><td>${inp(g, p.key, 's2')}</td><td class="num"><b>${ann(g, p.key)}</b></td><td class="num">${(ann(g, p.key) / STD_WEEKS).toFixed(1)}</td>
       ${i === 0 ? `<td class="num" rowspan="3">${chk.cha.sum}<br><span class="hint">${g}학년 ${chaTotal(g)}</span></td><td class="num" rowspan="3">${b.cha}</td>
         <td class="num ${chk.cha.diff < 0 ? 'neg' : ''}" rowspan="3">${sign(chk.cha.diff)}</td><td rowspan="3">${pill(chk.cha.level, chk.cha.level === 'ok' ? '적정' : '기준 미달')}</td>` : ''}</tr>`;
@@ -836,7 +849,7 @@ const TODO_RULES = [
   [/음력 공휴일/, '음력 공휴일 입력', '#cal'],
   [/학기 기간/, '학기 기간 확인', '#cal'],
   [/수업일수 .*부족/, '연간 수업일수 190일 미달', '#cal'],
-  [/증감 허용|감축할 수 없/, '시수 배정 기준 확인', '#hours'],
+  [/증감 허용|감축할 수 없/, '시수 편제 기준 확인', '#hours'],
   [/창의적 체험활동/, '창체 시수 확인', '#hours'],
   [/총 수업시간.*부족/, '총 수업시간 미달', '#hours'],
   [/수업 가능 시수/, '수업 가능 시수 초과', '#hours'],
@@ -1005,7 +1018,7 @@ function bind() {
     save(); rerenderKeepFocus(renderInfo);
   });
   $('btnReset').addEventListener('click', () => {
-    if (!confirm('모든 입력(학사일정, 시수 배정 등)을 지우고 처음 상태로 되돌립니다. 되돌릴 수 없습니다. 먼저 백업 저장을 권장합니다. 계속할까요?')) return;
+    if (!confirm('모든 입력(학사일정, 시수 편제 등)을 지우고 처음 상태로 되돌립니다. 되돌릴 수 없습니다. 먼저 백업 저장을 권장합니다. 계속할까요?')) return;
     state = defaultState(); save(); showTab('cal');
   });
 

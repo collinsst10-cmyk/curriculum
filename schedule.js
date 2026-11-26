@@ -1,16 +1,22 @@
 'use strict';
 
 /* ---------- 학교사용환경설정 연결 ---------- */
-/** 일과시간 설정의 p교시 시각 "08:50~09:30" (없으면 '') */
-function periodTime(p) {
+/** 일과시간 설정의 p교시 시각 "08:50~09:30" (g = 학년, 학년별 설정일 때) (없으면 '') */
+function periodTime(p, g) {
+  const c = state.env && state.env.bellCfg;
+  if (c) {
+    const set = c.mode === 'grade' && g && c.byGrade && c.byGrade[g] ? c.byGrade[g] : c.same;
+    const r = set && set.periods && set.periods[p - 1];
+    return r && r.start && r.end ? `${r.start}~${r.end}` : '';
+  }
   const rows = (state.env && state.env.bell && state.env.bell.rows) || [];
   const cls = rows.filter(r => r.kind === 'class');
   const r = cls.find(x => x.label.replace(/\s+/g, '') === `${p}교시`) || cls[p - 1];
   return r && r.start && r.end ? `${r.start}~${r.end}` : '';
 }
 /** 시간표 왼쪽 교시 칸: "1교시" + 시각 */
-function periodHead(p, suffix = '') {
-  const t = periodTime(p);
+function periodHead(p, suffix = '', g) {
+  const t = periodTime(p, g);
   return `${p}${suffix}${t ? `<small class="ptime">${t}</small>` : ''}`;
 }
 /** 특별실(시설) 이름 목록: 학교사용환경설정의 특별실 */
@@ -171,7 +177,7 @@ function scheduleConflict(entries, candidate, editing) {
     grid.classList.toggle('area', view !== 'all');
     grid.innerHTML = '<tr><th>교시</th>' + days.map(day => `<th>${day}</th>`).join('') + '</tr>';
     for (let period = 1; period <= 8; period++) {
-      grid.insertAdjacentHTML('beforeend', `<tr><th>${periodHead(period)}</th>${days.map((_, weekday) => {
+      grid.insertAdjacentHTML('beforeend', `<tr><th>${periodHead(period, '', Number($('scheduleGrade').value) || 0)}</th>${days.map((_, weekday) => {
         const cells = placements.filter(entry => entry.weekday === weekday &&
           entry.start <= period && period <= entry.end);
         const conflicts = entry => scheduleConflict(state.schedule, { ...entry, start: period, end: period }, entry.index);

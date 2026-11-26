@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=202611270709">
+<link rel="stylesheet" href="style.css?v=202611270724">
 </head>
 <body>
 <header class="topbar">
@@ -43,7 +43,7 @@
   <button data-tab="env" data-group="curr">② 학교사용환경설정</button>
   <button data-tab="cal" data-group="curr">③ 학사일정 편성</button>
   <button data-tab="event" data-group="curr">④ 교내행사</button>
-  <button data-tab="hours" data-group="curr">⑤ 시수 배정</button>
+  <button data-tab="hours" data-group="curr">⑤ 시수 편제</button>
   <button data-tab="schedule" data-group="curr">⑥ 시간표 배치</button>
   <button data-tab="review" data-group="curr">⑦ 검토·확정</button>
   <button data-tab="tt" data-group="tt">① 기초 시간표</button>
@@ -130,7 +130,7 @@
       </button>
       <button class="menu-card admin-only" data-go="curr">
         <span class="mc-ico">📅</span><b>교육과정 편성</b>
-        <span>학사일정(학기·방학·수업일수) · 교내행사 · 시수 배정(편제표·검토)</span>
+        <span>학사일정(학기·방학·수업일수) · 교내행사 · 시수 편제(편제표·검토)</span>
       </button>
       <button class="menu-card admin-only" data-go="tt">
         <span class="mc-ico">🗓️</span><b>시간표 편성</b>
@@ -643,15 +643,16 @@
     </div>
   </section>
 
-  <!-- ⑤ 시수 배정 -->
+  <!-- ⑤ 시수 편제 -->
   <section id="tab-hours" class="tab">
-    <div class="grade-switch ro-ok" id="gradeSwitch"></div>
+    <div class="card pj ro-ok" id="pjPanel"></div>
+    <div class="grade-switch ro-ok" id="gradeSwitch" hidden></div>
     <div class="card">
       <div class="card-head">
         <h2 id="hoursTitle"></h2>
         <div class="row">
           <button id="btnFillGrade" class="btn small admin-only">이 학년 기준 시수로 채우기</button>
-          <button id="btnFillAll" class="btn small admin-only">전 학년 기준 시수로 채우기</button>
+          <button id="btnFillAll" class="btn small admin-only" hidden>전 학년 기준 시수로 채우기</button>
         </div>
       </div>
       <p class="hint">2022 개정 교육과정 시간 배당 기준. 교과(군)별 시수는 <b>학년군 단위로 20% 범위</b>에서 증감할 수 있으며, <b>체육·예술(음악/미술)은 감축할 수 없습니다.</b></p>
@@ -729,22 +730,23 @@
   <div id="cloudBody"></div>
 </dialog>
 
-<script src="data.js?v=202611270709"></script>
-<script src="app.js?v=202611270709"></script>
-<script src="features.js?v=202611270709"></script>
-<script src="cloud-config.js?v=202611270709"></script>
-<script src="cloud.js?v=202611270709"></script>
-<script src="activities.js?v=202611270709"></script>
-<script src="haksa.js?v=202611270709"></script>
-<script src="menus.js?v=202611270709"></script>
-<script src="schedule.js?v=202611270709"></script>
-<script src="kclass.js?v=202611270709"></script>
-<script src="home.js?v=202611270709"></script>
-<script src="status.js?v=202611270709"></script>
-<script src="log.js?v=202611270709"></script>
-<script src="transfer.js?v=202611270709"></script>
-<script src="migrant.js?v=202611270709"></script>
-<script src="site.js?v=202611270709"></script>
-<script src="env.js?v=202611270709"></script>
+<script src="data.js?v=202611270724"></script>
+<script src="app.js?v=202611270724"></script>
+<script src="features.js?v=202611270724"></script>
+<script src="cloud-config.js?v=202611270724"></script>
+<script src="cloud.js?v=202611270724"></script>
+<script src="activities.js?v=202611270724"></script>
+<script src="haksa.js?v=202611270724"></script>
+<script src="menus.js?v=202611270724"></script>
+<script src="schedule.js?v=202611270724"></script>
+<script src="kclass.js?v=202611270724"></script>
+<script src="home.js?v=202611270724"></script>
+<script src="status.js?v=202611270724"></script>
+<script src="log.js?v=202611270724"></script>
+<script src="transfer.js?v=202611270724"></script>
+<script src="migrant.js?v=202611270724"></script>
+<script src="site.js?v=202611270724"></script>
+<script src="env.js?v=202611270724"></script>
+<script src="pyeonje.js?v=202611270724"></script>
 </body>
 </html>
