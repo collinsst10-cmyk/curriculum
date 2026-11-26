@@ -1,12 +1,21 @@
 'use strict';
 
+/* =========================================================
+ * 한국어학급 1~3 주간 시간표 (1~3교시)
+ *  - 한 학급 = 담임교사 1명 + 강사 1명. 같은 시간에 서로 다른 학생을 맡음
+ *  - kclassTimetables/{n}: { slots: { "요일-교시-t|i": { title, targets:"3-1, 4-2" } }, teacherName, instructorName }
+ *    (예전 "요일-교시" 키는 담임교사 수업으로 읽음)
+ *  - 칸을 눌러 대화상자에서 수업명과 학생의 원학급(몇 학년 몇 반)을 고름
+ * ========================================================= */
 (() => {
   const classes = [1, 2, 3];
   const days = [1, 2, 3, 4, 5];
-  const periods = [1, 2, 3, 4, 5, 6, 7, 8];
+  const periods = [1, 2, 3];
+  const ROLES = [['t', '담임교사'], ['i', '강사']];
   const records = new Map();
   let subscriptions = [];
   let generation = 0;
+  let dlgCtx = null;   // { n, day, period, picks: { t:Set, i:Set } }
 
   // 지정된 담임 또는 관리자가 편집 (보안 규칙도 같음)
   function canEdit(record) {
@@ -15,34 +24,71 @@
     return Boolean(record.owner && record.owner === String(Cloud.email || '').toLowerCase());
   }
 
+  /** 칸 하나의 담임/강사 수업 (예전 키는 담임으로) */
+  function cellOf(slots, day, period, role) {
+    const s = slots || {};
+    return s[`${day}-${period}-${role}`] || (role === 't' ? s[`${day}-${period}`] : null) || null;
+  }
+  const splitTargets = text => String(text || '').split(/[,\s]+/).filter(t => /^[1-6]-\d{1,2}$/.test(t));
+  /** "3-1, 4-2" → "3학년 1반, 4학년 2반" */
+  const targetText = text => splitTargets(text).map(t => { const [g, c] = t.split('-'); return `${g}학년 ${c}반`; }).join(', ');
+
   function render(number) {
     const record = records.get(number);
     const editing = canEdit(record) && record.slots !== null && !record.error;
     const ownerForm = $('kclassOwner' + number);
     ownerForm.hidden = !(Cloud.ready && Cloud.isAdmin() && record?.owner !== null);
-    if (!ownerForm.contains(document.activeElement)) {
-      ownerForm.querySelector('input').value = record?.owner || '';
-    }
-    $('kclassSave' + number).hidden = !editing;
+    if (!ownerForm.contains(document.activeElement)) ownerForm.querySelector('input').value = record?.owner || '';
     $('kclassMode' + number).textContent = !Cloud.ready ? '승인된 교직원 계정으로 로그인해 주세요.'
       : record?.error ? '시간표 또는 담임 권한을 불러오지 못했습니다.'
       : !record || record.owner === null || record.slots === null ? '시간표를 불러오는 중입니다.'
-      : editing ? (Cloud.isAdmin() && record.owner !== String(Cloud.email || '').toLowerCase() ? '관리자 편집 가능 · ' : '편집 가능 · ') + '수업명과 원학급을 입력하고 저장하세요. 원학급 예시 3-1, 4-2'
+      : editing ? (Cloud.isAdmin() && record.owner !== String(Cloud.email || '').toLowerCase() ? '관리자 편집 가능 · ' : '편집 가능 · ') + '시간표 칸을 누르면 담임교사·강사 수업과 학생의 학년·반을 정할 수 있습니다.'
       : record.owner ? '조회 전용 · 이 학급 담임이 시간표를 편집합니다.'
       : '조회 전용 · 관리자가 담임을 지정하면 편집할 수 있습니다.';
+    renderStaff(number, record, editing);
     const table = $('kclassGrid' + number);
+    table.classList.toggle('editable', editing);
     if (!record || record.slots === null) { table.innerHTML = ''; return; }
     table.innerHTML = '<thead><tr><th scope="col">교시</th>' +
       days.map(day => '<th scope="col">' + WD[day] + '</th>').join('') + '</tr></thead><tbody>' +
-      periods.map(period => '<tr><th scope="row">' + period + '</th>' + days.map(day => {
-        const key = day + '-' + period;
-        const slot = (record.draft || record.slots)[key] || {};
-        const label = WD[day] + '요일 ' + period + '교시 ';
-        return '<td>' + (editing
-          ? '<input data-key="' + key + '" data-field="title" aria-label="' + label + '수업명" maxlength="60" placeholder="수업명" value="' + esc(slot.title || '') + '">' +
-            '<input data-key="' + key + '" data-field="targets" aria-label="' + label + '원학급" maxlength="80" placeholder="원학급" value="' + esc(slot.targets || '') + '">'
-          : '<strong>' + esc(slot.title || '—') + '</strong><div class="hint">' + esc(slot.targets || '') + '</div>') + '</td>';
+      periods.map(period => '<tr><th scope="row">' + period + '교시</th>' + days.map(day => {
+        const items = ROLES.map(([role, label]) => {
+          const c = cellOf(record.slots, day, period, role);
+          if (!c || !(c.title || c.targets)) return '';
+          const who = targetText(c.targets);
+          return `<div class="kc-item ${role}"><span class="kc-who">${label}</span>` +
+            (c.title && c.title !== '한국어' ? `<b>${esc(c.title)}</b>` : '') +
+            `<span class="kc-stu">${who ? esc(who) + ' 학생' : '학생 미지정'}</span></div>`;
+        }).join('');
+        const label = `${WD[day]}요일 ${period}교시`;
+        return editing
+          ? `<td><button type="button" class="kc-cell" data-day="${day}" data-period="${period}" aria-label="${label} 설정">${items || '<span class="kc-add">+ 설정</span>'}</button></td>`
+          : `<td>${items || '<span class="hint">—</span>'}</td>`;
       }).join('') + '</tr>').join('') + '</tbody>';
+  }
+
+  function renderStaff(n, record, editing) {
+    const box = $('kclassStaff' + n);
+    if (!record || record.slots === null || record.error) { box.innerHTML = ''; return; }
+    if (box.contains(document.activeElement)) return;
+    const tn = record.teacherName || '', inn = record.instructorName || '';
+    box.innerHTML = editing
+      ? `<label><span class="kc-who t">담임교사</span> <input data-staff="teacherName" maxlength="30" placeholder="담임교사 이름" value="${esc(tn)}"></label>
+         <label><span class="kc-who i">강사</span> <input data-staff="instructorName" maxlength="30" placeholder="강사 이름" value="${esc(inn)}"></label>
+         <button type="button" class="btn small" data-staff-save>이름 저장</button>`
+      : `<span><span class="kc-who t">담임교사</span> ${esc(tn || '미정')}</span>
+         <span><span class="kc-who i">강사</span> ${esc(inn || '미정')}</span>`;
+  }
+
+  async function writeDoc(n, mutate) {
+    const { F, db } = Cloud.fb;
+    const ref = F.doc(db, 'kclassTimetables', String(n));
+    await F.runTransaction(db, async tx => {
+      const cur = (await tx.get(ref)).data() || {};
+      const next = { slots: { ...(cur.slots || {}) }, teacherName: cur.teacherName || '', instructorName: cur.instructorName || '' };
+      mutate(next);
+      tx.set(ref, next);
+    });
   }
 
   function subscribe() {
@@ -50,39 +96,105 @@
     subscriptions.forEach(unsubscribe => unsubscribe());
     subscriptions = [];
     records.clear();
-    classes.forEach(n => {
-      $('kclassStatus' + n).textContent = '';
-      render(n);
-    });
+    classes.forEach(n => { $('kclassStatus' + n).textContent = ''; render(n); });
     if (!Cloud.ready) return;
     const { F, db } = Cloud.fb;
     classes.forEach(n => {
-      const record = { owner: null, slots: null, draft: null, error: false };
+      const record = { owner: null, slots: null, teacherName: '', instructorName: '', error: false };
       records.set(n, record);
-      const report = () => {
-        if (run !== generation) return;
-        record.error = true;
-        render(n);
-      };
+      const report = () => { if (run !== generation) return; record.error = true; render(n); };
       subscriptions.push(F.onSnapshot(F.doc(db, 'kclassOwners', String(n)), snapshot => {
         if (run !== generation) return;
         record.owner = snapshot.data()?.email || '';
-        if (!canEdit(record)) record.draft = null;
         render(n);
         document.dispatchEvent(new Event('kclass-change'));
       }, report));
       subscriptions.push(F.onSnapshot(F.doc(db, 'kclassTimetables', String(n)), snapshot => {
         if (run !== generation) return;
-        record.slots = snapshot.data()?.slots || {};
+        const d = snapshot.data() || {};
+        record.slots = d.slots || {};
+        record.teacherName = d.teacherName || '';
+        record.instructorName = d.instructorName || '';
         render(n);
         document.dispatchEvent(new Event('kclass-change'));
       }, report));
     });
   }
 
-  function fingerprint(slots) {
-    return JSON.stringify(Object.keys(slots).sort().map(key => [key, slots[key].title, slots[key].targets]));
+  /* ---------- 칸 설정 대화상자 ---------- */
+  function openCell(n, day, period) {
+    const record = records.get(n);
+    if (!canEdit(record)) return;
+    dlgCtx = { n, day, period, picks: {} };
+    $('kcDlgTitle').textContent = `한국어학급 ${n} · ${WD[day]}요일 ${period}교시`;
+    ROLES.forEach(([role]) => {
+      const c = cellOf(record.slots, day, period, role) || {};
+      dlgCtx.picks[role] = new Set(splitTargets(c.targets));
+      $('kcTitle_' + role).value = c.title || '';
+      const name = role === 't' ? record.teacherName : record.instructorName;
+      $('kcName_' + role).textContent = name ? `(${name})` : '';
+    });
+    renderPicks();
+    $('kcDlgStatus').textContent = '';
+    $('kclassDlg').showModal();
   }
+
+  function renderPicks() {
+    ROLES.forEach(([role]) => {
+      const picks = dlgCtx.picks[role];
+      const other = dlgCtx.picks[role === 't' ? 'i' : 't'];
+      $('kcPick_' + role).innerHTML = GRADES.map(g => {
+        const cnt = Number(state.school.classes[g]) || 0;
+        if (!cnt) return '';
+        let row = `<div class="kc-prow"><span class="kc-g">${g}학년</span>`;
+        for (let c = 1; c <= cnt; c++) {
+          const k = `${g}-${c}`;
+          row += `<button type="button" class="chip-btn${picks.has(k) ? ' on' : ''}${other.has(k) ? ' taken' : ''}" data-role="${role}" data-k="${k}" title="${other.has(k) ? (role === 't' ? '강사' : '담임교사') + '도 이 반 학생을 맡고 있습니다' : ''}">${c}반</button>`;
+        }
+        return row + '</div>';
+      }).join('');
+      $('kcSel_' + role).textContent = picks.size ? targetText([...picks].sort(sortK).join(',')) + ' 학생' : '선택한 학생 없음';
+    });
+  }
+  const sortK = (a, b) => { const [ag, ac] = a.split('-').map(Number), [bg, bc] = b.split('-').map(Number); return ag - bg || ac - bc; };
+
+  async function saveCell(clear) {
+    if (!dlgCtx) return;
+    const { n, day, period, picks } = dlgCtx;
+    if (!canEdit(records.get(n))) return;
+    const cells = {};
+    ROLES.forEach(([role]) => {
+      const targets = clear ? '' : [...picks[role]].sort(sortK).join(', ');
+      const title = clear ? '' : ($('kcTitle_' + role).value.trim() || (targets ? '한국어' : '')).slice(0, 60);
+      cells[role] = title || targets ? { title, targets } : null;
+    });
+    $('kcSave').disabled = true;
+    try {
+      await writeDoc(n, doc => {
+        delete doc.slots[`${day}-${period}`];
+        ROLES.forEach(([role]) => {
+          const key = `${day}-${period}-${role}`;
+          if (cells[role]) doc.slots[key] = cells[role]; else delete doc.slots[key];
+        });
+      });
+      $('kclassDlg').close();
+      $('kclassStatus' + n).textContent = `${WD[day]}요일 ${period}교시를 ${clear ? '비웠습니다' : '저장했습니다'}.`;
+    } catch (e) {
+      $('kcDlgStatus').textContent = '저장 실패: ' + e.message;
+    } finally { $('kcSave').disabled = false; }
+  }
+
+  $('kclassDlg').addEventListener('click', e => {
+    const b = e.target.closest('[data-k]');
+    if (b && dlgCtx) {
+      const set = dlgCtx.picks[b.dataset.role];
+      set.has(b.dataset.k) ? set.delete(b.dataset.k) : set.add(b.dataset.k);
+      renderPicks();
+    }
+  });
+  $('kcSave').addEventListener('click', () => saveCell(false));
+  $('kcClear').addEventListener('click', () => { if (confirm('이 시간의 담임교사·강사 수업을 모두 비울까요?')) saveCell(true); });
+  $('kcClose').addEventListener('click', () => $('kclassDlg').close());
 
   classes.forEach(n => {
     RENDER['kclass' + n] = () => render(n);
@@ -95,65 +207,46 @@
       const email = event.currentTarget.querySelector('input').value.trim().toLowerCase();
       try {
         await F.setDoc(F.doc(db, 'kclassOwners', String(n)), { email });
-        if (run === generation) status.textContent = '담임 계정을 지정했습니다.';
+        if (run === generation) status.textContent = email ? '담임 계정을 지정했습니다.' : '담임 지정을 해제했습니다.';
       } catch (error) {
         if (run === generation) status.textContent = '담임 지정 실패: ' + error.message;
       }
     });
-    $('kclassGrid' + n).addEventListener('input', event => {
-      const record = records.get(n);
-      const { key, field } = event.target.dataset;
-      if (!key || !canEdit(record)) return;
-      if (!record.draft) {
-        record.draft = { ...record.slots };
-        record.baseline = fingerprint(record.slots);
-      }
-      record.draft[key] = { ...record.draft[key], [field]: event.target.value };
+    $('kclassGrid' + n).addEventListener('click', e => {
+      const b = e.target.closest('.kc-cell');
+      if (b) openCell(n, Number(b.dataset.day), Number(b.dataset.period));
     });
-    $('kclassSave' + n).addEventListener('click', async event => {
-      const record = records.get(n);
-      if (!canEdit(record) || !record.draft || record.saving) return;
-      const { F, db } = Cloud.fb;
-      const ref = F.doc(db, 'kclassTimetables', String(n));
-      const slots = {};
-      Object.entries(record.draft).forEach(([key, slot]) => {
-        const title = (slot.title || '').trim(), targets = (slot.targets || '').trim();
-        if (title || targets) slots[key] = { title, targets };
-      });
-      const run = generation;
-      const baseline = record.baseline;
-      record.saving = true;
-      event.currentTarget.disabled = true;
+    $('kclassStaff' + n).addEventListener('click', async e => {
+      if (!e.target.closest('[data-staff-save]') || !canEdit(records.get(n))) return;
+      const box = $('kclassStaff' + n);
+      const val = k => box.querySelector(`[data-staff="${k}"]`).value.trim().slice(0, 30);
+      const tn = val('teacherName'), inn = val('instructorName');
       try {
-        await F.runTransaction(db, async transaction => {
-          const current = await transaction.get(ref);
-          if (fingerprint(current.data()?.slots || {}) !== baseline) {
-            throw new Error('다른 곳에서 시간표를 수정했습니다. 새로고침한 뒤 다시 편집해 주세요.');
-          }
-          transaction.set(ref, { slots });
-        });
-        record.draft = null;
-        record.slots = slots;
-        if (run === generation) { render(n); status.textContent = '시간표를 저장했습니다.'; }
-      } catch (error) {
-        if (run === generation) status.textContent = '저장 실패: ' + error.message;
-      } finally {
-        record.saving = false;
-        $('kclassSave' + n).disabled = false;
-      }
+        await writeDoc(n, doc => { doc.teacherName = tn; doc.instructorName = inn; });
+        e.target.blur();
+        status.textContent = '담임교사·강사 이름을 저장했습니다.';
+      } catch (error) { status.textContent = '이름 저장 실패: ' + error.message; }
     });
   });
 
   window.KoreanClasses = {
     isOwner: email => [...records.values()].some(record => record.owner === email),
     hasOwners: () => [...records.values()].some(record => record.owner),
-    slotsAt: key => classes.flatMap(n => {
-      const slot = records.get(n)?.slots?.[key];
-      return slot?.targets ? [{
-        group: '한국어학급 ' + n + (slot.title ? ' · ' + slot.title : ''),
-        targets: Activities.parseTargets(slot.targets),
-      }] : [];
-    }),
+    /** key = "요일-교시" → 그 시간 한국어학급에 가는 학생의 원학급 목록 */
+    slotsAt: key => {
+      const [day, period] = key.split('-').map(Number);
+      return classes.flatMap(n => {
+        const r = records.get(n);
+        return ROLES.flatMap(([role, label]) => {
+          const slot = cellOf(r?.slots, day, period, role);
+          const name = role === 't' ? r?.teacherName : r?.instructorName;
+          return slot?.targets ? [{
+            group: `한국어학급 ${n} ${label}${name ? ' ' + name : ''}` + (slot.title && slot.title !== '한국어' ? ' · ' + slot.title : ''),
+            targets: Activities.parseTargets(slot.targets),
+          }] : [];
+        });
+      });
+    },
   };
   document.addEventListener('cloud-change', subscribe);
   if (Cloud.ready) subscribe();

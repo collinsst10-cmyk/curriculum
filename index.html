@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=202611262343">
+<link rel="stylesheet" href="style.css?v=202611262358">
 </head>
 <body>
 <header class="topbar">
@@ -229,42 +229,42 @@
   <!-- 한국어학급 연계 -->
   <section id="tab-kclass1" class="tab">
     <div class="card">
-      <h2>한국어학급 1 주간 시간표</h2>
+      <h2>한국어학급 1 주간 시간표 <small class="hint">1~3교시</small></h2>
       <p id="kclassMode1" class="hint"></p>
+      <div class="kc-staff" id="kclassStaff1"></div>
       <form id="kclassOwner1" class="row" hidden>
         <label>담임 구글 이메일 <input type="email" maxlength="254" placeholder="비우고 지정하면 담임 해제"></label>
         <button class="btn small" type="submit">담임 지정</button>
       </form>
       <div class="tbl-scroll"><table class="tbl kclass-grid" id="kclassGrid1"></table></div>
-      <button id="kclassSave1" class="btn primary" type="button" hidden>시간표 저장</button>
       <p id="kclassStatus1" role="status"></p>
     </div>
   </section>
 
   <section id="tab-kclass2" class="tab">
     <div class="card">
-      <h2>한국어학급 2 주간 시간표</h2>
+      <h2>한국어학급 2 주간 시간표 <small class="hint">1~3교시</small></h2>
       <p id="kclassMode2" class="hint"></p>
+      <div class="kc-staff" id="kclassStaff2"></div>
       <form id="kclassOwner2" class="row" hidden>
         <label>담임 구글 이메일 <input type="email" maxlength="254" placeholder="비우고 지정하면 담임 해제"></label>
         <button class="btn small" type="submit">담임 지정</button>
       </form>
       <div class="tbl-scroll"><table class="tbl kclass-grid" id="kclassGrid2"></table></div>
-      <button id="kclassSave2" class="btn primary" type="button" hidden>시간표 저장</button>
       <p id="kclassStatus2" role="status"></p>
     </div>
   </section>
 
   <section id="tab-kclass3" class="tab">
     <div class="card">
-      <h2>한국어학급 3 주간 시간표</h2>
+      <h2>한국어학급 3 주간 시간표 <small class="hint">1~3교시</small></h2>
       <p id="kclassMode3" class="hint"></p>
+      <div class="kc-staff" id="kclassStaff3"></div>
       <form id="kclassOwner3" class="row" hidden>
         <label>담임 구글 이메일 <input type="email" maxlength="254" placeholder="비우고 지정하면 담임 해제"></label>
         <button class="btn small" type="submit">담임 지정</button>
       </form>
       <div class="tbl-scroll"><table class="tbl kclass-grid" id="kclassGrid3"></table></div>
-      <button id="kclassSave3" class="btn primary" type="button" hidden>시간표 저장</button>
       <p id="kclassStatus3" role="status"></p>
     </div>
   </section>
@@ -592,6 +592,32 @@
 
 <footer class="foot">기준: 2022 개정 초등학교 교육과정 시간 배당, 초·중등교육법 시행령 제45조(수업일수 190일 이상). 공휴일 정보는 반드시 관보·교육청 지침으로 확인하세요.</footer>
 
+<dialog id="kclassDlg" class="dlg kc-dlg">
+  <div class="card-head">
+    <h2 id="kcDlgTitle">한국어학급 시간 설정</h2>
+    <button class="x" id="kcClose" type="button" title="닫기">✕</button>
+  </div>
+  <p class="hint">담임교사와 강사가 이 시간에 맡는 학생의 원학급(몇 학년 몇 반)을 눌러 고르세요. 수업명을 비우면 '한국어'로 저장됩니다.</p>
+  <div class="kc-roles">
+    <section class="kc-role t">
+      <h3><span class="kc-who t">담임교사</span> <small id="kcName_t" class="hint"></small></h3>
+      <label>수업명 <input id="kcTitle_t" maxlength="60" placeholder="한국어"></label>
+      <div id="kcPick_t" class="kc-pick"></div>
+      <p id="kcSel_t" class="kc-sel"></p>
+    </section>
+    <section class="kc-role i">
+      <h3><span class="kc-who i">강사</span> <small id="kcName_i" class="hint"></small></h3>
+      <label>수업명 <input id="kcTitle_i" maxlength="60" placeholder="한국어"></label>
+      <div id="kcPick_i" class="kc-pick"></div>
+      <p id="kcSel_i" class="kc-sel"></p>
+    </section>
+  </div>
+  <div class="row kc-actions">
+    <button class="btn primary" id="kcSave" type="button">저장</button>
+    <button class="btn" id="kcClear" type="button">이 시간 비우기</button>
+    <span id="kcDlgStatus" role="status"></span>
+  </div>
+</dialog>
 <dialog id="cloudDlg" class="dlg">
   <div class="card-head">
     <h2>☁ 클라우드 저장소</h2>
@@ -600,16 +626,16 @@
   <div id="cloudBody"></div>
 </dialog>
 
-<script src="data.js?v=202611262343"></script>
-<script src="app.js?v=202611262343"></script>
-<script src="features.js?v=202611262343"></script>
-<script src="cloud-config.js?v=202611262343"></script>
-<script src="cloud.js?v=202611262343"></script>
-<script src="activities.js?v=202611262343"></script>
-<script src="haksa.js?v=202611262343"></script>
-<script src="menus.js?v=202611262343"></script>
-<script src="schedule.js?v=202611262343"></script>
-<script src="kclass.js?v=202611262343"></script>
-<script src="home.js?v=202611262343"></script>
+<script src="data.js?v=202611262358"></script>
+<script src="app.js?v=202611262358"></script>
+<script src="features.js?v=202611262358"></script>
+<script src="cloud-config.js?v=202611262358"></script>
+<script src="cloud.js?v=202611262358"></script>
+<script src="activities.js?v=202611262358"></script>
+<script src="haksa.js?v=202611262358"></script>
+<script src="menus.js?v=202611262358"></script>
+<script src="schedule.js?v=202611262358"></script>
+<script src="kclass.js?v=202611262358"></script>
+<script src="home.js?v=202611262358"></script>
 </body>
 </html>

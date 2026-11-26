@@ -78,6 +78,15 @@ function scheduleConflict(entries, candidate, editing) {
   function classLabel(entry) {
     return entry.grade + '학년' + (entry.classNo ? ' ' + entry.classNo + '반' : ' 전체');
   }
+  // 통합 시간표에서 한눈에 구분되도록 짧은 이름표 (디지털튜터 → 디지털)
+  function shortTitle(entry) {
+    const area = areaOf(entry);
+    if (area === 'tutor') return '디지털';
+    if (area === 'gym') return '체육관';
+    if (area === 'computer') return '컴퓨터실';
+    const t = entry.title.trim();
+    return t.length > 5 ? t.slice(0, 5) : t;
+  }
 
   function render() {
     if (currentState !== state || currentYear !== state.school.year) {
@@ -114,6 +123,7 @@ function scheduleConflict(entries, candidate, editing) {
         !state.schedule.some(entry => entry.year === state.school.year && areaOf(entry) === key);
     }
     $('scheduleViews').querySelectorAll('[data-view]').forEach(button => {
+      button.classList.add('area-' + button.dataset.view);
       button.setAttribute('aria-pressed', String(button.dataset.view === view));
     });
     const grade = Number($('scheduleGrade').value);
@@ -130,8 +140,8 @@ function scheduleConflict(entries, candidate, editing) {
         const marked = rejectedHere || cells.some(conflicts);
         return `<td class="${marked ? 'schedule-conflict' : ''}${selected?.weekday === weekday && selected.period === period ? ' schedule-selected' : ''}" ${view !== 'all' ? `data-slot="${weekday}:${period}"` : ''}><div class="schedule-square">
           ${marked ? '<span class="pill err">중복</span>' : ''}
-          ${cells.map(entry => `<button class="btn schedule-item" data-entry="${entry.index}"
-          title="${esc(entry.kind)} · ${entry.start}~${entry.end}교시">${classLabel(entry)} · ${esc(entry.title)}</button>`).join('')}
+          ${cells.map(entry => `<button class="btn schedule-item area-${areaOf(entry)}" data-entry="${entry.index}"
+          title="${esc(entry.title)} · ${classLabel(entry)} · ${entry.start}~${entry.end}교시"><span class="sbadge">${esc(shortTitle(entry))}</span> - <span class="nowrap">${classLabel(entry)}</span></button>`).join('')}
           ${view !== 'all' ? `<button class="schedule-slot" type="button" aria-label="${days[weekday]}요일 ${period}교시 배치">+</button>` : ''}
         </div></td>`;
       }).join('')}</tr>`);

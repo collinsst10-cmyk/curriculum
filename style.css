@@ -639,3 +639,55 @@ main:has(#tab-home.active) { max-width: none; padding: 0 0 24px; }
   .hx-photo { inset: 0; opacity: .25; } .hx-grid { grid-template-columns: 1fr; }
   .hx-stat { border-right: 0; margin-right: 0; padding-right: 20px; }
 }
+
+/* =========================================================
+ * 시간표 배치: 영역별 색 + 과목 이름표
+ * ========================================================= */
+.schedule-item { --c: #5b6478; --bg: #f3f4f7; background: var(--bg); border-color: color-mix(in srgb, var(--c) 35%, #fff); color: #1f2740; font-size: 13px; padding: 4px 6px; border-left: 4px solid var(--c); }
+.schedule-item:hover { background: color-mix(in srgb, var(--bg) 70%, var(--c) 12%); }
+.sbadge { display: inline-block; background: var(--c); color: #fff; border-radius: 6px; padding: 1px 6px; font-size: 12px; font-weight: 800; letter-spacing: -.02em; }
+.area-english  { --c: #2563eb; --bg: #eaf1ff; }
+.area-science  { --c: #16a34a; --bg: #e8f7ee; }
+.area-pungmul  { --c: #dc6b19; --bg: #fff1e6; }
+.area-gugak    { --c: #b4237a; --bg: #fdebf5; }
+.area-tutor    { --c: #7c3aed; --bg: #f2ecff; }
+.area-gym      { --c: #b45309; --bg: #fdf4e3; }
+.area-computer { --c: #0e7490; --bg: #e4f6fa; }
+.area-external { --c: #64748b; --bg: #f1f5f9; }
+.area-other    { --c: #4d5d7a; --bg: #eef1f6; }
+.schedule-views .btn[data-view]:not(.schedule-overview) { border-left: 5px solid var(--c, #ccd); }
+.schedule-views .btn[aria-pressed="true"]:not(.schedule-overview) { background: var(--c); color: #fff; border-color: var(--c); }
+.schedule-conflict .schedule-item { border-color: var(--err); }
+
+/* =========================================================
+ * 한국어학급: 담임교사·강사 구분, 칸 눌러 설정
+ * ========================================================= */
+.kc-who { display: inline-block; font-size: 12px; font-weight: 800; border-radius: 6px; padding: 1px 7px; color: #fff; background: #15306b; }
+.kc-who.i, .kc-item.i .kc-who { background: #c2410c; }
+.kc-staff { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; margin: 6px 0 14px; padding: 10px 14px; background: #f7f9fd; border-radius: 12px; }
+.kc-staff:empty { display: none; }
+.kc-staff input { width: 150px; }
+.kclass-grid { min-width: 720px; }
+.kclass-grid th:first-child { width: 64px; }
+.kclass-grid td { height: 92px; vertical-align: top; padding: 4px; }
+.kc-cell { all: unset; box-sizing: border-box; display: block; width: 100%; min-height: 84px; border-radius: 10px; padding: 4px; cursor: pointer; border: 1px dashed transparent; }
+.kc-cell:hover, .kc-cell:focus-visible { border-color: #15306b; background: #f3f6fc; }
+.kc-add { color: #9aa3b5; font-size: 13px; display: flex; height: 76px; align-items: center; justify-content: center; }
+.kc-item { border-radius: 8px; padding: 4px 6px; margin-bottom: 4px; font-size: 13px; line-height: 1.45; background: #eef2fa; border-left: 4px solid #15306b; }
+.kc-item.i { background: #fff1e8; border-left-color: #c2410c; }
+.kc-item b { margin-left: 4px; }
+.kc-stu { display: block; color: #1f2740; }
+.kc-dlg { width: min(900px, 96vw); }
+.kc-roles { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 8px 0 12px; }
+.kc-role { border: 1px solid #e3e7f0; border-radius: 12px; padding: 12px; border-top: 4px solid #15306b; }
+.kc-role.i { border-top-color: #c2410c; }
+.kc-role h3 { margin: 0 0 8px; font-size: 15px; }
+.kc-role label { display: block; margin-bottom: 8px; }
+.kc-pick { display: grid; gap: 4px; }
+.kc-prow { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.kc-g { width: 44px; font-size: 13px; font-weight: 700; color: #5b6478; }
+.kc-pick .chip-btn.taken:not(.on) { border-style: dashed; color: #9aa3b5; }
+.kc-role.i .chip-btn.on { background: #c2410c; border-color: #c2410c; }
+.kc-sel { font-size: 13px; color: #15306b; font-weight: 700; margin: 8px 0 0; }
+@media (max-width: 760px) { .kc-roles { grid-template-columns: 1fr; } }
+.schedule-item .nowrap { white-space: nowrap; }
