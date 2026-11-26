@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=202611270035">
+<link rel="stylesheet" href="style.css?v=202611270047">
 </head>
 <body>
 <header class="topbar">
@@ -52,6 +52,7 @@
   <button data-tab="kclass1" data-group="kclass">한국어학급 1</button>
   <button data-tab="kclass2" data-group="kclass">한국어학급 2</button>
   <button data-tab="kclass3" data-group="kclass">한국어학급 3</button>
+  <button data-tab="kmig" data-group="kclass">이주배경 학생</button>
   <button data-tab="ksl" data-group="act">② 한국어학급 연계</button>
   <button data-tab="data" data-group="data">클라우드·백업·내보내기</button>
   <button data-tab="stats1" data-group="stats" class="admin-tab">① 학생 현황</button>
@@ -60,6 +61,7 @@
   <button data-tab="stats4" data-group="stats">④ 전입·전출</button>
   <button data-tab="log" data-group="log">학교 일지 작성</button>
   <button data-tab="admin" data-group="admin">사용자 승인 관리</button>
+  <button data-tab="site" data-group="admin">홈페이지 관리</button>
 </nav>
 
 <main>
@@ -251,7 +253,7 @@
   </section>
   <section id="tab-stats3" class="tab">
     <div class="card"><h2>③ 이주배경학생 현황</h2>
-      <p class="hint">관리자와 한국어학급 담당 선생님이 고칠 수 있습니다. 비율과 총계는 자동 계산됩니다.</p>
+      <p class="hint">한국어 학급 › 이주배경 학생에 학생을 등록하면 이 숫자와 부모 출신국이 자동으로 바뀝니다. 직접 고칠 수도 있지만, 명단을 바꾸면 다시 계산됩니다.</p>
       <div id="stEditMigrant"></div></div>
   </section>
 
@@ -274,6 +276,22 @@
       <div class="card"><h2>이번 학년도 전입·전출</h2><div id="trList"></div></div>
     </div>
   </section>
+  <!-- 관리자 › 홈페이지 관리 (HOME 대표 사진) -->
+  <section id="tab-site" class="tab">
+    <div class="card">
+      <div class="card-head"><h2>HOME 대표 사진</h2><span id="siteCount" class="hint"></span></div>
+      <p class="hint">여기 등록한 사진이 HOME 첫 화면 오른쪽에서 차례로 바뀌며 나옵니다. 사진은 올릴 때 자동으로 알맞은 크기로 줄어듭니다. 학생 얼굴이 나오는 사진은 초상권 동의를 확인한 뒤 올려 주세요.</p>
+      <div id="siteDrop" class="site-drop">
+        <p>사진 파일을 여기로 끌어다 놓거나</p>
+        <button type="button" class="btn primary" id="siteUpload">사진 고르기</button>
+        <input type="file" id="siteFile" accept="image/*" multiple hidden>
+      </div>
+      <div class="row site-opts"><label>바뀌는 간격 <select id="siteInterval"><option value="4">4초</option><option value="6">6초</option><option value="8">8초</option><option value="10">10초</option><option value="15">15초</option></select></label>
+        <span id="siteStatus" class="hint" role="status"></span></div>
+      <ul id="sitePhotos" class="site-photos"></ul>
+    </div>
+  </section>
+
   <!-- 학교 일지 (관리자·교무부장 작성) -->
   <section id="tab-log" class="tab">
     <div class="grid2 log-page">
@@ -341,6 +359,21 @@
       <p id="kclassStatus3" role="status"></p>
     </div>
   </section>
+  <!-- 한국어 학급 › 이주배경 학생 (관리자·한국어학급 담당) -->
+  <section id="tab-kmig" class="tab">
+    <div class="schedule-layout km-layout">
+      <div class="card">
+        <h2>이주배경 학생</h2>
+        <p id="kmStatus" class="hint" role="status"></p>
+        <div id="kmMain"></div>
+      </div>
+      <aside class="card">
+        <h2>보기</h2>
+        <nav id="kmViews" class="km-views" aria-label="이주배경 학생 보기"></nav>
+      </aside>
+    </div>
+  </section>
+
   <section id="tab-ksl" class="tab">
     <div id="kslNotice"></div>
     <div class="card">
@@ -478,7 +511,7 @@
   <section id="tab-event" class="tab">
     <div class="act-layout">
       <div>
-        <p class="hint">날짜를 클릭해 행사를 등록하세요. 여러 날은 시작일을 고른 뒤 Shift를 누른 채 끝 날짜를 클릭하세요.</p>
+        <p class="hint">날짜를 눌러 고르세요. 2박 3일처럼 여러 날은 차례로 누르거나 Shift+클릭으로 범위를 고릅니다. 다시 누르면 빠지고, 달력 밖을 누르면 선택이 해제됩니다.</p>
         <div id="evCalendar" class="cal-grid"></div>
         <div class="card">
           <div class="card-head"><h2 id="evListTitle">교내행사</h2></div>
@@ -494,8 +527,7 @@
         <div class="card sticky-side">
           <div class="card-head"><h2 id="evFormTitle">교내행사 등록</h2><button class="btn small" id="evReset">새로 쓰기</button></div>
           <div class="form one">
-            <label>날짜 <input id="evStart" type="date"></label>
-            <label>여러 날이면 끝나는 날 <input id="evEnd" type="date"></label>
+            <div class="fld"><span class="fld-l">날짜</span><div id="evSel" class="ev-sel"></div></div>
             <label>행사명 <input id="evName" type="text" maxlength="40" placeholder="예: 입학식, 운동회, 학예회"></label>
           </div>
           <div class="fld"><span class="fld-l">시간</span><div class="seg" id="evHours"></div></div>
@@ -699,19 +731,21 @@
   <div id="cloudBody"></div>
 </dialog>
 
-<script src="data.js?v=202611270035"></script>
-<script src="app.js?v=202611270035"></script>
-<script src="features.js?v=202611270035"></script>
-<script src="cloud-config.js?v=202611270035"></script>
-<script src="cloud.js?v=202611270035"></script>
-<script src="activities.js?v=202611270035"></script>
-<script src="haksa.js?v=202611270035"></script>
-<script src="menus.js?v=202611270035"></script>
-<script src="schedule.js?v=202611270035"></script>
-<script src="kclass.js?v=202611270035"></script>
-<script src="home.js?v=202611270035"></script>
-<script src="status.js?v=202611270035"></script>
-<script src="log.js?v=202611270035"></script>
-<script src="transfer.js?v=202611270035"></script>
+<script src="data.js?v=202611270047"></script>
+<script src="app.js?v=202611270047"></script>
+<script src="features.js?v=202611270047"></script>
+<script src="cloud-config.js?v=202611270047"></script>
+<script src="cloud.js?v=202611270047"></script>
+<script src="activities.js?v=202611270047"></script>
+<script src="haksa.js?v=202611270047"></script>
+<script src="menus.js?v=202611270047"></script>
+<script src="schedule.js?v=202611270047"></script>
+<script src="kclass.js?v=202611270047"></script>
+<script src="home.js?v=202611270047"></script>
+<script src="status.js?v=202611270047"></script>
+<script src="log.js?v=202611270047"></script>
+<script src="transfer.js?v=202611270047"></script>
+<script src="migrant.js?v=202611270047"></script>
+<script src="site.js?v=202611270047"></script>
 </body>
 </html>

@@ -265,9 +265,9 @@
       const list = (items[ds] || []).slice().sort((a, b) => a.periods[0] - b.periods[0]);
       html += `<div class="aday ${cls}${ds === sel ? ' sel' : ''}${ds === today ? ' today' : ''}" data-ds="${ds}">
         <div class="aday-h"><span class="d">${d}</span></div>
-        ${info && info.name && info.type !== 'weekend' ? `<div class="chip haksa ${info.isSchool ? '' : 'off'}" title="학사일정: ${esc2(TYPE_LABEL[info.type] + ' · ' + info.name + (info.ev ? ` (1~${info.ev.hrs}교시)` : ''))}">📆 ${info.ev ? `1~${info.ev.hrs}교시 ` : ''}${esc2(info.name)}</div>` : ''}
+        ${info && info.name && info.type !== 'weekend' ? `<div class="chip haksa ${info.isSchool ? '' : 'off'}" title="학사일정: ${esc2(TYPE_LABEL[info.type] + ' · ' + info.name + (info.ev ? ` (1~${info.ev.hrs}교시)` : ''))}">${info.ev ? `1~${info.ev.hrs}교시 ` : ''}${calendarLabel(info.name)}</div>` : ''}
         ${list.map(it => `<div class="chip ${it.status}" data-id="${esc2(it.id)}" title="${esc2(`${ST[it.status]} · ${periodLabel(it.periods)} · ${it.title} · ${targetLabel(it.targets)}`)}">
-          ${kslHits(it).length ? '⚠' : ''}${esc2(periodLabel(it.periods))} ${esc2(it.title)}</div>`).join('')}
+          ${kslHits(it).length ? '⚠' : ''}<span class="cp">${esc2(periodLabel(it.periods))}</span> ${calendarLabel(it.title)}</div>`).join('')}
       </div>`;
     }
     $('actGrid').innerHTML = html;

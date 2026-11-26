@@ -441,11 +441,18 @@ function renderInfo() {
 /* =========================================================
  * 렌더링: ② 학사일정
  * ========================================================= */
+/* 달력 칸 글자: 의미 단위에서만 줄이 바뀌도록 (단어 중간 끊김 없음)
+ *  띄어쓰기 + 붙여 쓴 말의 뒤쪽 단위(방학식·대체공휴일·한마당 …) 앞에 줄바꿈 가능 지점(<wbr>)을 넣음 */
+const CAL_UNITS = ['현장체험학습', '대체공휴일', '재량휴업일', '체험학습', '공휴일', '휴업일', '방학식', '개학식', '졸업식', '입학식', '종업식', '시업식', '수료식',
+  '기념식', '방학', '개학', '운동회', '체육대회', '한마당', '발표회', '학예회', '수련회', '수학여행', '축제', '주간', '기념일', '선거일', '설명회', '총회', '상담',
+  '평가', '진단', '교육', '행사', '캠프', '여행', '대회', '캠페인', '연수', '공개수업', '수업', '협의회', '설날', '추석'];
+function calendarWord(w) {
+  if (w.length <= 3) return esc(w);
+  const u = CAL_UNITS.filter(x => w.length > x.length && w.endsWith(x)).sort((a, b) => b.length - a.length)[0];
+  return u ? calendarWord(w.slice(0, -u.length)) + '<wbr>' + esc(u) : esc(w);
+}
 function calendarLabel(name) {
-  const parts = { 겨울방학: ['겨울', '방학'], 여름방학: ['여름', '방학'], 어울림한마당: ['어울림', '한마당'] };
-  const grouped = Object.hasOwn(parts, name) ? parts[name] : null;
-  const words = grouped || name.split(/\s+/);
-  return words.map(esc).join(grouped ? '<br>' : ' ');
+  return String(name || '').trim().split(/\s+/).filter(Boolean).map(calendarWord).join(' ');
 }
 
 function renderCal() {

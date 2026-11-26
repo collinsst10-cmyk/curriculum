@@ -294,5 +294,10 @@
   document.addEventListener('kclass-change', refreshNav);
   document.addEventListener('roles-change', refreshNav);
   if (window.Cloud && Cloud.ready) subscribe();
-  window.SchoolStatus = { renderHome };
+  window.SchoolStatus = {
+    renderHome,
+    countries: Object.keys(ISO),
+    /** 학생 현황의 전체 학생 수 (반별 자료가 있으면 그 합) */
+    totalStudents: () => { const st = stats && stats.students; return st ? G6.reduce((t, i) => { const g = gradeSum(st, i); return t + g.m + g.f; }, 0) : 0; },
+  };
 })();

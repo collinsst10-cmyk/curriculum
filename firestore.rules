@@ -166,6 +166,33 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    // 이주배경 학생 명부(학생 이름 포함 = 개인정보). 관리자와 한국어학급 담당만 읽고 씀
+    match /migrantStudents/{id} {
+      allow read, delete: if isAdmin() || isKclassStaff();
+      allow create, update: if (isAdmin() || isKclassStaff())
+        && request.resource.data.keys().hasOnly(['grade', 'cls', 'no', 'name', 'country', 'type', 'updatedBy', 'updatedAt'])
+        && request.resource.data.grade is int && request.resource.data.grade >= 1 && request.resource.data.grade <= 6
+        && request.resource.data.cls is int && request.resource.data.cls >= 1 && request.resource.data.cls <= 20
+        && request.resource.data.no is int && request.resource.data.no >= 0 && request.resource.data.no <= 99
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 20
+        && request.resource.data.country is string && request.resource.data.country.size() <= 30
+        && request.resource.data.type in ['foreign', 'mid', 'domestic'];
+    }
+
+    // HOME 대표 사진(줄인 JPEG를 문서에 저장). 승인된 선생님은 보기, 관리자만 등록·삭제
+    match /heroPhotos/{id} {
+      allow read: if isApproved();
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasOnly(['data', 'order', 'createdAt'])
+        && request.resource.data.data is string && request.resource.data.data.size() < 1000000;
+      allow delete: if isAdmin();
+    }
+    // 홈페이지 설정(사진 바뀌는 간격 등). 관리자만 수정
+    match /config/site {
+      allow read: if isApproved();
+      allow write: if isAdmin();
+    }
+
     // 한국어학급 연계(담당 교사·조정 기록)
     match /config/ksl {
       allow read, write: if isApproved();
