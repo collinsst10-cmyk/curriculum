@@ -484,3 +484,25 @@ body { font-weight: 400; }
 .day .d { font-weight: 500; }
 .month-head, .card h2, .sec-title { font-weight: 700; }
 .hh-text h2, .hs-value { font-weight: 800; }
+
+/* 학사일정 입력창과 주간 시간표 */
+.cal-side { align-self: stretch; min-width: 0; }
+.cal-side .sticky {
+  top: calc(var(--hdr, 66px) + 66px);
+  max-height: calc(100dvh - var(--hdr, 66px) - 82px);
+  overflow-y: auto;
+}
+.cal-side .date-pick { max-height: 7rem; overflow-y: auto; }
+.day .n { overflow-wrap: normal; text-overflow: ellipsis; }
+.schedule-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.schedule-form label { display: grid; gap: 5px; }
+.schedule-form input[type="number"] { width: 5rem; }
+.schedule-grid { min-width: 600px; table-layout: fixed; margin-top: 12px; }
+.schedule-grid th:first-child { width: 55px; }
+.schedule-grid td { vertical-align: top; }
+.schedule-item { display: block; width: 100%; margin: 3px 0; text-align: left; white-space: normal; }
+#scheduleStatus { min-height: 1.3em; }
+@media (max-width: 1000px) {
+  #tab-cal .cal-layout { grid-template-columns: minmax(0, 1fr); }
+  .cal-side .sticky { max-height: none; overflow: visible; }
+}

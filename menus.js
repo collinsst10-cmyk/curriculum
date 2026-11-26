@@ -52,7 +52,7 @@
       list.forEach(x => {
         const al = (A[x.ds] || []).filter(t => t.status !== 'canceled');
         const tip = `${x.ds} ${TYPE_LABEL[x.type]}${x.name ? ' · ' + x.name : ''}` + al.map(t => `\n· ${t.kind} ${t.title} (${t.status === 'confirmed' ? '확정' : '신청'})`).join('');
-        html += `<div class="day ${x.type}${x.ds === today ? ' today' : ''}" title="${e2(tip)}"><span class="d">${x.d.getDate()}</span>${al.length ? `<span class="acts ${al.some(t => t.status === 'confirmed') ? 'c' : ''}">${al.length}</span>` : ''}<span class="n">${e2(x.name || (al[0] ? al[0].title : ''))}</span></div>`;
+        html += `<div class="day ${x.type}${x.ds === today ? ' today' : ''}" title="${e2(tip)}"><span class="d">${x.d.getDate()}</span>${al.length ? `<span class="acts ${al.some(t => t.status === 'confirmed') ? 'c' : ''}">${al.length}</span>` : ''}<span class="n">${calendarLabel(x.name || (al[0] ? al[0].title : ''))}</span></div>`;
       });
       html += '</div></div>';
     }

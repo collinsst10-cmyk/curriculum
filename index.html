@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=paperlogy-1">
+<link rel="stylesheet" href="style.css?v=calendar-timetable-1">
 </head>
 <body>
 <header class="topbar">
@@ -39,9 +39,10 @@
   <button data-tab="event" data-group="curr">③ 교내행사</button>
   <button data-tab="hours" data-group="curr">④ 시수 배정</button>
   <button data-tab="review" data-group="curr">⑤ 검토·확정</button>
-  <button data-tab="tt" data-group="tt">① 기초 시간표</button>
-  <button data-tab="run" data-group="tt">② 시수 운영 확인</button>
-  <button data-tab="jd" data-group="tt">③ 교과전담</button>
+  <button data-tab="schedule" data-group="tt">① 시간표 배치</button>
+  <button data-tab="tt" data-group="tt">② 기초 시간표</button>
+  <button data-tab="run" data-group="tt">③ 시수 운영 확인</button>
+  <button data-tab="jd" data-group="tt">④ 교과전담</button>
   <button data-tab="act" data-group="act">① 일정 신청·관리</button>
   <button data-tab="ksl" data-group="act">② 한국어학급 연계</button>
   <button data-tab="data" data-group="data">클라우드·백업·내보내기</button>
@@ -296,26 +297,19 @@
           <div class="fld"><span class="fld-l">구분</span>
             <div class="seg" id="edKind">
               <label class="tg"><input type="radio" name="edKind" value="closure" checked>재량휴업일</label>
-              <label class="tg"><input type="radio" name="edKind" value="event">교내행사</label>
               <label class="tg"><input type="radio" name="edKind" value="etc">기타</label>
-              <label class="tg del"><input type="radio" name="edKind" value="del">삭제</label>
             </div>
           </div>
-          <div id="edDelInfo" class="hint" hidden></div>
-          <div class="fld" id="edNameBox" hidden><span class="fld-l">내용</span><input id="edName" type="text" class="full" maxlength="40" placeholder="예: 입학식, 운동회"></div>
           <div class="fld" id="edEtcBox" hidden><span class="fld-l">기타</span>
             <div class="seg" id="edEtc">
               <label class="tg"><input type="radio" name="edEtc" value="clear" checked>입력 지우기</label>
               <label class="tg"><input type="radio" name="edEtc" value="school">수업일로 지정</label>
+              <label class="tg"><input type="radio" name="edEtc" value="exclude">자동 공휴일 제외</label>
             </div>
           </div>
           <button id="btnApply" class="btn primary" style="width:100%">적용</button>
           <div id="calSummary" class="mini-summary"></div>
-        </div>
-        <div class="card">
-          <h2>일정 목록 <span class="hint">(학사일정 + 교육활동)</span></h2>
           <div id="holidayWarn"></div>
-          <div class="list-wrap"><table class="tbl compact" id="tblEvents"></table></div>
           <button id="btnExportCal" class="btn small">학사일정 엑셀 저장</button>
         </div>
       </aside>
@@ -415,6 +409,29 @@
   </section>
 
   <!-- ⑦ 교과전담 -->
+  <section id="tab-schedule" class="tab">
+    <div class="card">
+      <h2>주간 시간표 배치</h2>
+      <p class="hint">같은 학년의 교시가 겹치거나 같은 시설을 동시에 사용하는 배치는 저장할 수 없습니다.</p>
+      <form id="scheduleForm" class="schedule-form">
+        <label>유형 <select name="kind"><option>전담과목</option><option>체육관</option><option>컴퓨터실</option><option>외부강의</option></select></label>
+        <label>과목·활동명 <input name="title" required maxlength="40" placeholder="예: 영어, 풍물"></label>
+        <label>학년 <select name="grade"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
+        <label>요일 <select name="weekday"><option value="0">월</option><option value="1">화</option><option value="2">수</option><option value="3">목</option><option value="4">금</option></select></label>
+        <label>시작 교시 <input name="start" type="number" min="1" max="8" value="1" required></label>
+        <label>끝 교시 <input name="end" type="number" min="1" max="8" value="1" required></label>
+        <button class="btn primary" type="submit">배치 저장</button>
+        <button class="btn" id="scheduleCancel" type="button" hidden>수정 취소</button>
+        <button class="btn" id="scheduleDelete" type="button" hidden>배치 삭제</button>
+      </form>
+      <p id="scheduleStatus" role="status"></p>
+    </div>
+    <div class="card">
+      <label>시간표 보기 <select id="scheduleGrade"><option value="">전체 학년</option><option value="1">1학년</option><option value="2">2학년</option><option value="3">3학년</option><option value="4">4학년</option><option value="5">5학년</option><option value="6">6학년</option></select></label>
+      <div class="tbl-scroll"><table class="tbl schedule-grid" id="scheduleGrid"></table></div>
+    </div>
+  </section>
+
   <section id="tab-jd" class="tab">
     <div class="card">
       <div class="card-head">
@@ -491,12 +508,13 @@
 </dialog>
 
 <script src="data.js?v=202611262145"></script>
-<script src="app.js?v=calendar-outside-click"></script>
+<script src="app.js?v=calendar-timetable-1"></script>
 <script src="features.js?v=202611262145"></script>
 <script src="cloud-config.js?v=202611262145"></script>
 <script src="cloud.js?v=202611262145"></script>
 <script src="activities.js?v=202611262145"></script>
 <script src="haksa.js?v=202611262145"></script>
-<script src="menus.js?v=202611262145"></script>
+<script src="menus.js?v=calendar-timetable-1"></script>
+<script src="schedule.js?v=1"></script>
 </body>
 </html>
