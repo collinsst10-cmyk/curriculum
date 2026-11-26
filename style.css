@@ -204,6 +204,11 @@ input:focus, select:focus { outline: 2px solid var(--primary-weak); border-color
 .ck .hint { margin: 4px 0 0; }
 #actSave:disabled { opacity: .45; cursor: not-allowed; }
 #actSave { width: 100%; padding: 10px; font-size: 14px; }
+.who { font-size: 13px; color: var(--muted); margin: 0 0 8px; }
+.who b { color: var(--navy); }
+.topbar .btn.bell { background: var(--gold); color: #3b2a00; border-color: var(--gold); font-weight: 700; animation: bell 1.2s ease-in-out 2; }
+.topbar .btn.bell[hidden] { display: none; }
+@keyframes bell { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-8deg); } 75% { transform: rotate(8deg); } }
 /* 단순화한 신청 양식: 눌러서 고르는 버튼 */
 .date-pick { border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px; background: #fafbfd; }
 .date-pick.set { border: 1px solid var(--primary); background: var(--primary-weak); color: var(--navy); }

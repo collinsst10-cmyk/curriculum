@@ -19,7 +19,9 @@
 
   let items = {};          // date -> [item]
   let unsubDays = null, unsubKsl = null, subYear = null;
-  let ksl = { slots: {} };
+  let ksl = { slots: {}, teachers: [] };
+  let notifyPrimed = false;   // 첫 불러오기 때는 윈도우 알림을 띄우지 않음
+  const SEEN_KEY = 'ksl-notified-ids';
   let month = null;        // Date (1일)
   let editing = null;      // { id, date } 수정 중인 일정
   let loaded = false;
@@ -30,7 +32,9 @@
   const classCount = g => Number(state.school.classes[g]) || 0;
   const allClasses = () => GRADES.flatMap(g => Array.from({ length: classCount(g) }, (_, i) => `${g}-${i + 1}`));
   const inter = (a, b) => a.filter(x => b.includes(x));
-  const me = () => Cloud.user ? { uid: Cloud.user.uid, email: (Cloud.user.email || '').toLowerCase(), name: Cloud.user.displayName || '' } : null;
+  // 기록자 이름은 본인이 매번 쓰지 않고, 가입(승인 요청) 때 등록한 이름을 씀
+  const me = () => Cloud.user ? { uid: Cloud.user.uid, email: Cloud.email, name: Cloud.profileName || '' } : null;
+  const isKslTeacher = () => Cloud.ready && (ksl.teachers || []).includes(Cloud.email);
   const canEdit = it => Cloud.isAdmin() || (me() && it.ownerUid === me().uid);
 
   /** "3-1, 3-2, 4" → ["3-1","3-2","4-1","4-2",...] */
@@ -114,19 +118,54 @@
       loaded = true;
       if (curTab === 'act') $('actNotice').innerHTML = '';
       refresh();
+      notifyNew();
     }, err => { console.warn(err); notice('일정을 불러오지 못했습니다: ' + err.message); });
     unsubKsl = F.onSnapshot(F.doc(db, 'config', 'ksl'), d => {
-      ksl = d.exists() ? { slots: d.data().slots || {} } : { slots: {} };
+      ksl = d.exists() ? { slots: d.data().slots || {}, teachers: d.data().teachers || [] } : { slots: {}, teachers: [] };
       refresh(true);
+      notifyNew();
     }, err => console.warn(err));
   }
   function stop() {
     if (unsubDays) unsubDays(); if (unsubKsl) unsubKsl();
-    unsubDays = unsubKsl = null; subYear = null; items = {}; loaded = false;
+    unsubDays = unsubKsl = null; subYear = null; items = {}; loaded = false; notifyPrimed = false;
+    updateBell();
   }
   function refresh(kslChanged) {
     if (curTab === 'act') { renderGrid(); renderList(); renderCheck(); }
-    if (curTab === 'ksl') { if (kslChanged) renderKslTable(); renderKslList(); }
+    if (curTab === 'ksl') { if (kslChanged) { renderKslTable(); renderKslTeachers(); } renderKslList(); }
+    updateBell();
+  }
+
+  /* ---------- 한국어학급 담당 교사 알림 ---------- */
+  /** 조정이 필요한(아직 완료 안 된, 오늘 이후) 일정 */
+  function pendingKsl() {
+    const today = fmt(new Date());
+    return Object.values(items).flat().filter(it => it.date >= today && !(it.kslAdjust && it.kslAdjust.done) && kslHits(it).length);
+  }
+  function updateBell() {
+    const bell = $('kslBell');
+    const n = isKslTeacher() ? pendingKsl().length : 0;
+    bell.hidden = !n;
+    $('kslBellN').textContent = n;
+  }
+  /** 새로 생긴 조정 필요 일정을 윈도우 알림으로 (담당 교사 + 이 PC에서 알림 허용 시) */
+  function notifyNew() {
+    if (!loaded || !isKslTeacher()) return;
+    const seen = new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || '[]'));
+    const fresh = pendingKsl().filter(it => !seen.has(it.id));
+    fresh.forEach(it => seen.add(it.id));
+    localStorage.setItem(SEEN_KEY, JSON.stringify([...seen].slice(-500)));
+    if (!notifyPrimed) { notifyPrimed = true; return; }
+    if (!fresh.length || !('Notification' in window) || Notification.permission !== 'granted') return;
+    fresh.forEach(it => {
+      const hits = kslHits(it);
+      const n = new Notification('한국어학급 시간표 조정 필요', {
+        body: `${fmtK(it.date)} ${periodLabel(it.periods)} ${it.title} (${it.ownerName || '등록자'})\n겹침: ${hits.map(h => h.p + '교시 ' + h.group).join(', ')}`,
+        icon: 'assets/emblem.png', tag: it.id,
+      });
+      n.onclick = () => { window.focus(); showTab('ksl'); n.close(); };
+    });
   }
   function notice(msg) { const el = $(curTab === 'ksl' ? 'kslNotice' : 'actNotice'); if (el) el.innerHTML = msg ? `<div class="notice">${esc2(msg)}</div>` : ''; }
 
@@ -223,7 +262,7 @@
   function renderList() {
     const list = monthItems();
     $('actListTitle').textContent = `${month.getMonth() + 1}월 교육활동 (${list.filter(x => x.status !== 'canceled').length}건)`;
-    $('actList').innerHTML = `<tr><th>날짜</th><th>교시</th><th>구분</th><th class="l">교육활동명</th><th>대상</th><th>상태</th><th>신청자</th><th></th></tr>` +
+    $('actList').innerHTML = `<tr><th>날짜</th><th>교시</th><th>구분</th><th class="l">교육활동명</th><th>대상</th><th>상태</th><th>기록자</th><th></th></tr>` +
       (list.length ? '' : '<tr><td colspan="8" class="hint">등록된 일정이 없습니다. 달력에서 날짜를 눌러 신청하세요.</td></tr>') +
       list.map(it => {
         const hits = kslHits(it), mine = canEdit(it);
@@ -317,12 +356,18 @@
     if (hits.length) msgs.push(`<div class="ck warn"><b>⚠ 한국어학급 시간과 겹칩니다.</b>${hits.map(h =>
       `<div>· ${h.p}교시 ${esc2(h.group)} (${esc2(h.classes.join(', '))} 학생)</div>`).join('')}
       <div class="hint">등록할 수 있지만, 해당 학생들이 활동에 참여하도록 한국어학급 시간을 조정해야 합니다. (② 한국어학급 연계에 자동 표시)</div></div>`);
+    if (hits.length && (ksl.teachers || []).length) msgs.push('<div class="ck info">🔔 등록하면 한국어학급 담당 선생님께 알림이 표시됩니다.</div>');
     if (!it.title) msgs.push('<div class="hint">교육활동명을 입력하세요.</div>');
     if (!it.periods.length) msgs.push('<div class="hint">교시를 하나 이상 고르세요.</div>');
     if (!it.targets.length) msgs.push('<div class="hint">대상 학급을 고르세요.</div>');
     if (!block && it.title && it.periods.length && it.targets.length && !c.length) msgs.unshift('<div class="ck ok">✅ 겹치는 일정이 없습니다.</div>');
     box.innerHTML = msgs.join('');
-    $('actSave').disabled = block || !it.title || !it.periods.length || !it.targets.length || !Cloud.ready;
+    const name = Cloud.profileName;
+    $('actWho').innerHTML = editing
+      ? `기록자: <b>${esc2(((items[editing.date] || []).find(x => x.id === editing.id) || {}).ownerName || '')}</b>`
+      : name ? `기록자: <b>${esc2(name)}</b> <span class="hint">(가입 때 등록한 이름)</span>`
+        : `<span class="neg">기록자 이름이 없습니다. <a href="#home">HOME</a>에서 이름을 등록하세요.</span>`;
+    $('actSave').disabled = block || !it.title || !it.periods.length || !it.targets.length || !Cloud.ready || (!editing && !name);
   }
 
   function resetForm(date) {
@@ -389,7 +434,33 @@
   function renderKsl() {
     subscribe();
     $('kslNotice').innerHTML = Cloud.ready ? '' : `<div class="notice">한국어학급 연계는 <b>승인된 계정으로 로그인</b>해야 사용할 수 있습니다.</div>`;
-    renderKslTable(); renderKslList();
+    renderKslTable(); renderKslTeachers(); renderKslList();
+  }
+
+  function renderKslTeachers() {
+    const t = ksl.teachers || [];
+    if (document.activeElement !== $('kslTeachers')) $('kslTeachers').value = t.join(', ');
+    const perm = 'Notification' in window ? Notification.permission : 'unsupported';
+    $('kslTeacherInfo').innerHTML = (t.length ? `등록된 담당 교사 ${t.length}명.` : '아직 담당 교사가 없습니다.') +
+      (isKslTeacher() ? ' <b>지금 로그인한 계정은 담당 교사입니다.</b>' : '') +
+      ` · 이 PC 윈도우 알림: ${perm === 'granted' ? '<b class="pos">켜짐</b>' : perm === 'denied' ? '<b class="neg">차단됨 (브라우저 주소창 왼쪽 자물쇠에서 허용)</b>' : perm === 'unsupported' ? '지원 안 됨' : '꺼짐'}`;
+  }
+
+  async function saveKslTeachers() {
+    if (!Cloud.ready) { alert('로그인 후 사용할 수 있습니다.'); return; }
+    const list = [...new Set($('kslTeachers').value.split(/[,\s;]+/).map(x => x.trim().toLowerCase()).filter(x => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x)))];
+    const { F } = Cloud.fb;
+    try {
+      await F.setDoc(F.doc(Cloud.fb.db, 'config', 'ksl'), { teachers: list, updatedBy: Cloud.email, updatedAt: F.serverTimestamp() }, { mergeFields: ['teachers', 'updatedBy', 'updatedAt'] });
+      alert(`담당 교사 ${list.length}명을 저장했습니다.`);
+    } catch (e) { alert('저장 실패: ' + e.message); }
+  }
+
+  async function enableNotify() {
+    if (!('Notification' in window)) { alert('이 브라우저는 윈도우 알림을 지원하지 않습니다.'); return; }
+    const p = await Notification.requestPermission();
+    renderKslTeachers();
+    if (p === 'granted') new Notification('알림이 켜졌습니다', { body: '한국어학급 시간과 겹치는 일정이 새로 등록되면 이렇게 알려 드립니다. (사이트가 열려 있을 때)', icon: 'assets/emblem.png' });
   }
 
   function renderKslTable() {
@@ -414,7 +485,7 @@
     });
     const { F } = Cloud.fb;
     try {
-      await F.setDoc(F.doc(Cloud.fb.db, 'config', 'ksl'), { slots, updatedBy: me().email, updatedAt: F.serverTimestamp() });
+      await F.setDoc(F.doc(Cloud.fb.db, 'config', 'ksl'), { slots, updatedBy: me().email, updatedAt: F.serverTimestamp() }, { mergeFields: ['slots', 'updatedBy', 'updatedAt'] });
       alert('한국어학급 시간표를 저장했습니다.');
     } catch (e) { alert('저장 실패: ' + e.message); }
   }
@@ -477,6 +548,9 @@
     renderForm(); renderCheck();
   });
   $('kslSave').onclick = saveKsl;
+  $('kslTeachersSave').onclick = saveKslTeachers;
+  $('kslNotifyOn').onclick = enableNotify;
+  $('kslBell').onclick = () => showTab('ksl');
   $('kslShowDone').onchange = renderKslList;
   $('kslTable').addEventListener('input', e => {
     if (!e.target.classList.contains('ksl-t')) return;

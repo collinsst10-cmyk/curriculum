@@ -21,6 +21,7 @@
   let user = null;
   let access = 'unknown';   // unknown | signedout | none | pending | approved
   let admin = false;
+  let profileName = '';     // 가입 때 등록한 이름
   let cur = null;           // { id, meta, unsub }
   let pushTimer = null, lastPushed = null;
 
@@ -44,6 +45,8 @@
     get fb() { return fb; },
     get user() { return user; },
     get configured() { return !!window.FIREBASE_CONFIG && !fbFailed; },
+    get profileName() { return profileName; },
+    get email() { return myEmail(); },
     isAdmin: () => admin,
   };
 
@@ -54,7 +57,7 @@
   const D = (...p) => fb.F.doc(fb.db, ...p);
 
   function refreshUi() {
-    $('btnCloud').textContent = user ? '☁ ' + (user.displayName || myEmail()).split(' ')[0] : '☁ 로그인';
+    $('btnCloud').textContent = user ? '☁ ' + (profileName || user.displayName || myEmail()).split(' ')[0] : '☁ 로그인';
     $('navAdmin').hidden = !admin;
     $('homeAdmin').hidden = !admin;
     document.dispatchEvent(new Event('cloud-change'));
@@ -97,12 +100,26 @@
 
   async function checkAccess() {
     const F = fb.F, e = myEmail();
-    const safe = p => p.then(s => s.exists()).catch(() => false);
-    const [isAdm, isAllowed, isReq] = await Promise.all([
+    const safe = p => p.catch(() => null);
+    const [a, al, rq] = await Promise.all([
       safe(F.getDoc(D('admins', e))), safe(F.getDoc(D('allowed', e))), safe(F.getDoc(D('requests', e))),
     ]);
+    const isAdm = !!(a && a.exists()), isAllowed = !!(al && al.exists()), isReq = !!(rq && rq.exists());
     admin = isAdm;
+    // 가입(승인 요청) 때 등록한 이름. 기록자 이름으로 쓰임
+    profileName = isAllowed ? (al.data().name || '') : isReq ? (rq.data().name || '') : '';
     access = isAdm || isAllowed ? 'approved' : isReq ? 'pending' : 'none';
+  }
+
+  /** 내 표시 이름 저장 (본인은 이름만 고칠 수 있음, 관리자는 허용 문서가 없으면 새로 만듦) */
+  async function saveMyName(name) {
+    name = String(name || '').trim().slice(0, 30);
+    if (!name) { alert('이름을 입력하세요.'); return false; }
+    const F = fb.F;
+    await F.setDoc(D('allowed', myEmail()), admin ? { email: myEmail(), name, addedBy: myEmail(), addedAt: F.serverTimestamp() } : { name }, { merge: true });
+    profileName = name;
+    refreshUi();
+    return true;
   }
 
   /* ---------- 저장 ---------- */
@@ -214,8 +231,11 @@
     await fb.A.signOut(fb.auth);
   }
 
-  async function requestAccess() {
-    await fb.F.setDoc(D('requests', myEmail()), { email: myEmail(), name: user.displayName || '', requestedAt: fb.F.serverTimestamp() });
+  async function requestAccess(name) {
+    name = String(name || '').trim().slice(0, 30);
+    if (!name) { alert('이름(실명)을 입력하세요. 일정 기록자 이름으로 표시됩니다.'); return; }
+    await fb.F.setDoc(D('requests', myEmail()), { email: myEmail(), name, requestedAt: fb.F.serverTimestamp() });
+    profileName = name;
     access = 'pending'; setStatus('☁ 승인 대기 중'); refreshUi();
   }
 
@@ -230,15 +250,22 @@
       el.innerHTML = `<div class="gate"><b>로그인이 필요합니다.</b><p>관리자의 승인을 받은 구글 계정으로 로그인하세요.</p>
         <button class="btn primary" data-act="login">Google 계정으로 로그인</button></div>`;
     } else if (access === 'none') {
-      el.innerHTML = `<div class="gate warn"><b>${esc(myEmail())}</b> 계정은 아직 사용 승인을 받지 않았습니다.
-        <p>아래 버튼으로 승인을 요청하면 관리자가 확인 후 허용합니다.</p>
-        <div class="row"><button class="btn primary" data-act="request">사용 승인 요청</button><button class="btn small" data-act="logout">다른 계정으로 로그인</button></div></div>`;
+      el.innerHTML = `<div class="gate warn"><b>사용 등록(가입)</b>
+        <p>${esc(myEmail())} 계정은 아직 등록되지 않았습니다. 이름을 입력하고 승인을 요청하면 관리자가 확인 후 허용합니다. 입력한 이름은 일정을 등록할 때 <b>기록자</b>로 표시됩니다.</p>
+        <div class="row"><input id="gateName" type="text" maxlength="30" placeholder="이름(실명) 예: 홍길동" value="${esc(user.displayName || '')}">
+        <button class="btn primary" data-act="request">사용 승인 요청</button></div>
+        <div class="row" style="margin-top:6px"><button class="btn small" data-act="logout">다른 계정으로 로그인</button></div></div>`;
     } else if (access === 'pending') {
-      el.innerHTML = `<div class="gate warn"><b>승인 대기 중입니다.</b><p>${esc(myEmail())} — 관리자가 승인하면 이용할 수 있습니다. 승인 후 새로고침하세요.</p>
+      el.innerHTML = `<div class="gate warn"><b>승인 대기 중입니다.</b><p>${esc(profileName)} (${esc(myEmail())}) — 관리자가 승인하면 이용할 수 있습니다.</p>
         <div class="row"><button class="btn small" data-act="recheck">승인 여부 다시 확인</button><button class="btn small" data-act="logout">로그아웃</button></div></div>`;
+    } else if (!profileName) {
+      el.innerHTML = `<div class="gate warn"><b>이름을 등록해 주세요.</b><p>일정을 등록할 때 기록자로 표시될 이름입니다.</p>
+        <div class="row"><input id="gateName" type="text" maxlength="30" placeholder="이름(실명)" value="${esc(user.displayName || '')}">
+        <button class="btn primary" data-act="setname">저장</button></div></div>`;
     } else {
-      el.innerHTML = `<div class="gate ok">✅ <b>${esc(user.displayName || myEmail())}</b>님 ${admin ? '(관리자)' : ''}
-        <p>${cur ? `열린 문서: <b>${esc(cur.meta.title)}</b>` : '열린 클라우드 문서가 없습니다. <a href="#data">자료 관리</a>에서 문서를 만들거나 여세요.'}</p></div>`;
+      el.innerHTML = `<div class="gate ok">✅ <b>${esc(profileName)}</b> 선생님 ${admin ? '(관리자)' : ''}
+        <p>${cur ? `열린 문서: <b>${esc(cur.meta.title)}</b>` : '열린 클라우드 문서가 없습니다. <a href="#data">자료 관리</a>에서 문서를 만들거나 여세요.'}
+        · <a href="#" data-act="rename">이름 변경</a></p></div>`;
     }
     el.onclick = gateAction;
   }
@@ -248,7 +275,9 @@
     try {
       if (b.dataset.act === 'login') await login();
       else if (b.dataset.act === 'logout') await logout();
-      else if (b.dataset.act === 'request') await requestAccess();
+      else if (b.dataset.act === 'request') await requestAccess($('gateName').value);
+      else if (b.dataset.act === 'setname') await saveMyName($('gateName').value);
+      else if (b.dataset.act === 'rename') { e.preventDefault(); const v = prompt('기록자로 표시될 이름', profileName); if (v !== null) await saveMyName(v); }
       else if (b.dataset.act === 'recheck') { await checkAccess(); if (access === 'approved') await onAuth(user); else { alert('아직 승인되지 않았습니다.'); refreshUi(); } }
     } catch (err) { alert('실패: ' + err.message); }
   }
@@ -318,7 +347,7 @@
       <div class="card"><div class="card-head"><h2>허용된 사용자</h2></div>
         <div class="row" style="margin-bottom:10px">
           <input id="admEmail" type="email" placeholder="추가할 구글 이메일" style="width:260px">
-          <input id="admMemo" type="text" placeholder="메모 (예: 3학년 부장)" style="width:200px">
+          <input id="admMemo" type="text" placeholder="이름(실명)" style="width:160px">
           <button class="btn primary small" data-a="add">직접 추가</button>
         </div>
         <div id="admAllowed" class="hint">불러오는 중…</div>
@@ -335,8 +364,10 @@
           <button class="btn small danger" data-a="reject" data-e="${esc(r.id)}">거절</button></td></tr>`).join('') + '</table>'
         : '대기 중인 요청이 없습니다.';
       $('admAllowed').classList.remove('hint');
-      $('admAllowed').innerHTML = allowed.length ? `<table class="tbl compact"><tr><th class="l">이메일</th><th>이름·메모</th><th>승인자</th><th>승인 시각</th><th></th></tr>` +
-        allowed.map(a => `<tr><td class="l">${esc(a.id)}</td><td>${esc(a.name || '')}</td><td>${esc(a.addedBy || '')}</td><td class="num">${fmtTime(a.addedAt)}</td>
+      $('admAllowed').innerHTML = allowed.length ? `<table class="tbl compact"><tr><th class="l">이메일</th><th>이름 (기록자 표시)</th><th>승인자</th><th>승인 시각</th><th></th></tr>` +
+        allowed.map(a => `<tr><td class="l">${esc(a.id)}</td>
+          <td><input class="adm-name" data-e="${esc(a.id)}" value="${esc(a.name || '')}" style="width:110px"><button class="btn small" data-a="rename" data-e="${esc(a.id)}">저장</button></td>
+          <td>${esc(a.addedBy || '')}</td><td class="num">${fmtTime(a.addedAt)}</td>
           <td><button class="btn small danger" data-a="revoke" data-e="${esc(a.id)}">승인 해제</button></td></tr>`).join('') + '</table>'
         : '아직 허용된 사용자가 없습니다. (관리자는 별도로 항상 허용)';
     } catch (e) { el.insertAdjacentHTML('afterbegin', `<div class="notice">불러오기 실패: ${esc(e.message)}</div>`); }
@@ -354,6 +385,10 @@
         } else if (b.dataset.a === 'revoke') {
           if (!confirm(`${email} 의 사용 승인을 해제합니다. 이 사람은 더 이상 클라우드 문서를 열 수 없습니다. 계속할까요?`)) return;
           await F.deleteDoc(D('allowed', email));
+        } else if (b.dataset.a === 'rename') {
+          const v = el.querySelector(`.adm-name[data-e="${CSS.escape(email)}"]`).value.trim();
+          await F.setDoc(D('allowed', email), { name: v }, { merge: true });
+          if (email === myEmail()) { profileName = v; refreshUi(); }
         } else if (b.dataset.a === 'add') {
           const v = $('admEmail').value.trim().toLowerCase();
           if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) { alert('이메일 형식을 확인하세요.'); return; }
