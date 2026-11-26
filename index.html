@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=kclass-1">
+<link rel="stylesheet" href="style.css?v=kclass-schedule-3">
 </head>
 <body>
 <header class="topbar">
@@ -458,23 +458,34 @@
   <!-- ⑦ 교과전담 -->
   <section id="tab-schedule" class="tab">
     <div class="schedule-layout">
-      <div class="card">
+      <div class="card schedule-main">
         <h2 id="scheduleTitle">통합 시간표</h2>
+        <p class="hint" id="scheduleGuide"></p>
       <label>시간표 보기 <select id="scheduleGrade"><option value="">전체 학년</option><option value="1">1학년</option><option value="2">2학년</option><option value="3">3학년</option><option value="4">4학년</option><option value="5">5학년</option><option value="6">6학년</option></select></label>
       <div class="tbl-scroll"><table class="tbl schedule-grid" id="scheduleGrid"></table></div>
       </div>
       <aside class="card">
         <h2>설정</h2>
         <nav class="schedule-views" id="scheduleViews" aria-label="시간표 영역">
-          <button class="btn" data-view="all">통합 시간표</button>
-          <button class="btn" data-view="english">영어</button>
-          <button class="btn" data-view="science">과학</button>
-          <button class="btn" data-view="gym">체육관 사용</button>
-          <button class="btn" data-view="computer">컴퓨터실 사용</button>
-          <button class="btn" data-view="external">외부강의</button>
-          <button class="btn" data-view="other">기타 전담</button>
+          <button class="btn schedule-overview" data-view="all">통합 시간표</button>
+          <div class="schedule-group"><h3>전담과목</h3>
+            <button class="btn" data-view="english">영어</button>
+            <button class="btn" data-view="science">과학</button>
+            <button class="btn" data-view="other" hidden>기타 전담</button>
+          </div>
+          <div class="schedule-group"><h3>외부강의</h3>
+            <button class="btn" data-view="pungmul">풍물</button>
+            <button class="btn" data-view="gugak">국악</button>
+            <button class="btn" data-view="tutor">디지털튜터</button>
+            <button class="btn" data-view="external" hidden>기타 외부강의</button>
+          </div>
+          <div class="schedule-group"><h3>시설 사용</h3>
+            <button class="btn" data-view="gym">체육관 사용</button>
+            <button class="btn" data-view="computer">컴퓨터실 사용</button>
+          </div>
         </nav>
       <form id="scheduleForm" class="schedule-form" hidden>
+        <p id="scheduleSelected"></p>
         <label hidden>유형 <select name="kind"><option>전담과목</option><option>체육관</option><option>컴퓨터실</option><option>외부강의</option></select></label>
         <label>과목·활동명 <input name="title" required maxlength="40" placeholder="예: 영어, 풍물"></label>
         <label>학년 <select name="grade"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
@@ -482,7 +493,7 @@
         <label>시작 교시 <input name="start" type="number" min="1" max="8" value="1" required></label>
         <label>끝 교시 <input name="end" type="number" min="1" max="8" value="1" required></label>
         <button class="btn primary" type="submit">배치 저장</button>
-        <button class="btn" id="scheduleCancel" type="button" hidden>수정 취소</button>
+        <button class="btn" id="scheduleCancel" type="button" hidden>취소</button>
         <button class="btn" id="scheduleDelete" type="button" hidden>배치 삭제</button>
       </form>
       <p id="scheduleStatus" role="status"></p>
@@ -573,7 +584,7 @@
 <script src="activities.js?v=kclass-1"></script>
 <script src="haksa.js?v=202611262145"></script>
 <script src="menus.js?v=calendar-layout-2"></script>
-<script src="schedule.js?v=2"></script>
+<script src="schedule.js?v=3"></script>
 <script src="kclass.js?v=1"></script>
 </body>
 </html>
