@@ -1,12 +1,19 @@
 'use strict';
 
+function scheduleFacility(entry) {
+  if (entry.kind === '체육관' || entry.kind === '컴퓨터실') return entry.kind;
+  if (entry.kind === '외부강의' && entry.title.replace(/\s+/g, '') === '디지털튜터') return '컴퓨터실';
+  return '';
+}
+
 function scheduleConflict(entries, candidate, editing) {
-  const facilities = ['체육관', '컴퓨터실'];
+  const facility = scheduleFacility(candidate);
   return entries.find((entry, index) => index !== editing && entry.year === candidate.year &&
     entry.weekday === candidate.weekday &&
     entry.start <= candidate.end && candidate.start <= entry.end &&
-    (entry.grade === candidate.grade ||
-      (entry.kind === candidate.kind && facilities.includes(entry.kind))));
+    ((entry.grade === candidate.grade &&
+      (!entry.classNo || !candidate.classNo || entry.classNo === candidate.classNo)) ||
+      (facility && scheduleFacility(entry) === facility)));
 }
 
 (() => {
@@ -59,6 +66,19 @@ function scheduleConflict(entries, candidate, editing) {
   }
 
 
+  function renderClassOptions(preferred = form.elements.namedItem('classNo').value) {
+    const list = form.elements.namedItem('classNo');
+    const grade = form.elements.namedItem('grade').value;
+    const count = Number(state.school.classes[grade]) || 0;
+    list.innerHTML = '<option value="">반 선택</option>';
+    for (let n = 1; n <= count; n++) list.add(new Option(n + '반', n));
+    list.value = Number(preferred) >= 1 && Number(preferred) <= count ? String(preferred) : '';
+  }
+
+  function classLabel(entry) {
+    return entry.grade + '학년' + (entry.classNo ? ' ' + entry.classNo + '반' : ' 전체');
+  }
+
   function render() {
     if (currentState !== state || currentYear !== state.school.year) {
       currentState = state;
@@ -83,11 +103,11 @@ function scheduleConflict(entries, candidate, editing) {
         select.value = select === gradeFilter ? '' : String(minGrade);
       }
     }
+    renderClassOptions();
     const title = form.elements.namedItem('title');
-    const fixedTitle = ['english', 'science', 'pungmul', 'gugak', 'tutor'].includes(view);
+    const fixedTitle = Boolean(views[view][2]);
     title.readOnly = fixedTitle;
     title.closest('label').hidden = fixedTitle;
-    $('scheduleSelected').textContent = selected ? days[selected.weekday] + '요일 ' + selected.period + '교시' : '';
     $('scheduleCancel').hidden = !selected;
     for (const key of ['other', 'external']) {
       $('scheduleViews').querySelector('[data-view="' + key + '"]').hidden =
@@ -98,7 +118,7 @@ function scheduleConflict(entries, candidate, editing) {
     });
     const grade = Number($('scheduleGrade').value);
     const placements = state.schedule.map((entry, index) => ({ ...entry, index }))
-      .filter(entry => entry.year === state.school.year && (!grade || entry.grade === grade) && (view === 'all' || (entry.grade >= minGrade && areaOf(entry) === view)));
+      .filter(entry => entry.year === state.school.year && (!grade || entry.grade === grade) && (view === 'all' || (entry.grade >= minGrade && (areaOf(entry) === view || (view === 'computer' && scheduleFacility(entry) === '컴퓨터실')))));
     grid.innerHTML = '<tr><th>교시</th>' + days.map(day => `<th>${day}</th>`).join('') + '</tr>';
     for (let period = 1; period <= 8; period++) {
       grid.insertAdjacentHTML('beforeend', `<tr><th>${period}</th>${days.map((_, weekday) => {
@@ -111,7 +131,7 @@ function scheduleConflict(entries, candidate, editing) {
         return `<td class="${marked ? 'schedule-conflict' : ''}${selected?.weekday === weekday && selected.period === period ? ' schedule-selected' : ''}" ${view !== 'all' ? `data-slot="${weekday}:${period}"` : ''}><div class="schedule-square">
           ${marked ? '<span class="pill err">중복</span>' : ''}
           ${cells.map(entry => `<button class="btn schedule-item" data-entry="${entry.index}"
-          title="${esc(entry.kind)} · ${entry.start}~${entry.end}교시">${entry.grade}학년 · ${esc(entry.title)}</button>`).join('')}
+          title="${esc(entry.kind)} · ${entry.start}~${entry.end}교시">${classLabel(entry)} · ${esc(entry.title)}</button>`).join('')}
           ${view !== 'all' ? `<button class="schedule-slot" type="button" aria-label="${days[weekday]}요일 ${period}교시 배치">+</button>` : ''}
         </div></td>`;
       }).join('')}</tr>`);
@@ -124,23 +144,25 @@ function scheduleConflict(entries, candidate, editing) {
     const fields = new FormData(form);
     const candidate = {
       year: state.school.year, kind: fields.get('kind'), title: fields.get('title').trim(),
-      grade: Number(fields.get('grade')), weekday: Number(fields.get('weekday')),
-      start: Number(fields.get('start')), end: Number(fields.get('end')),
+      grade: Number(fields.get('grade')), classNo: Number(fields.get('classNo')),
+      weekday: selected.weekday, start: selected.period,
+      end: editing < 0 ? selected.period : state.schedule[editing].end,
     };
-    if (['english', 'science', 'pungmul', 'gugak', 'tutor'].includes(view)) candidate.title = views[view][2];
+    if (Boolean(views[view][2])) candidate.title = views[view][2];
     if (candidate.grade < minimumGrade(areaOf(candidate))) {
       status.textContent = '이 활동은 3~6학년만 배치할 수 있습니다.';
       return;
     }
-    if (!candidate.title || candidate.start > candidate.end) {
-      status.textContent = '활동명과 시작·끝 교시를 확인해 주세요.';
+    if (!candidate.title || !Number.isInteger(candidate.classNo) || candidate.classNo < 1 ||
+      candidate.classNo > (Number(state.school.classes[candidate.grade]) || 0)) {
+      status.textContent = '학교 정보에 등록된 학년과 반을 선택해 주세요.';
       return;
     }
     const conflict = scheduleConflict(state.schedule, candidate, editing);
     if (conflict) {
       rejected = candidate;
       render();
-      status.textContent = `${days[conflict.weekday]}요일 ${conflict.start}~${conflict.end}교시 ${conflict.grade}학년 ${conflict.title} 배치와 겹칩니다.`;
+      status.textContent = `${days[conflict.weekday]}요일 ${conflict.start}~${conflict.end}교시 ${classLabel(conflict)} ${conflict.title} 배치와 겹칩니다.`;
       return;
     }
     if (editing < 0) state.schedule.push(candidate);
@@ -166,9 +188,6 @@ function scheduleConflict(entries, candidate, editing) {
       reset();
       const [weekday, period] = slot.dataset.slot.split(':');
       selected = { weekday: Number(weekday), period: Number(period) };
-      form.elements.namedItem('weekday').value = weekday;
-      form.elements.namedItem('start').value = period;
-      form.elements.namedItem('end').value = period;
       const grade = $('scheduleGrade').value;
       if (grade) form.elements.namedItem('grade').value = grade;
       render();
@@ -183,10 +202,11 @@ function scheduleConflict(entries, candidate, editing) {
     selected = { weekday: entry.weekday, period: entry.start };
     rejected = null;
     render();
-    for (const key of ['kind', 'title', 'grade', 'weekday', 'start', 'end']) {
+    for (const key of ['kind', 'title', 'grade']) {
       form.elements.namedItem(key).value = entry[key];
     }
     if (entry.grade < minimumGrade(view)) form.elements.namedItem('grade').value = String(minimumGrade(view));
+    renderClassOptions(entry.classNo);
     $('scheduleCancel').hidden = false;
     $('scheduleDelete').hidden = false;
     status.textContent = '선택한 배치를 수정하고 있습니다.';
@@ -202,6 +222,7 @@ function scheduleConflict(entries, candidate, editing) {
     reset();
     render();
   });
+  form.elements.namedItem('grade').addEventListener('change', () => renderClassOptions(''));
   $('scheduleGrade').addEventListener('change', render);
   RENDER.schedule = () => { view = 'all'; reset(); render(); };
 })();

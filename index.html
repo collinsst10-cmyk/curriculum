@@ -485,13 +485,10 @@
           </div>
         </nav>
       <form id="scheduleForm" class="schedule-form" hidden>
-        <p id="scheduleSelected"></p>
         <label hidden>유형 <select name="kind"><option>전담과목</option><option>체육관</option><option>컴퓨터실</option><option>외부강의</option></select></label>
         <label>과목·활동명 <input name="title" required maxlength="40" placeholder="예: 영어, 풍물"></label>
         <label>학년 <select name="grade"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
-        <label>요일 <select name="weekday"><option value="0">월</option><option value="1">화</option><option value="2">수</option><option value="3">목</option><option value="4">금</option></select></label>
-        <label>시작 교시 <input name="start" type="number" min="1" max="8" value="1" required></label>
-        <label>끝 교시 <input name="end" type="number" min="1" max="8" value="1" required></label>
+        <label>반 <select name="classNo" required></select></label>
         <button class="btn primary" type="submit">배치 저장</button>
         <button class="btn" id="scheduleCancel" type="button" hidden>취소</button>
         <button class="btn" id="scheduleDelete" type="button" hidden>배치 삭제</button>
@@ -584,7 +581,7 @@
 <script src="activities.js?v=kclass-1"></script>
 <script src="haksa.js?v=202611262145"></script>
 <script src="menus.js?v=calendar-layout-2"></script>
-<script src="schedule.js?v=3"></script>
+<script src="schedule.js?v=4"></script>
 <script src="kclass.js?v=1"></script>
 </body>
 </html>
