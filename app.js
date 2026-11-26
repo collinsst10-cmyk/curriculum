@@ -144,7 +144,7 @@ function normalize(s) {
  * ========================================================= */
 const isTeacherView = () => !!(window.App && App.role && App.role() === 'teacher');
 // 선생님에게는 조회만 되는 화면
-const RO_SECTIONS = ['tab-school', 'tab-cal', 'tab-event', 'tab-hours', 'tab-review', 'tab-tt', 'tab-run', 'tab-jd', 'tab-schedule'];
+const RO_SECTIONS = ['tab-school', 'tab-env', 'tab-cal', 'tab-event', 'tab-hours', 'tab-review', 'tab-tt', 'tab-run', 'tab-jd', 'tab-schedule'];
 function applyRoleView() {
   const t = isTeacherView();
   document.body.classList.toggle('role-teacher', t);
