@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>초등 학교교육과정 편성 도우미</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="#home" title="HOME">
+    <h1>교육과정 편성 도우미</h1>
+    <span id="hdrSchool" class="sub"></span>
+  </a>
+  <nav class="mainnav" id="mainNav">
+    <button data-go="home">HOME</button>
+    <button data-go="curr">교육과정 편성</button>
+    <button data-go="tt">시간표 편성</button>
+    <button data-go="data">자료 관리</button>
+    <button data-go="admin" id="navAdmin" hidden>관리자</button>
+  </nav>
+  <div class="actions">
+    <span id="saveState" class="save-state">자동 저장됨</span>
+    <span id="cloudState" class="save-state"></span>
+    <button id="btnCloud" class="btn cloud">☁ 로그인</button>
+    <button id="btnPrint" class="btn">인쇄</button>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button data-tab="info" data-group="curr">① 기본 정보</button>
+  <button data-tab="cal" data-group="curr">② 학사일정</button>
+  <button data-tab="days" data-group="curr">③ 수업일수·주차</button>
+  <button data-tab="hours" data-group="curr">④ 시수 배정</button>
+  <button data-tab="table" data-group="curr">⑤ 편제표·검토</button>
+  <button data-tab="tt" data-group="tt">① 기초 시간표</button>
+  <button data-tab="run" data-group="tt">② 시수 운영 확인</button>
+  <button data-tab="jd" data-group="tt">③ 교과전담</button>
+  <button data-tab="data" data-group="data">클라우드·백업·내보내기</button>
+  <button data-tab="admin" data-group="admin">사용자 승인 관리</button>
+</nav>
+
+<main>
+  <!-- HOME -->
+  <section id="tab-home" class="tab">
+    <div class="hero">
+      <div>
+        <h2 id="homeTitle">초등 학교교육과정 편성 도우미</h2>
+        <p id="homeSub" class="hint">학사일정부터 시수 배정, 시간표, 편제표까지 한 곳에서 계획합니다.</p>
+      </div>
+      <div id="homeGate"></div>
+    </div>
+    <div id="homeKpi" class="kpis"></div>
+    <div class="menu-grid" id="homeMenu">
+      <button class="menu-card" data-go="curr">
+        <span class="mc-ico">📅</span><b>교육과정 편성</b>
+        <span>기본 정보 · 학사일정 · 수업일수·주차 · 시수 배정 · 편제표·검토</span>
+      </button>
+      <button class="menu-card" data-go="tt">
+        <span class="mc-ico">🗓️</span><b>시간표 편성</b>
+        <span>기초 시간표 · 시수 운영 확인(연간 시수표) · 교과전담</span>
+      </button>
+      <button class="menu-card" data-go="data">
+        <span class="mc-ico">☁️</span><b>자료 관리</b>
+        <span>클라우드 문서 · 공동 편집 · 백업 · 엑셀 내보내기</span>
+      </button>
+      <button class="menu-card" data-go="admin" id="homeAdmin" hidden>
+        <span class="mc-ico">🔐</span><b>관리자</b>
+        <span>사용 승인 요청 처리 · 허용 사용자 관리</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- 자료 관리 -->
+  <section id="tab-data" class="tab">
+    <div class="card">
+      <h2>클라우드 문서</h2>
+      <div id="dataCloud"></div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h2>백업</h2>
+        <p class="hint">현재 화면의 모든 입력을 JSON 파일로 저장하거나 불러옵니다. 학기마다 받아 두면 안전합니다.</p>
+        <div class="row">
+          <button id="btnExportJson" class="btn">백업 저장(JSON)</button>
+          <label class="btn">백업 불러오기<input type="file" id="fileImport" accept=".json" hidden></label>
+        </div>
+      </div>
+      <div class="card">
+        <h2>엑셀 내보내기</h2>
+        <div class="row">
+          <button class="btn small" data-proxy="btnExportCal">학사일정</button>
+          <button class="btn small" data-proxy="btnExportWeeks">주차표</button>
+          <button class="btn small" data-proxy="btnExportTable">편제표</button>
+          <button class="btn small" data-proxy="btnExportRun">연간 시수표</button>
+        </div>
+      </div>
+    </div>
+    <div class="card danger-zone">
+      <h2>초기화</h2>
+      <p class="hint">이 화면의 모든 입력을 지우고 처음 상태로 되돌립니다. 클라우드 문서를 열어 둔 상태라면 클라우드 문서도 초기화된 내용으로 저장됩니다.</p>
+      <button id="btnReset" class="btn danger">전체 초기화</button>
+    </div>
+  </section>
+
+  <!-- 관리자 -->
+  <section id="tab-admin" class="tab">
+    <div id="adminBody"></div>
+  </section>
+
+  <!-- ① 기본 정보 -->
+  <section id="tab-info" class="tab">
+    <div class="grid2">
+      <div class="card">
+        <h2>학교 정보</h2>
+        <div class="form">
+          <label>학교명 <input id="inSchool" type="text" placeholder="예: ○○초등학교"></label>
+          <label>학년도 <select id="inYear"></select></label>
+        </div>
+        <h3>학년별 학급 수</h3>
+        <table class="tbl compact" id="tblClasses"></table>
+      </div>
+      <div class="card">
+        <h2>학기 기간</h2>
+        <p class="hint">학기 기간 밖의 평일은 자동으로 <b>방학</b>으로 처리됩니다.</p>
+        <div class="form">
+          <label>1학기 시작 <input id="s1Start" type="date"></label>
+          <label>1학기 종료 <input id="s1End" type="date"></label>
+          <label>2학기 시작 <input id="s2Start" type="date"></label>
+          <label>2학기 종료 <input id="s2End" type="date"></label>
+        </div>
+        <button id="btnDefaultSem" class="btn small">학년도 기본값으로 되돌리기</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>학년별 요일 교시 수</h2>
+      <p class="hint">수업 가능 시수(= 요일별 수업일수 × 교시 수)를 계산해 배정 시수와 비교할 때 사용합니다.</p>
+      <table class="tbl" id="tblPeriods"></table>
+    </div>
+  </section>
+
+  <!-- ② 학사일정 -->
+  <section id="tab-cal" class="tab">
+    <div class="cal-layout">
+      <div>
+        <div class="legend">
+          <span class="lg school">수업일</span>
+          <span class="lg event">행사(수업일)</span>
+          <span class="lg holiday">공휴일</span>
+          <span class="lg closure">재량휴업일</span>
+          <span class="lg vacation">방학</span>
+          <span class="lg weekend">주말</span>
+          <span class="hint">날짜 클릭: 선택 · Shift+클릭: 기간 선택</span>
+        </div>
+        <div id="calGrid" class="cal-grid"></div>
+      </div>
+      <aside class="cal-side">
+        <div class="card sticky">
+          <h2>일정 입력</h2>
+          <div class="form">
+            <label>시작일 <input id="edStart" type="date"></label>
+            <label>종료일 <input id="edEnd" type="date"></label>
+            <label>구분
+              <select id="edType">
+                <option value="event">행사 (수업일 유지)</option>
+                <option value="closure">재량휴업일</option>
+                <option value="holiday">공휴일 추가</option>
+                <option value="vacation">방학(휴업)</option>
+                <option value="school">수업일로 지정 (공휴일·방학 해제)</option>
+                <option value="clear">입력 삭제</option>
+              </select>
+            </label>
+            <label>내용 <input id="edName" type="text" placeholder="예: 입학식, 현장체험학습"></label>
+          </div>
+          <fieldset class="evhrs" id="evHrsBox">
+            <legend>행사 시수 (행사일만 해당)</legend>
+            <div class="form">
+              <label>하루 행사 시수 <input id="edHrs" type="number" min="0" max="8" value="0"></label>
+              <label>창체 영역
+                <select id="edArea">
+                  <option value="cha_auto">자율·자치활동</option>
+                  <option value="cha_club">동아리활동</option>
+                  <option value="cha_career">진로활동</option>
+                </select>
+              </label>
+            </div>
+            <div class="row" id="edGrades"></div>
+            <p class="hint">행사 시수만큼 그날 시간표의 1교시부터 창체로 대체해 시수를 계산합니다.</p>
+          </fieldset>
+          <div class="row">
+            <button id="btnApply" class="btn primary">적용</button>
+            <span id="edInfo" class="hint"></span>
+          </div>
+          <div id="calSummary" class="mini-summary"></div>
+        </div>
+        <div class="card">
+          <h2>일정 목록</h2>
+          <div id="holidayWarn"></div>
+          <div class="list-wrap"><table class="tbl compact" id="tblEvents"></table></div>
+          <button id="btnExportCal" class="btn small">학사일정 엑셀 저장</button>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ③ 수업일수 -->
+  <section id="tab-days" class="tab">
+    <div id="daysKpi" class="kpis"></div>
+    <div class="grid2">
+      <div class="card">
+        <h2>월별 수업일수</h2>
+        <table class="tbl" id="tblMonths"></table>
+      </div>
+      <div class="card">
+        <h2>학기별 요일 수업일수</h2>
+        <table class="tbl" id="tblWeekdays"></table>
+        <h3>학년별 수업 가능 시수</h3>
+        <table class="tbl" id="tblCapacity"></table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <h2>주차표</h2>
+        <button id="btnExportWeeks" class="btn small">주차표 엑셀 저장</button>
+      </div>
+      <div class="tbl-scroll"><table class="tbl compact" id="tblWeeks"></table></div>
+    </div>
+  </section>
+
+  <!-- ⑤ 기초 시간표 -->
+  <section id="tab-tt" class="tab">
+    <div class="grade-switch" id="ttGradeSwitch"></div>
+    <div class="card">
+      <div class="card-head">
+        <h2 id="ttTitle"></h2>
+        <div class="row">
+          <select id="ttSem"><option value="1">1학기</option><option value="2">2학기</option></select>
+          <button id="btnTtAuto" class="btn small">배정 시수로 자동 편성</button>
+          <button id="btnTtCopy" class="btn small">다른 학기에 복사</button>
+          <button id="btnTtClear" class="btn small danger">비우기</button>
+        </div>
+      </div>
+      <p class="hint">칸을 클릭해 과목을 고르세요. 요일별 교시 수는 ① 기본 정보에서 정합니다. 학년 공통 시간표로 계산합니다.</p>
+      <div class="tt-layout">
+        <div class="tbl-scroll"><table class="tbl tt" id="tblTt"></table></div>
+        <div><table class="tbl compact" id="tblTtCount"></table></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑥ 시수 운영 확인 -->
+  <section id="tab-run" class="tab">
+    <div class="grade-switch" id="runGradeSwitch"></div>
+    <div class="card">
+      <div class="card-head">
+        <h2 id="runTitle"></h2>
+        <div class="row">
+          <button id="btnRunApply" class="btn small">운영 시수를 배정 시수로 반영</button>
+          <button id="btnExportRun" class="btn small">연간 시수표 엑셀 저장</button>
+        </div>
+      </div>
+      <p class="hint">기초 시간표 × 학사일정(수업일·공휴일·행사)으로 실제 운영될 시수를 계산해 배정 시수와 비교합니다.</p>
+      <div class="tbl-scroll"><table class="tbl" id="tblRunSum"></table></div>
+    </div>
+    <div class="card">
+      <h2>주차별 시수 (연간 시간표)</h2>
+      <div class="tbl-scroll"><table class="tbl compact" id="tblRunWeeks"></table></div>
+    </div>
+  </section>
+
+  <!-- ⑦ 교과전담 -->
+  <section id="tab-jd" class="tab">
+    <div class="card">
+      <div class="card-head">
+        <h2>교과전담 시수 배정</h2>
+        <button id="btnJdAdd" class="btn small primary">+ 배정 추가</button>
+      </div>
+      <p class="hint">학년·과목별 주당 전담 시수를 입력하면 학급 수를 곱해 전담교사별 주당 수업 시수를 계산합니다.</p>
+      <table class="tbl" id="tblJd"></table>
+    </div>
+    <div class="grid2">
+      <div class="card"><h2>전담교사별 주당 시수</h2><table class="tbl" id="tblJdTeacher"></table></div>
+      <div class="card"><h2>학년별 담임 수업 시수 (주당, 학급당)</h2><table class="tbl" id="tblJdGrade"></table></div>
+    </div>
+  </section>
+
+  <!-- ④ 시수 배정 -->
+  <section id="tab-hours" class="tab">
+    <div class="grade-switch" id="gradeSwitch"></div>
+    <div class="card">
+      <div class="card-head">
+        <h2 id="hoursTitle"></h2>
+        <div class="row">
+          <button id="btnFillGrade" class="btn small">이 학년 기준 시수로 채우기</button>
+          <button id="btnFillAll" class="btn small">전 학년 기준 시수로 채우기</button>
+        </div>
+      </div>
+      <p class="hint">2022 개정 교육과정 시간 배당 기준. 교과(군)별 시수는 <b>학년군 단위로 20% 범위</b>에서 증감할 수 있으며, <b>체육·예술(음악/미술)은 감축할 수 없습니다.</b></p>
+      <div class="tbl-scroll"><table class="tbl hours" id="tblHours"></table></div>
+    </div>
+    <div class="card">
+      <h2>수업 가능 시수와 비교</h2>
+      <table class="tbl" id="tblHoursCap"></table>
+    </div>
+  </section>
+
+  <!-- ⑤ 편제표·검토 -->
+  <section id="tab-table" class="tab">
+    <div class="card">
+      <div class="card-head">
+        <h2>검토 결과</h2>
+        <button id="btnExportTable" class="btn small">편제표 엑셀 저장</button>
+      </div>
+      <ul id="issues" class="issues"></ul>
+    </div>
+    <div id="pyeonje"></div>
+  </section>
+</main>
+
+<footer class="foot">기준: 2022 개정 초등학교 교육과정 시간 배당, 초·중등교육법 시행령 제45조(수업일수 190일 이상). 공휴일 정보는 반드시 관보·교육청 지침으로 확인하세요.</footer>
+
+<dialog id="cloudDlg" class="dlg">
+  <div class="card-head">
+    <h2>☁ 클라우드 저장소</h2>
+    <button class="x" id="cloudClose" title="닫기">✕</button>
+  </div>
+  <div id="cloudBody"></div>
+</dialog>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="features.js"></script>
+<script src="cloud-config.js"></script>
+<script src="cloud.js"></script>
+</body>
+</html>
