@@ -38,7 +38,9 @@ function defaultSemesters(y) {
   let s1e = new Date(y, 6, 24); while (s1e.getDay() !== 5) s1e = addDays(s1e, -1);
   let s2s = new Date(y, 7, 16); while (s2s.getDay() !== 1) s2s = addDays(s2s, 1);
   while (isOff(s2s)) s2s = addDays(s2s, 1);
-  let s2e = new Date(y + 1, 0, 5); while (s2e.getDay() !== 5) s2e = addDays(s2e, 1);
+  // 2027학년도는 1월 21일 종업: 1월 10~21일을 수업일로 계산한다.
+  let s2e = y === 2027 ? new Date(2028, 0, 21) : new Date(y + 1, 0, 5);
+  while (s2e.getDay() !== 5) s2e = addDays(s2e, 1);
   return semFull({ s1Start: fmt(s1s), s1End: fmt(s1e), s2Start: fmt(s2s), s2End: fmt(s2e) }, y);
 }
 
@@ -140,7 +142,7 @@ function normalize(s) {
  * ========================================================= */
 const isTeacherView = () => !!(window.App && App.role && App.role() === 'teacher');
 // 선생님에게는 조회만 되는 화면
-const RO_SECTIONS = ['tab-school', 'tab-cal', 'tab-event', 'tab-hours', 'tab-tt', 'tab-run', 'tab-jd'];
+const RO_SECTIONS = ['tab-school', 'tab-cal', 'tab-event', 'tab-hours', 'tab-review', 'tab-tt', 'tab-run', 'tab-jd'];
 function applyRoleView() {
   const t = isTeacherView();
   document.body.classList.toggle('role-teacher', t);
@@ -440,6 +442,9 @@ function renderCal() {
   const nd = (a, b) => Math.round((parse(b) - parse(a)) / 86400000) + 1;
   const stS = dayStats();
   $('semSummary').innerHTML = `1학기 ${fmtK(sem.s1Start)}~${fmtK(sem.s1End)} (수업 ${stS.sem[1].days}일) · 여름방학 ${nd(...sem.summer)}일 · 2학기 ${fmtK(sem.s2Start)}~${fmtK(sem.s2End)} (수업 ${stS.sem[2].days}일) · 겨울방학 ${nd(...sem.winter)}일 · <b>연간 수업일수 ${stS.total}일</b>`;
+  const oldJanuary = state.school.year === 2027 && sem.s2End === '2028-01-07' && sem.winter[0] === '2028-01-08';
+  $('januaryFix').hidden = !oldJanuary;
+  if (oldJanuary) $('januaryFix').innerHTML = `<strong>1월 10~21일이 방학으로 설정되어 수업일수에서 빠져 있습니다.</strong><span>종업일을 1월 21일, 겨울방학 시작을 1월 22일로 바꾸면 해당 평일이 수업일로 계산됩니다.</span>${canEditCal() ? '<button id="btnJanuaryFix" class="btn small primary">일정 바로잡기</button>' : '<span>관리자가 학사일정을 수정할 수 있습니다.</span>'}`;
   // 저장 위치·권한 안내
   const shared = haksaShared();
   $('calWhere').innerHTML = shared
@@ -745,7 +750,9 @@ function pyeonjeHtml(forExport = false) {
 }
 
 function renderTable() {
-  $('issues').innerHTML = collectIssues().map(([lv, msg]) => `<li class="${lv}">${lv === 'err' ? '⛔' : lv === 'warn' ? '⚠️' : '✅'} ${esc(msg)}</li>`).join('');
+  const issues = collectIssues();
+  $('reviewSummary').innerHTML = `<b>연간 수업일수 ${dayStats().total}일</b><span>확인 필요 ${issues.filter(([lv]) => lv !== 'ok').length}건</span><span>편제표를 확인한 뒤 엑셀로 저장하거나 인쇄할 수 있습니다.</span>`;
+  $('issues').innerHTML = issues.map(([lv, msg]) => `<li class="${lv}">${lv === 'err' ? '⛔' : lv === 'warn' ? '⚠️' : '✅'} ${esc(msg)}</li>`).join('');
   $('pyeonje').innerHTML = pyeonjeHtml();
 }
 
@@ -947,6 +954,16 @@ function bind() {
     if (!canEditCal()) return;
     if (!confirm('학기·방학 날짜를 학년도 기본값으로 바꿀까요?')) return;
     await writeSem(defaultSemesters(state.school.year)); _yearCache = null; RENDER.cal();
+  });
+  $('januaryFix').addEventListener('click', async e => {
+    if (e.target.id !== 'btnJanuaryFix' || !canEditCal()) return;
+    const sem = semFull(calSem());
+    if (state.school.year !== 2027 || sem.s2End !== '2028-01-07' || sem.winter[0] !== '2028-01-08') return;
+    if (!confirm('2028년 1월 10~21일을 수업 기간으로 바꾸고, 종업일을 1월 21일·겨울방학 시작을 1월 22일로 저장할까요?')) return;
+    try {
+      await writeSem({ ...sem, s2End: '2028-01-21', winter: ['2028-01-22', sem.winter[1]] });
+      _yearCache = null; RENDER.cal();
+    } catch (err) { alert('저장 실패: ' + err.message); }
   });
   // 학급 수(학사일정 화면) · 요일별 교시 수(시수 배정 화면)
   document.querySelector('main').addEventListener('input', e => {

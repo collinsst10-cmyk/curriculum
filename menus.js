@@ -15,7 +15,8 @@
   const daysAndWeeks = RENDER.days;          // 수업일수(월별·요일별)
   const hoursOnly = RENDER.hours;
   RENDER.cal = () => { renderInfo(); renderCal(); daysAndWeeks(); syncHolidays(); };
-  RENDER.hours = () => { renderInfo(); hoursOnly(); daysAndWeeks(); renderTable(); };
+  RENDER.hours = () => { renderInfo(); hoursOnly(); daysAndWeeks(); };
+  RENDER.review = renderTable;
   RENDER.hview = renderHview;
   RENDER.school = renderInfo;
   RENDER.event = renderEvent;

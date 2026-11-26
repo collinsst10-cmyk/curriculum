@@ -38,6 +38,7 @@
   <button data-tab="cal" data-group="curr">② 학사일정 편성</button>
   <button data-tab="event" data-group="curr">③ 교내행사</button>
   <button data-tab="hours" data-group="curr">④ 시수 배정</button>
+  <button data-tab="review" data-group="curr">⑤ 검토·확정</button>
   <button data-tab="tt" data-group="tt">① 기초 시간표</button>
   <button data-tab="run" data-group="tt">② 시수 운영 확인</button>
   <button data-tab="jd" data-group="tt">③ 교과전담</button>
@@ -272,6 +273,7 @@
         <label>학년 마지막 수업일(종업) <input id="s2End" type="date"></label>
       </div>
       <div id="semSummary" class="hint"></div>
+      <div id="januaryFix" class="date-fix" hidden></div>
     </div>
     <div class="cal-layout">
       <div>
@@ -458,6 +460,14 @@
       </div>
     </div>
 
+  </section>
+
+  <!-- 교육과정 편성 ⑤ 검토·확정 -->
+  <section id="tab-review" class="tab">
+    <div class="review-intro">
+      <div><span class="eyebrow">FINAL REVIEW</span><h2>우리 학교 교육과정, 마지막 점검</h2><p>학사일정과 시수 배정 결과를 살펴보고 편제표를 저장하세요.</p></div>
+      <div id="reviewSummary" class="review-summary"></div>
+    </div>
     <h2 class="sec-title">편제표 · 검토</h2>
     <div class="card">
       <div class="card-head">
