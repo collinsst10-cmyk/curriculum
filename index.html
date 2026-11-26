@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=202611270047">
+<link rel="stylesheet" href="style.css?v=202611270103">
 </head>
 <body>
 <header class="topbar">
@@ -20,7 +20,7 @@
     <button data-go="haksa">학사일정</button>
     <button data-go="tt" class="admin-only">시간표 편성</button>
     <button data-go="act">교육활동 일정</button>
-    <button data-go="kclass">한국어 학급</button>
+    <button data-go="kclass">이주배경학생</button>
     <button data-go="data" class="admin-only">자료 관리</button>
     <button data-go="stats" id="navStats" hidden>학교 현황</button>
     <button data-go="log" id="navLog" hidden>학교 일지</button>
@@ -49,10 +49,8 @@
   <button data-tab="run" data-group="tt">② 시수 운영 확인</button>
   <button data-tab="jd" data-group="tt">③ 교과전담</button>
   <button data-tab="act" data-group="act">① 일정 신청·관리</button>
-  <button data-tab="kclass1" data-group="kclass">한국어학급 1</button>
-  <button data-tab="kclass2" data-group="kclass">한국어학급 2</button>
-  <button data-tab="kclass3" data-group="kclass">한국어학급 3</button>
-  <button data-tab="kmig" data-group="kclass">이주배경 학생</button>
+  <button data-tab="kmig" data-group="kclass">이주배경학생 현황</button>
+  <button data-tab="kclass" data-group="kclass">한국어학급</button>
   <button data-tab="ksl" data-group="act">② 한국어학급 연계</button>
   <button data-tab="data" data-group="data">클라우드·백업·내보내기</button>
   <button data-tab="stats1" data-group="stats" class="admin-tab">① 학생 현황</button>
@@ -317,9 +315,11 @@
       </div>
     </div>
   </section>
-  <!-- 한국어학급 연계 -->
-  <section id="tab-kclass1" class="tab">
-    <div class="card">
+
+  <!-- 이주배경학생 › 한국어학급 (1·2·3반을 안에서 고름) -->
+  <section id="tab-kclass" class="tab">
+    <div class="kc-switch" id="kcSwitch" role="tablist" aria-label="한국어학급 반 고르기"><button type="button" class="on" data-kc="1">1반</button><button type="button" data-kc="2">2반</button><button type="button" data-kc="3">3반</button></div>
+    <div class="card kc-panel" data-kc-panel="1">
       <h2>한국어학급 1 주간 시간표 <small class="hint">1~3교시</small></h2>
       <p id="kclassMode1" class="hint"></p>
       <div class="kc-staff" id="kclassStaff1"></div>
@@ -330,10 +330,7 @@
       <div class="tbl-scroll"><table class="tbl kclass-grid" id="kclassGrid1"></table></div>
       <p id="kclassStatus1" role="status"></p>
     </div>
-  </section>
-
-  <section id="tab-kclass2" class="tab">
-    <div class="card">
+    <div class="card kc-panel" data-kc-panel="2" hidden>
       <h2>한국어학급 2 주간 시간표 <small class="hint">1~3교시</small></h2>
       <p id="kclassMode2" class="hint"></p>
       <div class="kc-staff" id="kclassStaff2"></div>
@@ -344,10 +341,7 @@
       <div class="tbl-scroll"><table class="tbl kclass-grid" id="kclassGrid2"></table></div>
       <p id="kclassStatus2" role="status"></p>
     </div>
-  </section>
-
-  <section id="tab-kclass3" class="tab">
-    <div class="card">
+    <div class="card kc-panel" data-kc-panel="3" hidden>
       <h2>한국어학급 3 주간 시간표 <small class="hint">1~3교시</small></h2>
       <p id="kclassMode3" class="hint"></p>
       <div class="kc-staff" id="kclassStaff3"></div>
@@ -359,20 +353,16 @@
       <p id="kclassStatus3" role="status"></p>
     </div>
   </section>
-  <!-- 한국어 학급 › 이주배경 학생 (관리자·한국어학급 담당) -->
+  <!-- 이주배경학생 › 이주배경학생 현황 (담임: 우리 반 입력 / 관리자·한국어학급 담당: 전체) -->
   <section id="tab-kmig" class="tab">
-    <div class="schedule-layout km-layout">
-      <div class="card">
-        <h2>이주배경 학생</h2>
-        <p id="kmStatus" class="hint" role="status"></p>
-        <div id="kmMain"></div>
-      </div>
-      <aside class="card">
-        <h2>보기</h2>
-        <nav id="kmViews" class="km-views" aria-label="이주배경 학생 보기"></nav>
-      </aside>
+    <div class="km-top">
+      <div><h2 class="km-title" id="kmTitle">이주배경학생 현황</h2><p class="hint" id="kmLead"></p></div>
+      <div id="kmPicker" class="km-picker"></div>
     </div>
+    <p id="kmStatus" class="km-status" role="status"></p>
+    <div id="kmMain"></div>
   </section>
+
 
   <section id="tab-ksl" class="tab">
     <div id="kslNotice"></div>
@@ -731,21 +721,21 @@
   <div id="cloudBody"></div>
 </dialog>
 
-<script src="data.js?v=202611270047"></script>
-<script src="app.js?v=202611270047"></script>
-<script src="features.js?v=202611270047"></script>
-<script src="cloud-config.js?v=202611270047"></script>
-<script src="cloud.js?v=202611270047"></script>
-<script src="activities.js?v=202611270047"></script>
-<script src="haksa.js?v=202611270047"></script>
-<script src="menus.js?v=202611270047"></script>
-<script src="schedule.js?v=202611270047"></script>
-<script src="kclass.js?v=202611270047"></script>
-<script src="home.js?v=202611270047"></script>
-<script src="status.js?v=202611270047"></script>
-<script src="log.js?v=202611270047"></script>
-<script src="transfer.js?v=202611270047"></script>
-<script src="migrant.js?v=202611270047"></script>
-<script src="site.js?v=202611270047"></script>
+<script src="data.js?v=202611270103"></script>
+<script src="app.js?v=202611270103"></script>
+<script src="features.js?v=202611270103"></script>
+<script src="cloud-config.js?v=202611270103"></script>
+<script src="cloud.js?v=202611270103"></script>
+<script src="activities.js?v=202611270103"></script>
+<script src="haksa.js?v=202611270103"></script>
+<script src="menus.js?v=202611270103"></script>
+<script src="schedule.js?v=202611270103"></script>
+<script src="kclass.js?v=202611270103"></script>
+<script src="home.js?v=202611270103"></script>
+<script src="status.js?v=202611270103"></script>
+<script src="log.js?v=202611270103"></script>
+<script src="transfer.js?v=202611270103"></script>
+<script src="migrant.js?v=202611270103"></script>
+<script src="site.js?v=202611270103"></script>
 </body>
 </html>

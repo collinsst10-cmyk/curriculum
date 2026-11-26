@@ -22,7 +22,7 @@
     페루: 'pe', 나이지리아: 'ng', 이란: 'ir', 튀르키예: 'tr', 터키: 'tr', 이집트: 'eg', 동티모르: 'tl', 콜롬비아: 'co', 멕시코: 'mx', 뉴질랜드: 'nz', 가나: 'gh', 케냐: 'ke',
     사우디아라비아: 'sa', 예멘: 'ye', 시리아: 'sy', 요르단: 'jo', 홍콩: 'hk', 벨라루스: 'by', 아제르바이잔: 'az', 남아프리카공화국: 'za', 칠레: 'cl', 아르헨티나: 'ar' };
 
-  let stats = null, migrant = null, unsubs = [];
+  let stats = null, migrant = null, unsubs = [], classSums = [];
   const num = v => Math.max(0, Math.round(Number(v) || 0));
   const sum = a => a.reduce((t, v) => t + num(v), 0);
   const blank = () => ({ asOf: '', students: { classes: G6.map(() => 0), byClass: {}, male: G6.map(() => 0), female: G6.map(() => 0) }, staff: { m: {}, f: {} } });
@@ -43,7 +43,7 @@
 
   /* ---------- 불러오기 ---------- */
   function subscribe() {
-    unsubs.forEach(u => u()); unsubs = []; stats = null; migrant = null;
+    unsubs.forEach(u => u()); unsubs = []; stats = null; migrant = null; classSums = [];
     refreshNav();
     if (!window.Cloud || !Cloud.ready) { renderAll(); return; }
     const { F, db } = Cloud.fb;
@@ -51,6 +51,9 @@
       e => { console.warn('학교 현황 불러오기 실패', e); stats = false; renderAll(); }));
     unsubs.push(F.onSnapshot(F.doc(db, 'config', 'migrant'), d => { migrant = d.exists() ? d.data() : false; renderAll(); },
       e => { console.warn('이주배경학생 현황 불러오기 실패', e); migrant = false; renderAll(); }));
+    // 담임·한국어학급 담당이 이주배경학생 현황에 입력한 반별 합계 (학생 이름 없음)
+    unsubs.push(F.onSnapshot(F.collection(db, 'migrantClassSum'), s => { classSums = s.docs.map(d => d.data()); renderAll(); },
+      e => console.warn('반별 이주배경 합계 불러오기 실패', e)));
   }
   function renderAll() {
     renderHome();
@@ -158,17 +161,32 @@
       ${m.note ? `<p class="st-note">${esc(m.note)}</p>` : ''}`;
   }
 
+  /** 반별 명단 합계가 있으면 그것으로 현황을 계산(명단 기준), 없으면 직접 입력한 값 */
+  const fromList = () => classSums.length > 0;
+  function effMigrant() {
+    if (!fromList()) return migrant;
+    const n = k => classSums.reduce((t, s) => t + num(s[k]), 0);
+    const foreign = n('foreign'), domestic = n('domestic'), midEntry = n('mid'), mig = foreign + domestic + midEntry;
+    const tally = {};
+    classSums.forEach(s => Object.entries(s.countries || {}).forEach(([k, v]) => { tally[k] = (tally[k] || 0) + num(v); }));
+    const total = window.SchoolStatus ? SchoolStatus.totalStudents() : 0;
+    return { ...(migrant || blankM()), foreign, domestic, midEntry, nonMigrant: Math.max(0, total - mig),
+      countries: Object.entries(tally).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${mig ? Math.round(v / mig * 100) : 0}`).join(', '),
+      asOf: '학급별 명단 기준' };
+  }
+
   /* ---------- HOME ---------- */
   function renderHome() {
     const box = $('homeStatus');
     const locked = window.App && App.locked && App.locked();
     const ok = window.Cloud && Cloud.ready && !locked;
-    box.hidden = !ok || (!stats && !migrant);
+    const mg = effMigrant();
+    box.hidden = !ok || (!stats && !mg);
     if (box.hidden) return;
     $('hsAsOf').textContent = (stats && stats.asOf) ? `(${stats.asOf} 기준)` : '';
     $('hsStudents').innerHTML = stats ? studentsView(stats) : '<p class="hint">아직 입력되지 않았습니다.</p>';
     $('hsStaff').innerHTML = stats ? staffView(stats) : '<p class="hint">아직 입력되지 않았습니다.</p>';
-    $('hsMigrant').innerHTML = migrant ? (migrant.asOf ? `<p class="hint">(${esc(migrant.asOf)} 기준)</p>` : '') + migrantView(migrant) : '<p class="hint">아직 입력되지 않았습니다.</p>';
+    $('hsMigrant').innerHTML = mg ? (mg.asOf ? `<p class="hint">(${esc(mg.asOf)}${fromList() ? '' : ' 기준'})</p>` : '') + migrantView(mg) : '<p class="hint">아직 입력되지 않았습니다.</p>';
   }
 
   /* ---------- 편집 화면 ---------- */
@@ -233,6 +251,7 @@
   function renderEditMigrant() {
     const box = $('stEditMigrant');
     if (migrant === null) { box.innerHTML = notReady(); return; }
+    if (fromList()) { box.innerHTML = '<p class="hint">지금은 <b>이주배경학생 › 이주배경학생 현황</b>에 학급별로 입력한 명단으로 자동 계산합니다. 숫자를 고치려면 그 화면에서 학생을 등록·수정하세요.</p><h3>지금 현황</h3><div class="mg-prev">' + migrantView(effMigrant()) + '</div>'; return; }
     const m = migrant || blankM();
     const f = (k, label, hint = '') => `<label>${label} ${nIn(`data-m="${k}"`, m[k])}${hint ? `<small class="hint">${hint}</small>` : ''}</label>`;
     box.innerHTML = `<label class="st-asof">기준 시점 <input id="mgAsOf" maxlength="30" placeholder="예: 2026. 3월" value="${esc(m.asOf || '')}"></label>
@@ -297,6 +316,7 @@
   window.SchoolStatus = {
     renderHome,
     countries: Object.keys(ISO),
+    flagUrl: name => ISO[name] ? `https://flagcdn.com/w40/${ISO[name]}.png` : '',
     /** 학생 현황의 전체 학생 수 (반별 자료가 있으면 그 합) */
     totalStudents: () => { const st = stats && stats.students; return st ? G6.reduce((t, i) => { const g = gradeSum(st, i); return t + g.m + g.f; }, 0) : 0; },
   };

@@ -229,6 +229,17 @@
     });
   });
 
+  // 한 탭 안에서 1·2·3반 고르기
+  let kcCur = Number(sessionStorage.getItem('kcCur')) || 1;
+  function showPanel(n) {
+    kcCur = n; sessionStorage.setItem('kcCur', String(n));
+    document.querySelectorAll('#kcSwitch [data-kc]').forEach(b => { const on = Number(b.dataset.kc) === n; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); });
+    document.querySelectorAll('[data-kc-panel]').forEach(p => { p.hidden = Number(p.dataset.kcPanel) !== n; });
+    render(n);
+  }
+  RENDER.kclass = () => showPanel(kcCur);
+  $('kcSwitch').addEventListener('click', e => { const b = e.target.closest('[data-kc]'); if (b) showPanel(Number(b.dataset.kc)); });
+
   window.KoreanClasses = {
     isOwner: email => [...records.values()].some(record => record.owner === email),
     hasOwners: () => [...records.values()].some(record => record.owner),

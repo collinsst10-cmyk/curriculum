@@ -1036,3 +1036,75 @@ main:has(#tab-home.active) { max-width: none; padding: 0 0 24px; }
 .site-photos img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; }
 .sp-bar { display: flex; align-items: center; gap: 6px; padding: 8px; }
 .sp-bar span { flex: 1; font-family: var(--f7); color: var(--nv-d); }
+
+/* =========================================================
+ * 이주배경학생 › 현황(학급별 명단) · 한국어학급(1·2·3반)
+ * ========================================================= */
+.kc-switch, .km-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.kc-switch { margin-bottom: 14px; }
+.kc-switch button, .km-pill { font: inherit; font-family: var(--f6); font-size: 15px; padding: 9px 20px; border-radius: 999px; border: 1px solid #d7dce8; background: #fff; color: #2a3247; cursor: pointer; }
+.kc-switch button.on, .km-pill.on { background: var(--nv); border-color: var(--nv); color: #fff; }
+.km-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+.km-title { margin: 0; font-size: 24px; color: var(--nv-d); font-family: var(--f8); }
+.km-top .hint { margin: 4px 0 0; }
+.km-picker select { font: inherit; font-size: 15px; padding: 8px 12px; border-radius: 10px; border: 1px solid #d7dce8; }
+.km-cls { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.km-my { font-size: 15px; color: #4a5368; }
+.km-my b { color: var(--nv-d); font-family: var(--f8); }
+.km-status { min-height: 1.4em; margin: 4px 0 10px; color: #6b7488; }
+.km-status.ok { color: #1d6b3a; }
+.km-setup { max-width: 560px; }
+.km-setup h3 { margin: 0 0 6px; color: var(--nv-d); }
+.km-setup select { font: inherit; font-size: 15px; padding: 8px 12px; border-radius: 10px; border: 1px solid #d7dce8; }
+/* 전체 현황 표 */
+.km-sheet td { padding: 4px; }
+.km-cell { all: unset; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; padding: 8px 4px; border-radius: 10px; cursor: pointer; }
+.km-cell:hover, .km-cell:focus-visible { background: #eef3fb; }
+.km-cell b { font-size: 20px; color: var(--nv-d); font-family: var(--f8); }
+.km-cell.zero b { color: #c2c8d4; }
+.km-cell small { font-size: 11px; color: #6b7488; }
+.km-cell small.none { color: #c0392b; }
+/* 학급 명단 */
+.km-classcard, .km-addcard { margin: 0 0 16px; padding: 20px 22px; }
+.km-class-h { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.km-class-h h3 { margin: 0; font-size: 20px; color: var(--nv-d); font-family: var(--f8); }
+.km-class-h h3 span { font-size: 15px; color: #6b7488; font-family: var(--f5); margin-left: 6px; }
+.km-counts { display: flex; gap: 6px; }
+.km-badge { display: inline-block; font-size: 13px; padding: 3px 10px; border-radius: 999px; font-family: var(--f6); white-space: nowrap; }
+.km-badge.foreign { background: #e7ecf7; color: #15306b; }
+.km-badge.mid { background: #fff3dc; color: #8a5a00; }
+.km-badge.domestic { background: #e6eefc; color: #2f4f99; }
+.km-rows { list-style: none; margin: 0; padding: 0; }
+.km-row { display: grid; grid-template-columns: 44px 1.2fr 1.6fr auto auto; align-items: center; gap: 14px; padding: 12px 6px; border-bottom: 1px solid #eef0f4; font-size: 16px; }
+.km-row:last-child { border-bottom: 0; }
+.km-no { width: 34px; height: 34px; border-radius: 50%; background: #f1f4fa; display: grid; place-items: center; font-family: var(--f7); color: var(--nv-d); font-size: 15px; }
+.km-name { font-family: var(--f7); color: #1f2740; }
+.km-country { display: flex; align-items: center; gap: 8px; color: #4a5368; }
+.km-country img { border-radius: 3px; box-shadow: 0 0 0 1px #e3e7f0; }
+.km-acts { display: flex; gap: 6px; }
+.km-empty { color: #6b7488; background: #f7f9fd; border-radius: 12px; padding: 18px; text-align: center; margin: 0; }
+.km-row.editing { display: block; background: #f7f9fd; border-radius: 12px; padding: 12px; }
+/* 등록 폼 */
+.km-addcard h3 { margin: 0 0 12px; font-size: 17px; color: var(--nv-d); }
+.km-form { display: grid; grid-template-columns: 80px 1fr 1.3fr auto auto; gap: 12px; align-items: end; }
+.km-form label, .km-form .f-type { display: grid; gap: 6px; font-size: 13px; color: #6b7488; }
+.km-form input { font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid #d7dce8; border-radius: 10px; width: 100%; box-sizing: border-box; background: #fff; }
+.km-form input:focus { outline: 2px solid var(--nv); outline-offset: -1px; }
+.km-form .f-btn { display: flex; gap: 6px; }
+.km-form .f-btn .btn { padding: 10px 18px; font-size: 15px; }
+.km-seg { display: inline-flex; border: 1px solid #d7dce8; border-radius: 10px; overflow: hidden; }
+.km-seg button { font: inherit; font-size: 14px; padding: 10px 12px; border: 0; background: #fff; color: #4a5368; cursor: pointer; white-space: nowrap; }
+.km-seg button + button { border-left: 1px solid #d7dce8; }
+.km-seg button.on.foreign { background: #15306b; color: #fff; }
+.km-seg button.on.mid { background: #f5b335; color: #3b2a00; }
+.km-seg button.on.domestic { background: #4f6fb5; color: #fff; }
+/* 출신국 자동 완성 */
+.km-ac-wrap { position: relative; display: block; }
+.km-ac { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 20; list-style: none; margin: 0; padding: 6px; background: #fff; border: 1px solid #d7dce8; border-radius: 12px; box-shadow: 0 10px 24px rgba(21, 48, 107, .14); }
+.km-ac li { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; cursor: pointer; font-size: 15px; color: #1f2740; }
+.km-ac li.on, .km-ac li:hover { background: #eef3fb; }
+.km-ac img { border-radius: 3px; }
+@media (max-width: 900px) {
+  .km-form { grid-template-columns: 1fr 1fr; } .km-form .f-country, .km-form .f-type, .km-form .f-btn { grid-column: 1 / -1; }
+  .km-row { grid-template-columns: 40px 1fr auto; } .km-country { grid-column: 2 / -1; } .km-acts { grid-column: 1 / -1; justify-content: flex-end; }
+}
