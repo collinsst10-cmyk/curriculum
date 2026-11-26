@@ -38,19 +38,16 @@ service cloud.firestore {
 
     match /allowed/{email} {
       allow read: if signedIn() && (myEmail() == email || isAdmin());
-      allow write: if isAdmin();
-      // 본인은 자기 이름(name)만 고칠 수 있음
-      allow update: if signedIn() && myEmail() == email
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])
-        && request.resource.data.name is string && request.resource.data.name.size() <= 30;
+      allow write: if isAdmin();   // 이름은 등록 신청 때 정해지고, 이후 변경은 관리자만
     }
 
     match /requests/{email} {
       allow read: if signedIn() && (myEmail() == email || isAdmin());
       allow create: if signedIn() && myEmail() == email
-        && request.resource.data.keys().hasOnly(['email', 'name', 'requestedAt'])
+        && request.resource.data.keys().hasOnly(['email', 'name', 'role', 'requestedAt'])
         && request.resource.data.email == email
-        && request.resource.data.name is string && request.resource.data.name.size() <= 100;
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 30
+        && (!('role' in request.resource.data) || (request.resource.data.role is string && request.resource.data.role.size() <= 40));
       allow delete: if isAdmin() || (signedIn() && myEmail() == email);
       allow update: if false;
     }
@@ -80,6 +77,12 @@ service cloud.firestore {
       allow create, update: if isApproved() && day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
         && request.resource.data.items is list && request.resource.data.items.size() <= 40;
       allow delete: if isAdmin();
+    }
+
+    // 학교 공용 학사일정 (학년도별 1문서). 승인된 선생님은 읽기, 관리자만 수정
+    match /calendar/{year} {
+      allow read: if isApproved();
+      allow write: if isAdmin() && year.matches('^[0-9]{4}$');
     }
 
     // 한국어학급 주간 시간표

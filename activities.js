@@ -89,14 +89,28 @@
     return hits;
   }
 
-  /** 학사일정(교육과정 편성)과 비교한 경고 */
+  /* ---------- 학사일정 연계 ---------- */
+  const yearDay = date => computeYear().find(x => x.ds === date);
+  /** 학사일정 때문에 신청할 수 없는 이유 (휴업일·방학·공휴일, 시간이 정해진 교내행사와 겹침) */
+  function haksaConflicts(it) {
+    const d = yearDay(it.date);
+    if (!d) return [];
+    if (!d.isSchool) return [`학사일정상 ${d.type === 'weekend' ? '주말' : TYPE_LABEL[d.type]}${d.name ? `(${d.name})` : ''}이라 신청할 수 없습니다.`];
+    if (d.ev && it.status !== 'canceled') {
+      const ps = Array.from({ length: d.ev.hrs }, (_, i) => i + 1);
+      const gs = d.ev.grades.length ? d.ev.grades : GRADES;
+      const pOver = inter(it.periods, ps).length > 0;
+      const gOver = it.targets.some(t => gs.includes(Number(t.split('-')[0])));
+      if (pOver && gOver) return [`학사일정 교내행사 "${d.name || '행사'}" (1~${d.ev.hrs}교시, ${d.ev.grades.length ? d.ev.grades.join('·') + '학년' : '전교'})와 겹칩니다.`];
+    }
+    return [];
+  }
+  /** 막지는 않지만 알려 줄 내용 */
   function calendarWarnings(date) {
-    const w = [];
-    const d = computeYear().find(x => x.ds === date);
-    if (!d) { w.push('현재 편성 중인 학년도 밖의 날짜입니다.'); return w; }
-    if (!d.isSchool) w.push(`학사일정상 ${TYPE_LABEL[d.type]}${d.name ? `(${d.name})` : ''}입니다.`);
-    else if (d.type === 'event' && d.name) w.push(`학사일정 행사와 같은 날입니다: ${d.name}`);
-    return w;
+    const d = yearDay(date);
+    if (!d) return ['현재 학년도 밖의 날짜입니다.'];
+    if (d.isSchool && d.type === 'event' && d.name && !d.ev) return [`같은 날 학사일정 교내행사가 있습니다: ${d.name}`];
+    return [];
   }
 
   /* =========================================================
@@ -134,6 +148,7 @@
   function refresh(kslChanged) {
     if (curTab === 'act') { renderGrid(); renderList(); renderCheck(); }
     if (curTab === 'ksl') { if (kslChanged) { renderKslTable(); renderKslTeachers(); } renderKslList(); }
+    if (curTab === 'cal') renderCal();   // 학사일정 달력에 교육활동 표시
     updateBell();
   }
 
@@ -170,6 +185,7 @@
   function notice(msg) { const el = $(curTab === 'ksl' ? 'kslNotice' : 'actNotice'); if (el) el.innerHTML = msg ? `<div class="notice">${esc2(msg)}</div>` : ''; }
 
   document.addEventListener('cloud-change', subscribe);
+  document.addEventListener('year-change', () => { month = null; subscribe(); });
 
   /* =========================================================
    * 트랜잭션: 등록·수정·상태변경·삭제 (겹침 재확인)
@@ -242,7 +258,8 @@
       const cls = info ? info.type : (new Date(y, m, d).getDay() % 6 === 0 ? 'weekend' : 'school');
       const list = (items[ds] || []).slice().sort((a, b) => a.periods[0] - b.periods[0]);
       html += `<div class="aday ${cls}${ds === sel ? ' sel' : ''}${ds === today ? ' today' : ''}" data-ds="${ds}">
-        <div class="aday-h"><span class="d">${d}</span><span class="n">${esc2(info && info.name || '')}</span></div>
+        <div class="aday-h"><span class="d">${d}</span></div>
+        ${info && info.name && info.type !== 'weekend' ? `<div class="chip haksa ${info.isSchool ? '' : 'off'}" title="학사일정: ${esc2(TYPE_LABEL[info.type] + ' · ' + info.name + (info.ev ? ` (1~${info.ev.hrs}교시)` : ''))}">📆 ${info.ev ? `1~${info.ev.hrs}교시 ` : ''}${esc2(info.name)}</div>` : ''}
         ${list.map(it => `<div class="chip ${it.status}" data-id="${esc2(it.id)}" title="${esc2(`${ST[it.status]} · ${periodLabel(it.periods)} · ${it.title} · ${targetLabel(it.targets)}`)}">
           ${kslHits(it).length ? '⚠' : ''}${esc2(periodLabel(it.periods))} ${esc2(it.title)}</div>`).join('')}
       </div>`;
@@ -351,6 +368,8 @@
     } else if (same.length) {
       msgs.push(`<div class="ck info">같은 날 다른 일정 ${same.length}건 (겹치지 않음): ${same.map(x => `${periodLabel(x.periods)} ${esc2(x.title)}`).join(', ')}</div>`);
     }
+    const hc = it.periods.length && it.targets.length ? haksaConflicts(it) : haksaConflicts({ ...it, periods: [], targets: [] });
+    if (hc.length) { block = true; msgs.unshift(`<div class="ck err"><b>⛔ ${esc2(hc[0])}</b><div class="hint">학사일정은 상단 '학사일정' 메뉴에서 확인할 수 있습니다.</div></div>`); }
     calendarWarnings(it.date).forEach(w => msgs.push(`<div class="ck warn">⚠ ${esc2(w)}</div>`));
     const hits = it.periods.length && it.targets.length ? kslHits(it) : [];
     if (hits.length) msgs.push(`<div class="ck warn"><b>⚠ 한국어학급 시간과 겹칩니다.</b>${hits.map(h =>
@@ -360,13 +379,13 @@
     if (!it.title) msgs.push('<div class="hint">교육활동명을 입력하세요.</div>');
     if (!it.periods.length) msgs.push('<div class="hint">교시를 하나 이상 고르세요.</div>');
     if (!it.targets.length) msgs.push('<div class="hint">대상 학급을 고르세요.</div>');
-    if (!block && it.title && it.periods.length && it.targets.length && !c.length) msgs.unshift('<div class="ck ok">✅ 겹치는 일정이 없습니다.</div>');
+    if (!block && it.title && it.periods.length && it.targets.length && !c.length) msgs.unshift('<div class="ck ok">✅ 학사일정·다른 교육활동과 겹치지 않습니다.</div>');
     box.innerHTML = msgs.join('');
     const name = Cloud.profileName;
     $('actWho').innerHTML = editing
       ? `기록자: <b>${esc2(((items[editing.date] || []).find(x => x.id === editing.id) || {}).ownerName || '')}</b>`
       : name ? `기록자: <b>${esc2(name)}</b> <span class="hint">(가입 때 등록한 이름)</span>`
-        : `<span class="neg">기록자 이름이 없습니다. <a href="#home">HOME</a>에서 이름을 등록하세요.</span>`;
+        : `<span class="neg">등록된 이름이 없어 신청할 수 없습니다. ${Cloud.isAdmin() ? '<a href="#admin">관리자 메뉴</a>에서 내 이름을 등록하세요.' : '관리자에게 이름 등록을 요청하세요.'}</span>`;
     $('actSave').disabled = block || !it.title || !it.periods.length || !it.targets.length || !Cloud.ready || (!editing && !name);
   }
 
@@ -397,6 +416,8 @@
       const prev = (items[editing.date] || []).find(x => x.id === editing.id);
       if (prev) { it.createdAt = prev.createdAt; it.ownerUid = prev.ownerUid; it.ownerEmail = prev.ownerEmail; it.ownerName = prev.ownerName; it.kslAdjust = prev.kslAdjust || null; }
     }
+    const hc = haksaConflicts(it);
+    if (hc.length) { alert(hc[0]); renderCheck(); return; }
     $('actSave').disabled = true;
     try {
       await saveItem(it);
@@ -418,6 +439,7 @@
     if (!it) return;
     try {
       if (a === 'edit') { loadToForm(it); return; }
+      if ((a === 'confirm' || a === 'restore') && haksaConflicts({ ...it, status: 'pending' }).length) { alert(haksaConflicts({ ...it, status: 'pending' })[0]); return; }
       if (a === 'confirm') await patchItem(d, id, { status: 'confirmed' }, true);
       if (a === 'cancel') { if (!confirm(`"${it.title}" 일정을 취소 처리할까요? (기록은 남고, 그 시간은 다른 신청이 가능해집니다)`)) return; await patchItem(d, id, { status: 'canceled' }); }
       if (a === 'restore') await patchItem(d, id, { status: 'pending' }, true);

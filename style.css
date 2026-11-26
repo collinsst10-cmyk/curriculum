@@ -165,6 +165,26 @@ input:focus, select:focus { outline: 2px solid var(--primary-weak); border-color
 .menu-grid.locked .menu-card { opacity: .45; pointer-events: none; }
 @media (max-width: 900px) { .hero { grid-template-columns: 1fr; } .mainnav { margin-left: 0; order: 3; width: 100%; } }
 
+/* 등록 신청 양식 */
+.gate.signup label { display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+.gate.signup input { width: 100%; }
+
+/* 학사일정 메뉴 */
+.cal-top { padding: 12px 16px; }
+.cal-top .card-head { margin-bottom: 8px; }
+.sem-row { gap: 12px; font-size: 13px; }
+.sem-row label { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
+.sem-row input { padding: 4px 6px; }
+.day .acts { float: right; font-size: 9px; font-weight: 700; line-height: 14px; min-width: 14px; text-align: center; border-radius: 7px; background: var(--gold); color: #3b2a00; }
+.day .acts.c { background: var(--ok); color: #fff; }
+.legend .acts { display: inline-block; font-size: 10px; font-weight: 700; padding: 0 5px; border-radius: 7px; background: var(--ok); color: #fff; }
+#calEditor .ro-note { display: none; }
+#calEditor.readonly .ro-note { display: block; color: var(--warn); }
+#calEditor.readonly .form, #calEditor.readonly .evhrs, #calEditor.readonly #btnApply { opacity: .45; pointer-events: none; }
+.tbl tr.act-row td { background: #fffdf5; }
+.chip.haksa { background: #eef2ff; border-color: var(--navy); color: var(--navy); }
+.chip.haksa.off { background: #fde2e2; border-color: var(--err); color: var(--err); }
+
 /* 교육활동 일정 */
 .act-layout { display: grid; grid-template-columns: 1fr 380px; gap: 16px; align-items: start; }
 .sticky-side { position: sticky; top: calc(var(--hdr, 66px) + 52px); }

@@ -151,10 +151,30 @@ window.App = {
 };
 
 /* =========================================================
+ * 학사일정 저장 위치
+ *  - 승인된 계정으로 로그인 + 학교 공용 학사일정이 있으면: 클라우드(haksa.js, 관리자만 수정)
+ *  - 그 외: 이 PC(state.days / state.sem)
+ * ========================================================= */
+const haksaShared = () => !!(window.Haksa && Haksa.active);
+const calDays = () => haksaShared() ? Haksa.days : state.days;
+const calSem = () => haksaShared() && Haksa.sem ? Haksa.sem : state.sem;
+const canEditCal = () => !haksaShared() || Haksa.canEdit();
+/** 날짜별 일정 쓰기. patch = { 'YYYY-MM-DD': 항목 | null(삭제) } */
+async function writeDays(patch) {
+  if (haksaShared()) return Haksa.writeDays(patch);
+  Object.entries(patch).forEach(([ds, e]) => { if (e) state.days[ds] = e; else delete state.days[ds]; });
+  save();
+}
+async function writeSem(sem) {
+  if (haksaShared()) return Haksa.writeSem(sem);
+  state.sem = sem; save();
+}
+
+/* =========================================================
  * 학사일정 계산
  * ========================================================= */
 function semOf(ds) {
-  const { s1Start, s1End, s2Start, s2End } = state.sem;
+  const { s1Start, s1End, s2Start, s2End } = calSem();
   if (ds >= s1Start && ds <= s1End) return 1;
   if (ds >= s2Start && ds <= s2End) return 2;
   return 0;
@@ -168,12 +188,12 @@ function computeYear() {
   const out = [];
   for (let d = new Date(y, 2, 1); d < new Date(y + 1, 2, 1); d = addDays(d, 1)) {
     const ds = fmt(d), dow = d.getDay();
-    const ov = state.days[ds];
+    const ov = calDays()[ds];
     const hol = hm[ds];
     let sem = semOf(ds), type, name = ov?.name || '';
     if (ov?.type === 'school') {
       type = 'school';
-      if (!sem) sem = ds < state.sem.s2Start ? 1 : 2;
+      if (!sem) sem = ds < calSem().s2Start ? 1 : 2;
     } else if (ov && ['holiday', 'closure', 'vacation'].includes(ov.type)) {
       type = ov.type;
     } else if (hol) {
@@ -292,7 +312,7 @@ function collectIssues() {
   const issues = [];
   const st = dayStats();
   const y = state.school.year;
-  const { s1Start, s1End, s2Start, s2End } = state.sem;
+  const { s1Start, s1End, s2Start, s2End } = calSem();
   if (!(s1Start <= s1End && s1End < s2Start && s2Start <= s2End)) issues.push(['err', '학기 기간이 올바르지 않습니다. (1학기 종료일 < 2학기 시작일 순서 확인)']);
   if (!PRESET_HOLIDAYS[y]) issues.push(['warn', `${y}학년도는 음력 공휴일(설·추석·부처님오신날)과 대체공휴일이 자동 입력되지 않습니다. 학사일정에서 직접 추가하세요.`]);
   holidayList(y).filter(h => h[2]).forEach(h => issues.push(['warn', `${fmtK(h[0])} ${h[1]}: 공휴일 지정 여부를 확인하세요. (공휴일이 아니면 학사일정에서 '수업일로 지정')`]));
@@ -328,7 +348,6 @@ function renderInfo() {
   ys.innerHTML = '';
   for (let y = y0 - 1; y <= y0 + 3; y++) ys.add(new Option(`${y}학년도${PRESET_HOLIDAYS[y] ? '' : ' (공휴일 직접 입력)'}`, y));
   ys.value = state.school.year;
-  ['s1Start', 's1End', 's2Start', 's2End'].forEach(k => { $(k).value = state.sem[k]; });
 
   $('tblClasses').innerHTML = `<tr>${GRADES.map(g => `<th>${g}학년</th>`).join('')}<th>계</th></tr>
     <tr>${GRADES.map(g => `<td><input data-cls="${g}" inputmode="numeric" value="${state.school.classes[g]}"></td>`).join('')}
@@ -352,6 +371,20 @@ function renderCal() {
   const days = computeYear();
   const today = fmt(new Date());
   const [a, b] = selRange();
+  // 학기 기간
+  const sem = calSem();
+  ['s1Start', 's1End', 's2Start', 's2End'].forEach(k => { if (document.activeElement !== $(k)) $(k).value = sem[k]; $(k).disabled = !canEditCal(); });
+  $('btnDefaultSem').disabled = !canEditCal();
+  // 저장 위치·권한 안내
+  const shared = haksaShared();
+  $('calWhere').innerHTML = shared
+    ? `<span class="pill ok">학교 공용 학사일정</span> 모든 선생님이 같은 학사일정을 봅니다.${canEditCal() ? ' (관리자: 수정 가능)' : ' 수정은 관리자만 할 수 있습니다.'}`
+    : (window.Haksa && Haksa.canCreate && Haksa.canCreate()
+      ? `<span class="pill warn">이 PC 학사일정</span> 아직 학교 공용 학사일정이 없습니다. <button class="btn small primary" id="btnHaksaCreate">지금 내용으로 학교 공용 학사일정 만들기</button>`
+      : `<span class="pill warn">이 PC 학사일정</span> 로그인하면 학교 공용 학사일정을 봅니다.`);
+  $('calEditor').classList.toggle('readonly', !canEditCal());
+  // 날짜별 교육활동 수 (교육활동 일정 연계)
+  const acts = window.Activities ? Activities.items : {};
   let html = '';
   for (let i = 0; i < 12; i++) {
     const y = state.school.year + (i >= 10 ? 1 : 0), m = (2 + i) % 12;
@@ -362,8 +395,10 @@ function renderCal() {
     for (let k = 0; k < list[0].dow; k++) html += '<div class="day empty"></div>';
     list.forEach(x => {
       const sel = a && x.ds >= a && x.ds <= b ? ' sel' : '';
-      html += `<div class="day ${x.type}${sel}${x.ds === today ? ' today' : ''}" data-ds="${x.ds}" title="${esc(x.ds + ' ' + TYPE_LABEL[x.type] + (x.name ? ' · ' + x.name : ''))}">
-        <span class="d">${x.d.getDate()}</span><span class="n">${esc(x.name)}</span></div>`;
+      const al = (acts[x.ds] || []).filter(t => t.status !== 'canceled');
+      const tip = x.ds + ' ' + TYPE_LABEL[x.type] + (x.name ? ' · ' + x.name : '') + al.map(t => `\n· ${t.kind} ${t.title} (${t.status === 'confirmed' ? '확정' : '신청'})`).join('');
+      html += `<div class="day ${x.type}${sel}${x.ds === today ? ' today' : ''}" data-ds="${x.ds}" title="${esc(tip)}">
+        <span class="d">${x.d.getDate()}</span>${al.length ? `<span class="acts ${al.some(t => t.status === 'confirmed') ? 'c' : ''}">${al.length}</span>` : ''}<span class="n">${esc(x.name || (al[0] ? al[0].title : ''))}</span></div>`;
     });
     html += '</div></div>';
   }
@@ -384,7 +419,7 @@ function renderCalSide() {
   if (a) {
     const n = computeYear().filter(x => x.ds >= a && x.ds <= b).length;
     $('edInfo').textContent = `${n}일 선택됨`;
-    const ov = state.days[a];
+    const ov = calDays()[a];
     if (ov) {
       $('edType').value = ov.type; $('edName').value = ov.name || '';
       $('edHrs').value = ov.hrs || 0; $('edArea').value = ov.area || 'cha_auto';
@@ -405,18 +440,25 @@ function renderCalSide() {
   $('holidayWarn').innerHTML = PRESET_HOLIDAYS[y] ? '' :
     `<div class="notice">${y}학년도는 음력 공휴일·대체공휴일 정보가 없습니다. 직접 '공휴일 추가'로 입력하세요.</div>`;
 
-  const hm = holidayMap(y);
+  const hm = holidayMap(y), cd = calDays(), edit = canEditCal();
   const rows = [];
-  Object.entries(hm).forEach(([ds, h]) => { if (!state.days[ds]) rows.push({ ds, type: 'holiday', name: h.name + (h.check ? ' (지정 여부 확인)' : ''), preset: true }); });
-  Object.entries(state.days).forEach(([ds, o]) => rows.push({ ds, type: o.type, name: o.name || '', preset: false,
-    hrs: o.hrs ? `${o.hrs}h·${(CHA_PARTS.find(p => p.key === o.area) || {}).name?.slice(0, 2) || ''}${o.grades?.length ? '·' + o.grades.join(',') + '학년' : ''}` : '' }));
+  Object.entries(hm).forEach(([ds, h]) => { if (!cd[ds]) rows.push({ ds, type: 'holiday', name: h.name + (h.check ? ' (지정 여부 확인)' : ''), preset: true }); });
+  Object.entries(cd).forEach(([ds, o]) => rows.push({ ds, type: o.type, name: o.name || '', preset: false,
+    hrs: o.hrs ? `1~${o.hrs}교시·${o.grades?.length ? o.grades.join(',') + '학년' : '전교'}` : '' }));
+  // 교육활동 일정(외부강의 등)도 함께 표시
+  const acts = window.Activities ? Activities.items : {};
+  Object.values(acts).flat().filter(t => t.status !== 'canceled').forEach(t => rows.push({ ds: t.date, type: 'act', name: `${t.kind} · ${t.title}`, act: t }));
   rows.sort((p, q) => p.ds.localeCompare(q.ds));
-  $('tblEvents').innerHTML = `<tr><th>날짜</th><th>구분</th><th class="l">내용</th><th>시수</th><th></th></tr>` + rows.map(r =>
-    `<tr><td class="num">${fmtK(r.ds)}</td><td>${r.type === 'school' ? '수업일 지정' : TYPE_LABEL[r.type]}</td><td class="l">${esc(r.name)}</td><td class="hint">${r.hrs || ''}</td>
-     <td>${r.preset ? '<span class="hint">기본</span>' : `<button class="x" data-del="${r.ds}" title="삭제">✕</button>`}</td></tr>`).join('');
+  $('tblEvents').innerHTML = `<tr><th>날짜</th><th>구분</th><th class="l">내용</th><th>시간</th><th></th></tr>` + rows.map(r =>
+    r.act
+      ? `<tr class="act-row"><td class="num">${fmtK(r.ds)}</td><td><span class="st ${r.act.status}">${r.act.status === 'confirmed' ? '확정' : '신청'}</span></td>
+         <td class="l">${esc(r.name)}<br><span class="hint">${esc(r.act.ownerName || '')}</span></td><td class="hint">${r.act.periods.length >= 6 ? '종일' : r.act.periods.join('·') + '교시'}</td><td><a class="hint" href="#act">보기</a></td></tr>`
+      : `<tr><td class="num">${fmtK(r.ds)}</td><td>${r.type === 'school' ? '수업일 지정' : r.type === 'event' ? '교내행사' : TYPE_LABEL[r.type]}</td><td class="l">${esc(r.name)}</td><td class="hint">${r.hrs || ''}</td>
+         <td>${r.preset ? '<span class="hint">기본</span>' : edit ? `<button class="x" data-del="${r.ds}" title="삭제">✕</button>` : ''}</td></tr>`).join('');
 }
 
-function applyRange() {
+async function applyRange() {
+  if (!canEditCal()) { alert('학교 공용 학사일정은 관리자만 수정할 수 있습니다.'); return; }
   let a = $('edStart').value, b = $('edEnd').value || a;
   if (!a) { alert('시작일을 선택하세요.'); return; }
   if (b < a) [a, b] = [b, a];
@@ -424,13 +466,15 @@ function applyRange() {
   const hrs = Math.min(8, toNum($('edHrs').value));
   const grades = [...document.querySelectorAll('#edGrades input:checked')].map(i => Number(i.value));
   const area = $('edArea').value;
+  const patch = {};
   for (let d = parse(a); fmt(d) <= b; d = addDays(d, 1)) {
     const ds = fmt(d);
-    if (type === 'clear') delete state.days[ds];
-    else if (type === 'event' && hrs > 0) state.days[ds] = { type, name, hrs, area, grades: grades.length === 6 ? [] : grades };
-    else state.days[ds] = { type, name };
+    if (type === 'clear') patch[ds] = null;
+    else if (type === 'event' && hrs > 0) patch[ds] = { type, name, hrs, area, grades: grades.length === 6 ? [] : grades };
+    else patch[ds] = { type, name };
   }
-  save(); renderCal();
+  try { await writeDays(patch); } catch (e) { alert('저장 실패: ' + e.message); }
+  renderCal();
 }
 
 /* =========================================================
@@ -442,8 +486,8 @@ function renderDays() {
   $('daysKpi').innerHTML = `
     <div class="kpi"><div class="t">연간 수업일수</div><div class="v">${st.total}일</div>
       <div class="s"><span class="pill ${ok ? 'ok' : 'err'}">${ok ? `기준 충족 (+${st.total - MIN_SCHOOL_DAYS})` : `${MIN_SCHOOL_DAYS - st.total}일 부족`}</span> 법정 ${MIN_SCHOOL_DAYS}일 이상</div></div>
-    <div class="kpi"><div class="t">1학기</div><div class="v">${st.sem[1].days}일</div><div class="s">${fmtK(state.sem.s1Start)} ~ ${fmtK(state.sem.s1End)} · ${st.sem[1].weeks}주</div></div>
-    <div class="kpi"><div class="t">2학기</div><div class="v">${st.sem[2].days}일</div><div class="s">${fmtK(state.sem.s2Start)} ~ ${fmtK(state.sem.s2End)} · ${st.sem[2].weeks}주</div></div>
+    <div class="kpi"><div class="t">1학기</div><div class="v">${st.sem[1].days}일</div><div class="s">${fmtK(calSem().s1Start)} ~ ${fmtK(calSem().s1End)} · ${st.sem[1].weeks}주</div></div>
+    <div class="kpi"><div class="t">2학기</div><div class="v">${st.sem[2].days}일</div><div class="s">${fmtK(calSem().s2Start)} ~ ${fmtK(calSem().s2End)} · ${st.sem[2].weeks}주</div></div>
     <div class="kpi"><div class="t">재량휴업일 / 행사일</div><div class="v">${st.months.reduce((t, m) => t + m.closure, 0)}일 / ${st.months.reduce((t, m) => t + m.events, 0)}일</div><div class="s">학사일정 입력 기준</div></div>`;
 
   $('tblMonths').innerHTML = `<tr><th>월</th><th>총 일수</th><th>수업일수</th><th>휴업일수</th><th>평일 공휴일</th><th>재량휴업일</th><th>행사일</th></tr>` +
@@ -608,7 +652,7 @@ function exportCal() {
  * 이벤트
  * ========================================================= */
 const RENDER = { home: renderHome, data: () => {}, admin: () => {}, info: renderInfo, cal: renderCal, days: renderDays, hours: renderHours, table: renderTable };
-const GROUP_FIRST = { home: 'home', curr: 'info', tt: 'tt', act: 'act', data: 'data', admin: 'admin' };
+const GROUP_FIRST = { home: 'home', haksa: 'cal', curr: 'info', tt: 'tt', act: 'act', data: 'data', admin: 'admin' };
 const lastInGroup = {};
 let curTab = 'home';
 
@@ -676,11 +720,19 @@ function bind() {
   $('inSchool').addEventListener('input', e => { state.school.name = e.target.value; save(); });
   $('inYear').addEventListener('change', e => {
     const y = Number(e.target.value);
-    if (Object.keys(state.days).length && !confirm('학년도를 바꾸면 학기 기간이 기본값으로 바뀝니다. 입력한 일정은 유지됩니다(날짜가 달라 표시되지 않을 수 있음). 계속할까요?')) { e.target.value = state.school.year; return; }
-    state.school.year = y; state.sem = defaultSemesters(y); save(); renderInfo();
+    if (!haksaShared() && Object.keys(state.days).length && !confirm('학년도를 바꾸면 학기 기간이 기본값으로 바뀝니다. 입력한 일정은 유지됩니다(날짜가 달라 표시되지 않을 수 있음). 계속할까요?')) { e.target.value = state.school.year; return; }
+    state.school.year = y; state.sem = defaultSemesters(y); _yearCache = null; save(); renderInfo();
+    document.dispatchEvent(new Event('year-change'));   // 학교 공용 학사일정·교육활동을 해당 학년도로 다시 불러옴
   });
-  ['s1Start', 's1End', 's2Start', 's2End'].forEach(k => $(k).addEventListener('change', e => { state.sem[k] = e.target.value; save(); renderInfo(); }));
-  $('btnDefaultSem').addEventListener('click', () => { state.sem = defaultSemesters(state.school.year); save(); renderInfo(); });
+  ['s1Start', 's1End', 's2Start', 's2End'].forEach(k => $(k).addEventListener('change', async e => {
+    if (!canEditCal()) return;
+    try { await writeSem({ ...calSem(), [k]: e.target.value }); } catch (err) { alert('저장 실패: ' + err.message); }
+    _yearCache = null; renderCal();
+  }));
+  $('btnDefaultSem').addEventListener('click', async () => {
+    if (!canEditCal()) return;
+    await writeSem(defaultSemesters(state.school.year)); _yearCache = null; renderCal();
+  });
   $('tab-info').addEventListener('input', e => {
     const t = e.target;
     if (t.dataset.cls) { state.school.classes[t.dataset.cls] = toNum(t.value); }
@@ -697,7 +749,7 @@ function bind() {
   $('calGrid').addEventListener('click', e => {
     const c = e.target.closest('.day[data-ds]'); if (!c) return;
     if (e.shiftKey && calSel.start) calSel.end = c.dataset.ds;
-    else { calSel = { start: c.dataset.ds, end: null }; const ov = state.days[c.dataset.ds]; if (!ov) $('edName').value = ''; }
+    else { calSel = { start: c.dataset.ds, end: null }; const ov = calDays()[c.dataset.ds]; if (!ov) $('edName').value = ''; }
     renderCal();
   });
   ['edStart', 'edEnd'].forEach(id => $(id).addEventListener('change', () => {
@@ -708,7 +760,13 @@ function bind() {
   $('edName').addEventListener('keydown', e => { if (e.key === 'Enter') applyRange(); });
   $('tblEvents').addEventListener('click', e => {
     const b = e.target.closest('[data-del]'); if (!b) return;
-    delete state.days[b.dataset.del]; save(); renderCal();
+    if (!canEditCal()) return;
+    writeDays({ [b.dataset.del]: null }).then(renderCal).catch(err => alert('삭제 실패: ' + err.message));
+  });
+  document.addEventListener('click', e => {
+    if (e.target.id !== 'btnHaksaCreate') return;
+    if (!confirm('지금 화면의 학사일정(학기 기간·행사·휴업일 등)을 학교 공용 학사일정으로 등록합니다. 이후 모든 선생님이 이 학사일정을 보게 됩니다. 계속할까요?')) return;
+    Haksa.createFromLocal().catch(err => alert('만들기 실패: ' + err.message));
   });
   $('btnExportCal').addEventListener('click', exportCal);
 
