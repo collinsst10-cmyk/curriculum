@@ -1,3 +1,5 @@
+@import url('https://cdn.jsdelivr.net/gh/fonts-archive/Paperlogy/Paperlogy.css');
+
 :root {
   --bg: #f4f6f9; --card: #fff; --line: #dde2ea; --text: #1f2733; --muted: #6b7684;
   /* 용원초 교표 색: 남색(글자) · 파랑(마름모) · 금색(닻) */
@@ -6,7 +8,7 @@
   --c-school: #ffffff; --c-event: #e8efff; --c-holiday: #fde2e2; --c-closure: #fff0d6; --c-vacation: #e6f4ea; --c-weekend: #f1f3f6;
 }
 * { box-sizing: border-box; }
-body { margin: 0; font-family: 'Malgun Gothic', 'Pretendard', 'Apple SD Gothic Neo', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+body { margin: 0; font-family: 'Paperlogy', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
 h1 { font-size: 18px; margin: 0; }
 h2 { font-size: 16px; margin: 0 0 10px; }
 h3 { font-size: 14px; margin: 16px 0 8px; color: #374151; }
@@ -472,3 +474,13 @@ body { background: linear-gradient(180deg, #e7eedd 0, #f3f5ec 420px, #f5f6f1 100
 .sw-n { font-size: 26px; font-weight: 800; color: var(--green-d); line-height: 1.1; }
 .sw-sem.total .sw-tile { background: #fff; border: 1px solid #dfe6d4; }
 @media (max-width: 1100px) { .days-layout { grid-template-columns: 1fr; } }
+
+/* Paperlogy type hierarchy */
+button, input, select, textarea { font-family: inherit; }
+body { font-weight: 400; }
+.mainnav button, .tabs button, .btn { font-weight: 600; }
+.mainnav button.active, .tabs button.active, .btn.primary { font-weight: 700; }
+.day .d, .aday-h .d, .num { font-variant-numeric: tabular-nums; }
+.day .d { font-weight: 500; }
+.month-head, .card h2, .sec-title { font-weight: 700; }
+.hh-text h2, .hs-value { font-weight: 800; }
