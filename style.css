@@ -423,3 +423,40 @@ body { background: linear-gradient(180deg, #e7eedd 0, #f3f5ec 420px, #f5f6f1 100
 .home-card .hp-list .dot { width: 16px; height: 16px; }
 .home-card .date-pill { font-size: 18px; padding: 8px 22px; min-width: 130px; }
 @media (max-width: 900px) { .home-card .home-stats { margin: -70px 16px 0; } .home-card .home-panel { padding: 22px; } }
+
+/* 학교 정보 */
+.school-card { max-width: 860px; }
+.school-form { grid-template-columns: 2fr 1.3fr 1fr; }
+.sem-grid.six { grid-template-columns: repeat(6, minmax(130px, 1fr)); }
+@media (max-width: 1100px) { .sem-grid.six { grid-template-columns: repeat(3, 1fr); } .school-form { grid-template-columns: 1fr; } }
+
+/* 달력 '삭제' */
+.tg.del:has(input:checked) { background: var(--err); border-color: var(--err); color: #fff; }
+.btn.danger-fill { background: var(--err); border-color: var(--err); color: #fff; }
+#edDelInfo { margin-top: 8px; color: var(--err); }
+
+/* 월별 수업일수: 한 가지 색 가로 막대 */
+.days-layout { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; align-items: start; }
+.month-bars { display: grid; gap: 6px; }
+.mb-row { display: grid; grid-template-columns: 42px 1fr 58px minmax(120px, 34%); align-items: center; gap: 10px; padding: 3px 0; border-radius: 6px; }
+.mb-row:hover { background: var(--green-pale); }
+.mb-m { font-weight: 700; color: var(--ink); text-align: right; }
+.mb-track { height: 14px; background: #eef1e8; border-radius: 4px; overflow: hidden; }
+.mb-fill { display: block; height: 100%; background: var(--green); border-radius: 0 4px 4px 0; }
+.mb-v { font-size: 13px; color: var(--muted); } .mb-v b { font-size: 17px; color: var(--ink); }
+.mb-note { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mb-row.vac .mb-m, .mb-row.vac .mb-v { color: #9aa3ae; }
+.mb-total { display: flex; align-items: baseline; gap: 12px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.mb-total b { font-size: 24px; color: var(--green-d); }
+
+/* 학기별 요일 수업일수: 숫자 타일 */
+.sem-week { display: grid; gap: 16px; }
+.sw-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.sw-head b { font-size: 16px; color: var(--ink); } .sw-head span { color: var(--muted); font-size: 13px; }
+.sw-tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.sw-tile { background: var(--green-pale); border-radius: 12px; padding: 10px 4px; text-align: center; display: flex; flex-direction: column; gap: 2px; }
+.sw-tile.low { background: #f6f7f2; }
+.sw-d { font-size: 12px; color: var(--muted); font-weight: 700; }
+.sw-n { font-size: 26px; font-weight: 800; color: var(--green-d); line-height: 1.1; }
+.sw-sem.total .sw-tile { background: #fff; border: 1px solid #dfe6d4; }
+@media (max-width: 1100px) { .days-layout { grid-template-columns: 1fr; } }

@@ -140,7 +140,7 @@ function normalize(s) {
  * ========================================================= */
 const isTeacherView = () => !!(window.App && App.role && App.role() === 'teacher');
 // 선생님에게는 조회만 되는 화면
-const RO_SECTIONS = ['tab-cal', 'tab-event', 'tab-hours', 'tab-tt', 'tab-run', 'tab-jd'];
+const RO_SECTIONS = ['tab-school', 'tab-cal', 'tab-event', 'tab-hours', 'tab-tt', 'tab-run', 'tab-jd'];
 function applyRoleView() {
   const t = isTeacherView();
   document.body.classList.toggle('role-teacher', t);
@@ -405,6 +405,7 @@ function collectIssues() {
  * ========================================================= */
 function renderInfo() {
   $('inSchool').value = state.school.name;
+  if (document.activeElement !== $('inNeis')) $('inNeis').value = state.school.neis || '';
   const ys = $('inYear'); const y0 = new Date().getFullYear();
   ys.innerHTML = '';
   for (let y = y0 - 1; y <= y0 + 3; y++) ys.add(new Option(`${y}학년도${PRESET_HOLIDAYS[y] ? '' : ' (공휴일 직접 입력)'}`, y));
@@ -534,7 +535,15 @@ function renderCalSide() {
   const k = edKind();
   $('edNameBox').hidden = k !== 'event';
   $('edEtcBox').hidden = k !== 'etc';
-  $('btnApply').disabled = !picked.length || (k === 'event' && !$('edName').value.trim());
+  // 삭제: 고른 날 중 교내행사·재량휴업일만 지움 (공휴일·주말·방학은 그대로)
+  const deletable = picked.filter(ds => ['event', 'closure'].includes((calDays()[ds] || {}).type));
+  $('edDelInfo').hidden = k !== 'del' || !picked.length;
+  $('edDelInfo').innerHTML = deletable.length
+    ? `삭제할 일정 ${deletable.length}건: ${deletable.map(ds => `${fmtK(ds)} ${esc(calDays()[ds].name || '')}`).join(', ')}`
+    : '고른 날에 지울 교내행사·재량휴업일이 없습니다.';
+  $('btnApply').textContent = k === 'del' ? '삭제' : '적용';
+  $('btnApply').classList.toggle('danger-fill', k === 'del');
+  $('btnApply').disabled = !picked.length || (k === 'event' && !$('edName').value.trim()) || (k === 'del' && !deletable.length);
 
   const st = dayStats();
   $('calSummary').innerHTML = `<div>1학기<b>${st.sem[1].days}</b></div><div>2학기<b>${st.sem[2].days}</b></div>
@@ -566,7 +575,11 @@ async function applyRange() {
   if (!picked.length) return;
   const k = edKind(), name = $('edName').value.trim(), cd = calDays();
   const patch = {};
-  picked.forEach(ds => {
+  if (k === 'del') {
+    const del = picked.filter(ds => ['event', 'closure'].includes((cd[ds] || {}).type));
+    if (!del.length || !confirm(`교내행사·재량휴업일 ${del.length}건을 삭제할까요?\n${del.map(ds => `${fmtK(ds)} ${cd[ds].name || ''}`).join('\n')}`)) return;
+    del.forEach(ds => { patch[ds] = null; });
+  } else picked.forEach(ds => {
     if (k === 'closure') patch[ds] = { type: 'closure', name: '재량휴업일' };
     else if (k === 'event') {
       const prev = cd[ds] && cd[ds].type === 'event' ? cd[ds] : {};   // 교시·학년 설정은 유지
@@ -591,18 +604,34 @@ function renderDays() {
     <div class="kpi"><div class="t">2학기</div><div class="v">${st.sem[2].days}일</div><div class="s">${fmtK(calSem().s2Start)} ~ ${fmtK(calSem().s2End)} · ${st.sem[2].weeks}주</div></div>
     <div class="kpi"><div class="t">재량휴업일 / 행사일</div><div class="v">${st.months.reduce((t, m) => t + m.closure, 0)}일 / ${st.months.reduce((t, m) => t + m.events, 0)}일</div><div class="s">학사일정 입력 기준</div></div>`;
 
-  $('tblMonths').innerHTML = `<tr><th>월</th><th>총 일수</th><th>수업일수</th><th>휴업일수</th><th>평일 공휴일</th><th>재량휴업일</th><th>행사일</th></tr>` +
-    st.months.map(m => `<tr><td>${m.m + 1}월</td><td class="num">${m.total}</td><td class="num"><b>${m.school}</b></td><td class="num">${m.total - m.school}</td>
-      <td class="num">${m.holiday || ''}</td><td class="num">${m.closure || ''}</td><td class="num">${m.events || ''}</td></tr>`).join('') +
-    `<tr class="total"><td>계</td><td class="num">${st.months.reduce((t, m) => t + m.total, 0)}</td><td class="num">${st.total}</td>
-      <td class="num">${st.months.reduce((t, m) => t + m.total - m.school, 0)}</td><td class="num">${st.months.reduce((t, m) => t + m.holiday, 0)}</td>
-      <td class="num">${st.months.reduce((t, m) => t + m.closure, 0)}</td><td class="num">${st.months.reduce((t, m) => t + m.events, 0)}</td></tr>`;
+  // 월별 수업일수: 한 가지 색 막대(값은 막대 끝에 숫자), 휴업 내용은 옆에 작은 글자
+  const maxDays = Math.max(23, ...st.months.map(m => m.school));
+  const avg = (st.total / st.months.filter(m => m.school).length || 0).toFixed(1);
+  $('monthNote').textContent = `수업일이 있는 달 평균 ${avg}일`;
+  $('monthBars').innerHTML = st.months.map(m => {
+    const notes = [m.holiday && `공휴일 ${m.holiday}`, m.closure && `재량휴업 ${m.closure}`, m.events && `행사 ${m.events}`].filter(Boolean);
+    const vac = !m.school;
+    const tip = `${m.y}년 ${m.m + 1}월 · 수업일 ${m.school}일 / 전체 ${m.total}일 · 휴업일 ${m.total - m.school}일` + (notes.length ? ' · ' + notes.join(', ') : '');
+    return `<div class="mb-row${vac ? ' vac' : ''}" title="${esc(tip)}">
+      <span class="mb-m">${m.m + 1}월</span>
+      <span class="mb-track"><span class="mb-fill" style="width:${(m.school / maxDays * 100).toFixed(1)}%"></span></span>
+      <span class="mb-v">${vac ? '방학' : `<b>${m.school}</b>일`}</span>
+      <span class="mb-note">${esc(notes.join(' · '))}</span></div>`;
+  }).join('') +
+    `<div class="mb-total"><span>연간</span><b>${st.total}일</b><span class="hint">법정 ${MIN_SCHOOL_DAYS}일 이상 ${st.total >= MIN_SCHOOL_DAYS ? '✅ 충족' : '⛔ 부족'}</span></div>`;
 
-  const wdRow = s => [1, 2, 3, 4, 5].map(d => `<td class="num">${st.sem[s].wd[d]}</td>`).join('');
-  $('tblWeekdays').innerHTML = `<tr><th>학기</th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th><th>계</th><th>수업 주수</th></tr>
-    <tr><td>1학기</td>${wdRow(1)}<td class="num"><b>${st.sem[1].days}</b></td><td class="num">${st.sem[1].weeks}</td></tr>
-    <tr><td>2학기</td>${wdRow(2)}<td class="num"><b>${st.sem[2].days}</b></td><td class="num">${st.sem[2].weeks}</td></tr>
-    <tr class="total"><td>계</td>${[1, 2, 3, 4, 5].map(d => `<td class="num">${st.sem[1].wd[d] + st.sem[2].wd[d]}</td>`).join('')}<td class="num">${st.total}</td><td class="num">${st.sem[1].weeks + st.sem[2].weeks}</td></tr>`;
+  // 학기별 요일 수업일수: 학기마다 월~금 숫자 타일
+  const semBlock = s => {
+    const w = st.sem[s].wd, vals = [1, 2, 3, 4, 5].map(d => w[d]), mx = Math.max(...vals), mn = Math.min(...vals);
+    return `<div class="sw-sem"><div class="sw-head"><b>${s}학기</b><span>${st.sem[s].days}일 · ${st.sem[s].weeks}주</span></div>
+      <div class="sw-tiles">${['월', '화', '수', '목', '금'].map((d, i) => `<div class="sw-tile${vals[i] === mn && mx !== mn ? ' low' : ''}" title="${s}학기 ${d}요일 수업 ${vals[i]}일">
+        <span class="sw-d">${d}</span><span class="sw-n">${vals[i]}</span></div>`).join('')}</div></div>`;
+  };
+  const tot = [1, 2, 3, 4, 5].map(d => st.sem[1].wd[d] + st.sem[2].wd[d]);
+  $('semWeek').innerHTML = semBlock(1) + semBlock(2) +
+    `<div class="sw-sem total"><div class="sw-head"><b>연간</b><span>${st.total}일 · ${st.sem[1].weeks + st.sem[2].weeks}주</span></div>
+      <div class="sw-tiles">${['월', '화', '수', '목', '금'].map((d, i) => `<div class="sw-tile"><span class="sw-d">${d}</span><span class="sw-n">${tot[i]}</span></div>`).join('')}</div></div>
+    <p class="hint">요일별 수업일수는 요일마다 시간표가 다를 때 수업 가능 시수 계산에 쓰입니다. 가장 적은 요일은 연한 색으로 표시됩니다.</p>`;
 
   $('tblCapacity').innerHTML = `<tr><th>학년</th><th>1학기 가능</th><th>1학기 배정</th><th>2학기 가능</th><th>2학기 배정</th><th>연간 여유</th></tr>` +
     GRADES.map(g => {
@@ -753,7 +782,7 @@ function exportCal() {
  * 이벤트
  * ========================================================= */
 const RENDER = { home: renderHome, data: () => {}, admin: () => {}, info: renderInfo, cal: renderCal, days: renderDays, hours: renderHours, table: renderTable };
-const GROUP_FIRST = { home: 'home', haksa: 'hview', curr: 'cal', tt: 'tt', act: 'act', data: 'data', admin: 'admin' };
+const GROUP_FIRST = { home: 'home', haksa: 'hview', curr: 'school', tt: 'tt', act: 'act', data: 'data', admin: 'admin' };
 const lastInGroup = {};
 let curTab = 'home';
 
@@ -896,6 +925,7 @@ function bind() {
 
   // ① 기본 정보
   $('inSchool').addEventListener('input', e => { state.school.name = e.target.value; save(); });
+  $('inNeis').addEventListener('input', e => { state.school.neis = e.target.value.replace(/[^0-9A-Za-z]/g, '').slice(0, 10); save(); });
   $('inYear').addEventListener('change', e => {
     const y = Number(e.target.value);
     if (!haksaShared() && Object.keys(state.days).length && !confirm('학년도를 바꾸면 학기 기간이 기본값으로 바뀝니다. 입력한 일정은 유지됩니다(날짜가 달라 표시되지 않을 수 있음). 계속할까요?')) { e.target.value = state.school.year; return; }

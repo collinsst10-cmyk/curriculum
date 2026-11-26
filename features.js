@@ -1,6 +1,6 @@
 'use strict';
 /* =========================================================
- * 추가 기능: 주차표, 기초 시간표, 시수 운영 확인, 교과전담
+ * 추가 기능: 기초 시간표, 시수 운영 확인, 교과전담
  * (app.js 의 전역 함수·상태를 사용)
  * ========================================================= */
 const SHORT = {
@@ -50,21 +50,6 @@ function runCalc(g) {
   });
   return res;
 }
-
-/* =========================================================
- * ③ 수업일수 탭: 주차표 추가
- * ========================================================= */
-function renderWeeks() {
-  const st = dayStats();
-  $('tblWeeks').innerHTML = `<tr><th>주차</th><th>기간</th><th>학기</th><th>수업일수</th><th class="l">주요 일정</th></tr>` +
-    st.weeks.map(w => {
-      const notes = w.days.filter(x => x.name).map(x => `${x.d.getMonth() + 1}/${x.d.getDate()} ${x.name}`);
-      return `<tr${w.school.length ? '' : ' class="sub"'}><td>${w.no}</td><td class="num">${w.label}</td><td>${w.sem ? w.sem + '학기' : '방학'}</td>
-        <td class="num">${w.school.length || '-'}</td><td class="l">${esc([...new Set(notes)].join(', '))}</td></tr>`;
-    }).join('');
-}
-const _renderDays = RENDER.days;
-RENDER.days = () => { _renderDays(); renderWeeks(); };
 
 /* =========================================================
  * ⑤ 기초 시간표
@@ -273,7 +258,6 @@ $('btnExportRun').addEventListener('click', () => {
   const html = GRADES.map(g => `<h3>${g}학년 주차별 시수</h3>${runWeeksHtml(g, true)}<br>`).join('');
   downloadXls(`${fileBase()}_연간시수표.xls`, `<h2>${esc(state.school.name)} ${state.school.year}학년도 연간 시수표</h2>${html}`);
 });
-$('btnExportWeeks').addEventListener('click', () => downloadXls(`${fileBase()}_주차표.xls`, `<h2>${state.school.year}학년도 주차표</h2><table border="1">${$('tblWeeks').innerHTML}</table>`));
 
 $('btnJdAdd').addEventListener('click', () => {
   const g = state.jundam.length ? state.jundam[state.jundam.length - 1].grade : 3;

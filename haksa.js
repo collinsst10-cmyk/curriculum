@@ -72,7 +72,7 @@
   /* ---------- 학교 정보(학교명·학년도·학급 수) 공유: config/school ----------
    * 관리자가 고치면 저장되고, 선생님 화면은 이 값으로 학년도·학급 수를 맞춤(교육활동 대상 학급 등) */
   let unsubSchool = null, lastSchool = '';
-  const schoolInfo = () => ({ name: state.school.name, year: state.school.year, classes: { ...state.school.classes } });
+  const schoolInfo = () => ({ name: state.school.name, neis: state.school.neis || '', year: state.school.year, classes: { ...state.school.classes } });
   async function writeSchool(force) {
     if (!H.canEdit()) return;
     const json = JSON.stringify(schoolInfo());
@@ -87,7 +87,8 @@
     unsubSchool = Cloud.fb.F.onSnapshot(Cloud.fb.F.doc(Cloud.fb.db, 'config', 'school'), d => {
       if (!d.exists()) return;
       const s = d.data();
-      if (Cloud.isAdmin()) { lastSchool = JSON.stringify({ name: s.name, year: s.year, classes: s.classes }); return; }
+      if (Cloud.isAdmin()) { lastSchool = JSON.stringify({ name: s.name, neis: s.neis || '', year: s.year, classes: s.classes }); return; }
+      state.school.neis = s.neis || '';
       // 선생님: 관리자가 정한 학교 정보 사용
       const yearChanged = s.year && s.year !== state.school.year;
       state.school.name = s.name || state.school.name;

@@ -12,11 +12,12 @@
   const AREA = { cha_auto: '자율·자치', cha_club: '동아리', cha_career: '진로' };
 
   /* ---------- 화면 묶기 ---------- */
-  const daysAndWeeks = RENDER.days;          // 수업일수 + 주차표 (features.js)
+  const daysAndWeeks = RENDER.days;          // 수업일수(월별·요일별)
   const hoursOnly = RENDER.hours;
   RENDER.cal = () => { renderInfo(); renderCal(); daysAndWeeks(); syncHolidays(); };
   RENDER.hours = () => { renderInfo(); hoursOnly(); daysAndWeeks(); renderTable(); };
   RENDER.hview = renderHview;
+  RENDER.school = renderInfo;
   RENDER.event = renderEvent;
 
   /** 연속된 같은 일정(예: 여름방학 30일)을 하나의 기간으로 묶음 */
