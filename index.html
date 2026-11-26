@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=calendar-layout-2">
+<link rel="stylesheet" href="style.css?v=kclass-1">
 </head>
 <body>
 <header class="topbar">
@@ -20,6 +20,7 @@
     <button data-go="haksa">학사일정</button>
     <button data-go="tt" class="admin-only">시간표 편성</button>
     <button data-go="act">교육활동 일정</button>
+    <button data-go="kclass">한국어 학급</button>
     <button data-go="data" class="admin-only">자료 관리</button>
     <button data-go="admin" id="navAdmin" hidden>관리자</button>
   </nav>
@@ -44,6 +45,9 @@
   <button data-tab="run" data-group="tt">② 시수 운영 확인</button>
   <button data-tab="jd" data-group="tt">③ 교과전담</button>
   <button data-tab="act" data-group="act">① 일정 신청·관리</button>
+  <button data-tab="kclass1" data-group="kclass">한국어학급 1</button>
+  <button data-tab="kclass2" data-group="kclass">한국어학급 2</button>
+  <button data-tab="kclass3" data-group="kclass">한국어학급 3</button>
   <button data-tab="ksl" data-group="act">② 한국어학급 연계</button>
   <button data-tab="data" data-group="data">클라우드·백업·내보내기</button>
   <button data-tab="admin" data-group="admin">사용자 승인 관리</button>
@@ -196,6 +200,47 @@
   </section>
 
   <!-- 한국어학급 연계 -->
+  <section id="tab-kclass1" class="tab">
+    <div class="card">
+      <h2>한국어학급 1 주간 시간표</h2>
+      <p id="kclassMode1" class="hint"></p>
+      <form id="kclassOwner1" class="row" hidden>
+        <label>담임 구글 이메일 <input type="email" maxlength="254" required></label>
+        <button class="btn small" type="submit">담임 지정</button>
+      </form>
+      <div class="tbl-scroll"><table class="tbl kclass-grid" id="kclassGrid1"></table></div>
+      <button id="kclassSave1" class="btn primary" type="button" hidden>시간표 저장</button>
+      <p id="kclassStatus1" role="status"></p>
+    </div>
+  </section>
+
+  <section id="tab-kclass2" class="tab">
+    <div class="card">
+      <h2>한국어학급 2 주간 시간표</h2>
+      <p id="kclassMode2" class="hint"></p>
+      <form id="kclassOwner2" class="row" hidden>
+        <label>담임 구글 이메일 <input type="email" maxlength="254" required></label>
+        <button class="btn small" type="submit">담임 지정</button>
+      </form>
+      <div class="tbl-scroll"><table class="tbl kclass-grid" id="kclassGrid2"></table></div>
+      <button id="kclassSave2" class="btn primary" type="button" hidden>시간표 저장</button>
+      <p id="kclassStatus2" role="status"></p>
+    </div>
+  </section>
+
+  <section id="tab-kclass3" class="tab">
+    <div class="card">
+      <h2>한국어학급 3 주간 시간표</h2>
+      <p id="kclassMode3" class="hint"></p>
+      <form id="kclassOwner3" class="row" hidden>
+        <label>담임 구글 이메일 <input type="email" maxlength="254" required></label>
+        <button class="btn small" type="submit">담임 지정</button>
+      </form>
+      <div class="tbl-scroll"><table class="tbl kclass-grid" id="kclassGrid3"></table></div>
+      <button id="kclassSave3" class="btn primary" type="button" hidden>시간표 저장</button>
+      <p id="kclassStatus3" role="status"></p>
+    </div>
+  </section>
   <section id="tab-ksl" class="tab">
     <div id="kslNotice"></div>
     <div class="card">
@@ -211,7 +256,7 @@
     <div class="card">
       <div class="card-head">
         <h2>한국어학급 주간 시간표 (1~3교시)</h2>
-        <button class="btn small primary" id="kslSave">시간표 저장</button>
+        <button class="btn small primary" id="kslSave" hidden>시간표 저장</button>
       </div>
       <p class="hint">칸마다 <b>반 이름</b>(예: 한국어A반)과 <b>참여 학생의 소속 학급</b>을 입력하세요. 학급은 <code>3-1, 3-2</code>처럼 쓰고, 학년 전체는 <code>3</code>으로 씁니다. 학생 이름은 입력하지 마세요.</p>
       <div class="tbl-scroll"><table class="tbl" id="kslTable"></table></div>
@@ -521,13 +566,14 @@
 </dialog>
 
 <script src="data.js?v=202611262145"></script>
-<script src="app.js?v=calendar-timetable-1"></script>
+<script src="app.js?v=kclass-1"></script>
 <script src="features.js?v=202611262145"></script>
 <script src="cloud-config.js?v=202611262145"></script>
 <script src="cloud.js?v=202611262145"></script>
-<script src="activities.js?v=202611262145"></script>
+<script src="activities.js?v=kclass-1"></script>
 <script src="haksa.js?v=202611262145"></script>
 <script src="menus.js?v=calendar-layout-2"></script>
 <script src="schedule.js?v=2"></script>
+<script src="kclass.js?v=1"></script>
 </body>
 </html>

@@ -531,3 +531,8 @@ body { font-weight: 400; }
 #scheduleForm label[hidden] { display: none; }
 @media (max-width: 1000px) { .schedule-layout { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 650px) { #calGrid, #hvGrid, #evCalendar { grid-template-columns: minmax(0, 1fr); } }
+
+.kclass-grid { min-width: 690px; table-layout: fixed; }
+.kclass-grid th:first-child { width: 54px; }
+.kclass-grid td { height: 60px; vertical-align: top; }
+.kclass-grid td input { display: block; width: 100%; min-width: 0; margin-bottom: 4px; }

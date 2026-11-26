@@ -34,7 +34,7 @@
   const inter = (a, b) => a.filter(x => b.includes(x));
   // 기록자 이름은 본인이 매번 쓰지 않고, 가입(승인 요청) 때 등록한 이름을 씀
   const me = () => Cloud.user ? { uid: Cloud.user.uid, email: Cloud.email, name: Cloud.profileName || '' } : null;
-  const isKslTeacher = () => Cloud.ready && (ksl.teachers || []).includes(Cloud.email);
+  const isKslTeacher = () => Cloud.ready && ((ksl.teachers || []).includes(Cloud.email) || window.KoreanClasses?.isOwner(Cloud.email));
   const canEdit = it => Cloud.isAdmin() || (me() && it.ownerUid === me().uid);
 
   /** "3-1, 3-2, 4" → ["3-1","3-2","4-1","4-2",...] */
@@ -79,12 +79,15 @@
     if (it.status === 'canceled') return [];
     const dow = parse(it.date).getDay();
     const hits = [];
-    KSL_PERIODS.forEach(p => {
-      if (!it.periods.includes(p)) return;
-      const s = ksl.slots[`${dow}-${p}`];
-      if (!s || !s.targets || !s.targets.length) return;
-      const common = inter(s.targets, it.targets);
-      if (common.length) hits.push({ p, group: s.group || '한국어학급', classes: common });
+    it.periods.forEach(p => {
+      const key = dow + '-' + p;
+      const legacy = ksl.slots[key];
+      const classes = window.KoreanClasses?.slotsAt(key) || [];
+      if (legacy) classes.push(legacy);
+      classes.forEach(slot => {
+        const common = inter(slot.targets || [], it.targets);
+        if (common.length) hits.push({ p, group: slot.group || '한국어학급', classes: common });
+      });
     });
     return hits;
   }
@@ -186,6 +189,7 @@
   function notice(msg) { const el = $(curTab === 'ksl' ? 'kslNotice' : 'actNotice'); if (el) el.innerHTML = msg ? `<div class="notice">${esc2(msg)}</div>` : ''; }
 
   document.addEventListener('cloud-change', subscribe);
+  document.addEventListener('kclass-change', () => refresh(false));
   document.addEventListener('year-change', () => { month = null; subscribe(); });
 
   /* =========================================================
@@ -376,7 +380,7 @@
     if (hits.length) msgs.push(`<div class="ck warn"><b>⚠ 한국어학급 시간과 겹칩니다.</b>${hits.map(h =>
       `<div>· ${h.p}교시 ${esc2(h.group)} (${esc2(h.classes.join(', '))} 학생)</div>`).join('')}
       <div class="hint">등록할 수 있지만, 해당 학생들이 활동에 참여하도록 한국어학급 시간을 조정해야 합니다. (② 한국어학급 연계에 자동 표시)</div></div>`);
-    if (hits.length && (ksl.teachers || []).length) msgs.push('<div class="ck info">🔔 등록하면 한국어학급 담당 선생님께 알림이 표시됩니다.</div>');
+    if (hits.length && ((ksl.teachers || []).length || window.KoreanClasses?.hasOwners())) msgs.push('<div class="ck info">🔔 등록하면 한국어학급 담당 선생님께 알림이 표시됩니다.</div>');
     if (!it.title) msgs.push('<div class="hint">교육활동명을 입력하세요.</div>');
     if (!it.periods.length) msgs.push('<div class="hint">교시를 하나 이상 고르세요.</div>');
     if (!it.targets.length) msgs.push('<div class="hint">대상 학급을 고르세요.</div>');
@@ -462,6 +466,8 @@
 
   function renderKslTeachers() {
     const t = ksl.teachers || [];
+    $('kslTeachers').disabled = !Cloud.ready || !Cloud.isAdmin();
+    $('kslTeachersSave').disabled = !Cloud.ready || !Cloud.isAdmin();
     if (document.activeElement !== $('kslTeachers')) $('kslTeachers').value = t.join(', ');
     const perm = 'Notification' in window ? Notification.permission : 'unsupported';
     $('kslTeacherInfo').innerHTML = (t.length ? `등록된 담당 교사 ${t.length}명.` : '아직 담당 교사가 없습니다.') +
@@ -470,7 +476,7 @@
   }
 
   async function saveKslTeachers() {
-    if (!Cloud.ready) { alert('로그인 후 사용할 수 있습니다.'); return; }
+    if (!Cloud.ready || !Cloud.isAdmin()) return;
     const list = [...new Set($('kslTeachers').value.split(/[,\s;]+/).map(x => x.trim().toLowerCase()).filter(x => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x)))];
     const { F } = Cloud.fb;
     try {
@@ -491,26 +497,10 @@
     $('kslTable').innerHTML = `<tr><th>교시</th>${days.map(d => `<th>${DOW[d]}</th>`).join('')}</tr>` +
       KSL_PERIODS.map(p => `<tr><th>${p}</th>${days.map(d => {
         const s = ksl.slots[`${d}-${p}`] || {};
-        return `<td class="ksl-cell"><input class="ksl-g" data-k="${d}-${p}" placeholder="반 이름" value="${esc2(s.group || '')}">
-          <input class="ksl-t" data-k="${d}-${p}" placeholder="학급 예: 3-1, 4" value="${esc2(s.text || '')}">
+        return `<td class="ksl-cell"><input readonly class="ksl-g" data-k="${d}-${p}" placeholder="반 이름" value="${esc2(s.group || '')}">
+          <input readonly class="ksl-t" data-k="${d}-${p}" placeholder="학급 예: 3-1, 4" value="${esc2(s.text || '')}">
           <div class="hint ksl-prev">${esc2(s.targets && s.targets.length ? targetLabel(s.targets) : '')}</div></td>`;
       }).join('')}</tr>`).join('');
-  }
-
-  async function saveKsl() {
-    if (!Cloud.ready) { alert('로그인 후 사용할 수 있습니다.'); return; }
-    const slots = {};
-    document.querySelectorAll('#kslTable .ksl-g').forEach(g => {
-      const k = g.dataset.k, t = document.querySelector(`#kslTable .ksl-t[data-k="${k}"]`).value.trim();
-      const group = g.value.trim();
-      if (!group && !t) return;
-      slots[k] = { group, text: t, targets: parseTargets(t) };
-    });
-    const { F } = Cloud.fb;
-    try {
-      await F.setDoc(F.doc(Cloud.fb.db, 'config', 'ksl'), { slots, updatedBy: me().email, updatedAt: F.serverTimestamp() }, { mergeFields: ['slots', 'updatedBy', 'updatedAt'] });
-      alert('한국어학급 시간표를 저장했습니다.');
-    } catch (e) { alert('저장 실패: ' + e.message); }
   }
 
   function renderKslList() {
@@ -570,7 +560,6 @@
     else if (t.dataset.grade) document.querySelectorAll(`#actTargets input[value^="${t.dataset.grade}-"]`).forEach(i => { i.checked = t.checked; });
     renderForm(); renderCheck();
   });
-  $('kslSave').onclick = saveKsl;
   $('kslTeachersSave').onclick = saveKslTeachers;
   $('kslNotifyOn').onclick = enableNotify;
   $('kslBell').onclick = () => showTab('ksl');
