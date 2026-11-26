@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=202611262358">
+<link rel="stylesheet" href="style.css?v=202611270030">
 </head>
 <body>
 <header class="topbar">
@@ -22,6 +22,8 @@
     <button data-go="act">교육활동 일정</button>
     <button data-go="kclass">한국어 학급</button>
     <button data-go="data" class="admin-only">자료 관리</button>
+    <button data-go="stats" id="navStats" hidden>학교 현황</button>
+    <button data-go="log" id="navLog" hidden>학교 일지</button>
     <button data-go="admin" id="navAdmin" hidden>관리자</button>
   </nav>
   <div class="actions">
@@ -30,7 +32,6 @@
     <button id="kslBell" class="btn bell" hidden title="한국어학급 시간표 조정이 필요한 일정">🔔 <b id="kslBellN">0</b></button>
     <button id="btnPreview" class="btn preview" hidden title="관리자 계정으로 선생님들이 보는 화면을 확인합니다">👀 선생님 화면 보기</button>
     <button id="btnCloud" class="btn cloud">👤 로그인</button>
-    <button id="btnPrint" class="btn">인쇄</button>
   </div>
 </header>
 
@@ -53,6 +54,11 @@
   <button data-tab="kclass3" data-group="kclass">한국어학급 3</button>
   <button data-tab="ksl" data-group="act">② 한국어학급 연계</button>
   <button data-tab="data" data-group="data">클라우드·백업·내보내기</button>
+  <button data-tab="stats1" data-group="stats" class="admin-tab">① 학생 현황</button>
+  <button data-tab="stats2" data-group="stats" class="admin-tab">② 교직원 현황</button>
+  <button data-tab="stats3" data-group="stats">③ 이주배경학생 현황</button>
+  <button data-tab="stats4" data-group="stats">④ 전입·전출</button>
+  <button data-tab="log" data-group="log">학교 일지 작성</button>
   <button data-tab="admin" data-group="admin">사용자 승인 관리</button>
 </nav>
 
@@ -83,32 +89,38 @@
 
     <div id="homeGate" class="home-gate"></div>
 
+    <section class="hx-moves" id="homeMoves" hidden>
+      <div class="hx-moves-head"><h2>학생 전입·전출</h2><span id="homeMovesSum" class="hint"></span></div>
+      <ul id="homeMovesList" class="mv-list"></ul>
+    </section>
     <div class="hx-grid" id="homePanel">
       <div class="card hx-card">
         <div class="hx-card-head">
-          <h2><span class="hx-ico">📅</span><span id="monthTitle">이번 달 주요 학사일정</span></h2>
+          <h2><span id="monthTitle">이번 달 주요 학사일정</span></h2>
           <div class="row"><button class="btn small" id="monthPrev" aria-label="이전 달">◀</button><button class="btn small" id="monthNow">이번 달</button><button class="btn small" id="monthNext" aria-label="다음 달">▶</button></div>
         </div>
         <ul id="homeMonth" class="hx-mlist"></ul>
       </div>
       <div class="card hx-card">
         <div class="hx-card-head">
-          <h2><span class="hx-ico">📝</span>학교운영일지</h2>
+          <h2>학교운영일지</h2>
           <div class="row"><button class="btn small" id="logPrev" aria-label="이전 날">◀</button><input type="date" id="logDate"><button class="btn small" id="logNext" aria-label="다음 날">▶</button></div>
         </div>
         <div id="logView" class="log-view"></div>
-        <div id="logEditBox" class="log-edit" hidden>
-          <textarea id="logText" rows="8" placeholder="이 날의 학교운영일지 내용을 입력하거나 붙여 넣으세요."></textarea>
-          <div class="row"><button class="btn primary small" id="logSave">저장</button><button class="btn small danger" id="logDelete">삭제</button><span id="logStatus" class="hint"></span></div>
-        </div>
         <div id="logRecent" class="log-recent"></div>
       </div>
     </div>
 
-    <div class="card hx-card hx-todo" id="homeTodoCard">
-      <h2><span class="hx-ico">✅</span><span id="homeTodoTitle">확인이 필요한 항목</span></h2>
-      <ul id="homeTodo" class="hp-list"></ul>
-    </div>
+    <section class="hx-status" id="homeStatus" hidden>
+      <h2 class="hx-sec-title">우리 학교 현황 <small id="hsAsOf" class="hint"></small></h2>
+      <div class="hx-status-grid">
+        <div class="card hx-card hs-main">
+          <section><h2 class="hs-h">학생 현황</h2><div id="hsStudents"></div></section>
+          <section><h2 class="hs-h">교직원 현황</h2><div id="hsStaff"></div></section>
+        </div>
+        <div class="card hx-card"><h2 class="hs-h">이주배경학생 현황</h2><div id="hsMigrant"></div></div>
+      </div>
+    </section>
     <ul id="homeNext" hidden></ul>
     <div class="menu-grid" id="homeMenu" hidden>
       <button class="menu-card" data-go="haksa">
@@ -226,6 +238,67 @@
     </div>
   </section>
 
+  <!-- 학교 현황 (관리자 / 이주배경학생 현황은 한국어학급 담당도) -->
+  <section id="tab-stats1" class="tab">
+    <div class="card"><h2>① 학생 현황 (학급 편제 및 학생 현황)</h2>
+      <p class="hint">숫자를 고치고 저장하면 HOME의 학생 현황에 바로 반영됩니다. 계·학급당 학생 수는 자동 계산됩니다. 다문화 학생은 ③ 이주배경학생 현황에서 다룹니다.</p>
+      <div id="stEditStudents"></div></div>
+  </section>
+  <section id="tab-stats2" class="tab">
+    <div class="card"><h2>② 교직원 현황</h2>
+      <p class="hint">직종별 남·여 인원을 입력하세요. 합계와 남녀 비율은 자동 계산됩니다.</p>
+      <div id="stEditStaff"></div></div>
+  </section>
+  <section id="tab-stats3" class="tab">
+    <div class="card"><h2>③ 이주배경학생 현황</h2>
+      <p class="hint">관리자와 한국어학급 담당 선생님이 고칠 수 있습니다. 비율과 총계는 자동 계산됩니다.</p>
+      <div id="stEditMigrant"></div></div>
+  </section>
+
+  <section id="tab-stats4" class="tab">
+    <div class="grid2 tr-page">
+      <div class="card">
+        <h2>④ 전입·전출 등록</h2>
+        <p class="hint">등록하면 선생님들 HOME에 '학생 전입·전출' 알림이 뜨고, 학생 현황의 반 인원이 자동으로 바뀝니다. 관리자와 교무부장이 등록할 수 있습니다.</p>
+        <form id="trForm" class="tr-form">
+          <label>날짜 <input type="date" id="trDate" required></label>
+          <label>구분 <select id="trType"><option value="in">전입</option><option value="out">전출</option></select></label>
+          <label>학년 <select id="trGrade"><option value="1">1학년</option><option value="2">2학년</option><option value="3">3학년</option><option value="4">4학년</option><option value="5">5학년</option><option value="6">6학년</option></select></label>
+          <label>반 <select id="trClass"></select></label>
+          <label>성별 <select id="trSex"><option value="m">남</option><option value="f">여</option></select></label>
+          <label class="tr-note">메모 (선택) <input id="trNote" maxlength="100" placeholder="예: 다문화, 한국어학급 연계 필요 (학생 이름은 적지 마세요)"></label>
+          <label class="tr-check"><input type="checkbox" id="trApply" checked> 학생 현황 인원에 반영</label>
+          <div class="row"><button class="btn primary" id="trAdd" type="submit">등록</button><span id="trStatus" class="hint" role="status"></span></div>
+        </form>
+      </div>
+      <div class="card"><h2>이번 학년도 전입·전출</h2><div id="trList"></div></div>
+    </div>
+  </section>
+  <!-- 학교 일지 (관리자·교무부장 작성) -->
+  <section id="tab-log" class="tab">
+    <div class="grid2 log-page">
+      <div class="card">
+        <div class="hx-card-head">
+          <h2>📝 학교 일지 작성</h2>
+          <div class="row"><button class="btn small" id="lgPrev" aria-label="이전 날">◀</button><input type="date" id="lgDate"><button class="btn small" id="lgNext" aria-label="다음 날">▶</button><button class="btn small" id="lgToday">오늘</button></div>
+        </div>
+        <p class="log-date" id="lgTitle"></p>
+        <textarea id="lgText" rows="16" maxlength="20000" placeholder="이 날의 학교 일지(학교운영일지) 내용을 입력하거나 붙여 넣으세요."></textarea>
+        <div class="row"><button class="btn primary" id="lgSave">저장</button><button class="btn danger" id="lgDelete" hidden>삭제</button><span id="lgStatus" class="hint" role="status"></span></div>
+        <p class="hint">저장하면 선생님들이 HOME의 학교운영일지에서 바로 볼 수 있습니다.</p>
+      </div>
+      <div>
+        <div class="card"><h2>최근 일지</h2><div id="lgRecent" class="log-recent"></div></div>
+        <div class="card" id="lgWritersCard" hidden>
+          <h2>일지 작성자(교무부장) 지정</h2>
+          <p class="hint">여기 등록한 구글 계정은 '학교 일지' 메뉴에서 일지를 작성·수정할 수 있습니다. 승인된 사용자여야 합니다.</p>
+          <ul id="lgWriters" class="hp-list"></ul>
+          <form id="lgWriterForm" class="row"><input type="email" required maxlength="254" placeholder="교무부장 구글 이메일"><button class="btn small" type="submit">추가</button></form>
+          <p id="lgWriterStatus" class="hint" role="status"></p>
+        </div>
+      </div>
+    </div>
+  </section>
   <!-- 한국어학급 연계 -->
   <section id="tab-kclass1" class="tab">
     <div class="card">
@@ -626,16 +699,19 @@
   <div id="cloudBody"></div>
 </dialog>
 
-<script src="data.js?v=202611262358"></script>
-<script src="app.js?v=202611262358"></script>
-<script src="features.js?v=202611262358"></script>
-<script src="cloud-config.js?v=202611262358"></script>
-<script src="cloud.js?v=202611262358"></script>
-<script src="activities.js?v=202611262358"></script>
-<script src="haksa.js?v=202611262358"></script>
-<script src="menus.js?v=202611262358"></script>
-<script src="schedule.js?v=202611262358"></script>
-<script src="kclass.js?v=202611262358"></script>
-<script src="home.js?v=202611262358"></script>
+<script src="data.js?v=202611270030"></script>
+<script src="app.js?v=202611270030"></script>
+<script src="features.js?v=202611270030"></script>
+<script src="cloud-config.js?v=202611270030"></script>
+<script src="cloud.js?v=202611270030"></script>
+<script src="activities.js?v=202611270030"></script>
+<script src="haksa.js?v=202611270030"></script>
+<script src="menus.js?v=202611270030"></script>
+<script src="schedule.js?v=202611270030"></script>
+<script src="kclass.js?v=202611270030"></script>
+<script src="home.js?v=202611270030"></script>
+<script src="status.js?v=202611270030"></script>
+<script src="log.js?v=202611270030"></script>
+<script src="transfer.js?v=202611270030"></script>
 </body>
 </html>

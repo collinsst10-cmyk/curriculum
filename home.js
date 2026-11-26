@@ -1,15 +1,13 @@
 /* =========================================================
- * HOME: 학교운영일지 + 이번 달 학사일정 넘기기
+ * HOME: 학교운영일지 보기(조회 전용) + 이번 달 학사일정 넘기기
  *  - Firestore: dailyLogs/{YYYY-MM-DD} { text, by, byName, updatedAt }
- *  - 승인된 선생님은 읽기, 관리자만 작성·수정·삭제 (보안 규칙)
+ *  - 작성은 '학교 일지' 메뉴(log.js)에서 관리자·교무부장이 함
  * ========================================================= */
 (function () {
   'use strict';
   let logDate = fmt(new Date());
-  let unsub = null, subDate = null, current = null, recent = [];
-  let dirty = false;
+  let unsub = null, subDate = null, current, recent = [];
 
-  const isAdminView = () => !!(window.Cloud && Cloud.ready && Cloud.isAdmin());
   const ref = ds => Cloud.fb.F.doc(Cloud.fb.db, 'dailyLogs', ds);
   const fmtTs = ts => { try { return ts ? ts.toDate().toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''; } catch (e) { return ''; } };
   const longDate = ds => { const d = parse(ds); return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${WD[d.getDay()]})`; };
@@ -25,24 +23,21 @@
     if (!window.Cloud || !Cloud.ready) { stop(); return; }
     if (unsub && subDate === logDate) return;
     if (unsub) unsub();
-    subDate = logDate; current = undefined; dirty = false;
-    unsub = Cloud.fb.F.onSnapshot(ref(logDate), d => {
-      current = d.exists() ? d.data() : null;
-      if (!dirty) render();
-    }, err => { console.warn('운영일지 불러오기 실패', err); current = null; render(); });
+    subDate = logDate; current = undefined;
+    unsub = Cloud.fb.F.onSnapshot(ref(logDate), d => { current = d.exists() ? d.data() : null; render(); },
+      err => { console.warn('운영일지 불러오기 실패', err); current = null; render(); });
     loadRecent();
   }
   function stop() { if (unsub) unsub(); unsub = null; subDate = null; current = undefined; recent = []; }
 
+  /** 최근 60일 일지 중 마지막 7개 (내림차순 정렬은 색인이 필요해 오름차순으로 받아 뒤집음) */
+  async function recentDays(n = 7) {
+    const F = Cloud.fb.F;
+    const q = F.query(F.collection(Cloud.fb.db, 'dailyLogs'), F.where(F.documentId(), '>=', fmt(addDays(new Date(), -60))), F.orderBy(F.documentId()));
+    return (await F.getDocs(q)).docs.map(d => d.id).slice(-n).reverse();
+  }
   async function loadRecent() {
-    try {
-      const F = Cloud.fb.F;
-      // 내림차순은 색인이 필요하므로 최근 60일을 오름차순으로 받아 뒤에서 7개
-      const from = fmt(addDays(new Date(), -60));
-      const q = F.query(F.collection(Cloud.fb.db, 'dailyLogs'), F.where(F.documentId(), '>=', from), F.orderBy(F.documentId()));
-      recent = (await F.getDocs(q)).docs.map(d => d.id).slice(-7).reverse();
-      renderRecent();
-    } catch (e) { console.warn('최근 운영일지 목록 실패', e); }
+    try { recent = await recentDays(); renderRecent(); } catch (e) { console.warn('최근 운영일지 목록 실패', e); }
   }
 
   function renderRecent() {
@@ -54,53 +49,22 @@
   function render() {
     if (!$('logView')) return;
     $('logDate').value = logDate;
-    if (!window.Cloud || !Cloud.ready) {
-      $('logView').innerHTML = '<p class="hint">로그인하면 학교운영일지를 볼 수 있습니다.</p>';
-      $('logEditBox').hidden = true; return;
-    }
+    if (!window.Cloud || !Cloud.ready) { $('logView').innerHTML = '<p class="hint">로그인하면 학교운영일지를 볼 수 있습니다.</p>'; return; }
     watch();
     const head = `<div class="log-date">${longDate(logDate)}${logDate === fmt(new Date()) ? ' <span class="pill ok">오늘</span>' : ''}</div>`;
     if (current === undefined) $('logView').innerHTML = head + '<p class="hint">불러오는 중…</p>';
-    else if (!current || !current.text) $('logView').innerHTML = head + `<p class="log-empty">이 날 등록된 운영일지가 없습니다.</p>`;
+    else if (!current || !current.text) $('logView').innerHTML = head + '<p class="log-empty">이 날 등록된 운영일지가 없습니다.</p>';
     else $('logView').innerHTML = head + `<div class="log-text">${esc(current.text)}</div>
-      <div class="hint">작성: ${esc(current.byName || current.by || '')}${current.updatedAt ? ' · ' + fmtTs(current.updatedAt) : ''}</div>`;
-    // 관리자: 바로 아래에서 작성·수정
-    const admin = isAdminView();
-    $('logEditBox').hidden = !admin;
-    if (admin && !dirty) $('logText').value = (current && current.text) || '';
-    $('logDelete').hidden = !(current && current.text);
+      <div class="hint">작성: ${esc(current.byName || '')}${current.updatedAt ? ' · ' + fmtTs(current.updatedAt) : ''}</div>`;
     renderRecent();
   }
 
-  async function save() {
-    if (!isAdminView()) return;
-    const text = $('logText').value.trim();
-    if (!text) { $('logStatus').textContent = '내용을 입력하세요.'; return; }
-    const F = Cloud.fb.F;
-    try {
-      await F.setDoc(ref(logDate), { text: text.slice(0, 20000), by: Cloud.email, byName: Cloud.profileName || '', updatedAt: F.serverTimestamp() });
-      dirty = false; $('logStatus').textContent = '저장했습니다.';
-      loadRecent();
-    } catch (e) { $('logStatus').textContent = '저장 실패: ' + e.message; }
-  }
-  async function remove() {
-    if (!isAdminView() || !confirm(`${longDate(logDate)} 운영일지를 삭제할까요?`)) return;
-    try { await Cloud.fb.F.deleteDoc(ref(logDate)); dirty = false; $('logStatus').textContent = '삭제했습니다.'; loadRecent(); }
-    catch (e) { $('logStatus').textContent = '삭제 실패: ' + e.message; }
-  }
-
-  function go(ds) {
-    if (dirty && !confirm('저장하지 않은 운영일지 내용이 있습니다. 다른 날짜로 이동할까요?')) { $('logDate').value = logDate; return; }
-    logDate = ds; dirty = false; $('logStatus').textContent = ''; render();
-  }
+  function go(ds) { logDate = ds; render(); }
 
   $('logPrev').addEventListener('click', () => go(stepDay(logDate, -1)));
   $('logNext').addEventListener('click', () => go(stepDay(logDate, 1)));
   $('logDate').addEventListener('change', e => { if (e.target.value) go(e.target.value); });
   $('logRecent').addEventListener('click', e => { const b = e.target.closest('[data-day]'); if (b) go(b.dataset.day); });
-  $('logText').addEventListener('input', () => { dirty = true; $('logStatus').textContent = '저장하지 않은 변경이 있습니다.'; });
-  $('logSave').addEventListener('click', save);
-  $('logDelete').addEventListener('click', remove);
 
   // 이번 달 학사일정 넘기기
   const moveMonth = n => { homeMonth = n === 0 ? null : new Date(homeMonth.getFullYear(), homeMonth.getMonth() + n, 1); renderHomeMonth(); };
@@ -109,5 +73,5 @@
   $('monthNow').addEventListener('click', () => moveMonth(0));
 
   document.addEventListener('cloud-change', () => { stop(); if (curTab === 'home') render(); });
-  window.HomeLog = { render };
+  window.HomeLog = { render, stepDay, longDate, fmtTs, recentDays, refreshRecent: () => { if (Cloud.ready) loadRecent(); } };
 })();

@@ -118,15 +118,63 @@ service cloud.firestore {
         && request.resource.data.slots is map && request.resource.data.slots.size() <= 80;
     }
 
+    // 한국어학급 담당(담임 지정 또는 연계 담당 교사)
+    function ownsKclass(n) {
+      return exists(/databases/$(database)/documents/kclassOwners/$(n))
+        && get(/databases/$(database)/documents/kclassOwners/$(n)).data.email == myEmail();
+    }
+    function isKclassStaff() {
+      return isApproved() && (ownsKclass('1') || ownsKclass('2') || ownsKclass('3')
+        || (exists(/databases/$(database)/documents/config/ksl)
+            && myEmail() in get(/databases/$(database)/documents/config/ksl).data.get('teachers', [])));
+    }
+    // 학교 일지 작성자(교무부장). 관리자가 config/roles.logWriters 에 지정
+    function isLogWriter() {
+      return isApproved() && exists(/databases/$(database)/documents/config/roles)
+        && myEmail() in get(/databases/$(database)/documents/config/roles).data.get('logWriters', []);
+    }
+
+    // 학교 현황(학생·교직원). 승인된 선생님은 읽기(HOME), 관리자 수정 (교무부장은 전입·전출 반영 때 수정)
+    match /config/stats {
+      allow read: if isApproved();
+      allow write: if isAdmin() || isLogWriter();
+    }
+    // 이주배경학생 현황. 관리자와 한국어학급 담당이 수정
+    match /config/migrant {
+      allow read: if isApproved();
+      allow write: if (isAdmin() || isKclassStaff())
+        && request.resource.data.keys().hasOnly(['asOf', 'foreign', 'domestic', 'midEntry', 'nonMigrant', 'countries', 'note', 'updatedBy', 'updatedAt'])
+        && request.resource.data.countries is string && request.resource.data.countries.size() <= 600;
+    }
+    // 역할 지정(교무부장 = 일지 작성자). 관리자만
+    match /config/roles {
+      allow read: if isApproved();
+      allow write: if isAdmin();
+    }
+
+    // 학생 전입·전출(학생 이름 없음). 승인된 선생님은 읽기(HOME 알림), 관리자·교무부장이 등록·삭제
+    match /transfers/{id} {
+      allow read: if isApproved();
+      allow create: if (isAdmin() || isLogWriter())
+        && request.resource.data.keys().hasOnly(['date', 'type', 'grade', 'cls', 'sex', 'note', 'applied', 'by', 'byName', 'createdAt'])
+        && request.resource.data.date is string && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.type in ['in', 'out'] && request.resource.data.sex in ['m', 'f']
+        && request.resource.data.grade is int && request.resource.data.grade >= 1 && request.resource.data.grade <= 6
+        && request.resource.data.cls is int && request.resource.data.cls >= 1 && request.resource.data.cls <= 20
+        && request.resource.data.note is string && request.resource.data.note.size() <= 100;
+      allow delete: if isAdmin() || isLogWriter();
+      allow update: if false;
+    }
+
     // 한국어학급 연계(담당 교사·조정 기록)
     match /config/ksl {
       allow read, write: if isApproved();
     }
 
-    // 학교운영일지(날짜별 1문서). 승인된 선생님은 읽기, 관리자만 작성
+    // 학교운영일지(날짜별 1문서). 승인된 선생님은 읽기, 관리자·교무부장이 작성
     match /dailyLogs/{day} {
       allow read: if isApproved();
-      allow write: if isAdmin() && day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+      allow write: if (isAdmin() || isLogWriter()) && day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
     }
 
     // 그 밖의 모든 경로는 차단

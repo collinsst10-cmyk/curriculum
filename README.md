@@ -23,7 +23,10 @@
 | `menus.js` | 화면 묶기: 학사일정 보기(선생님), 교육과정 편성 ①학사일정 ②교내행사 ③시수 배정 |
 | `schedule.js` | 학급별 시간표 배치 |
 | `kclass.js` | 한국어학급 1~3 주간 시간표. 지정 담임 또는 관리자가 편집 |
-| `home.js` | HOME의 학교운영일지(관리자 작성·선생님 조회)와 이번 달 학사일정 넘기기 |
+| `home.js` | HOME의 학교운영일지 보기(조회 전용)와 이번 달 학사일정 넘기기 |
+| `status.js` | 학교 현황(학생·교직원·이주배경학생) 편집 화면과 HOME의 '우리 학교 현황' |
+| `log.js` | 학교 일지 작성(관리자·교무부장)과 교무부장(일지 작성자) 지정 |
+| `transfer.js` | 학생 전입·전출 등록(관리자·교무부장), 학생 현황 인원 자동 반영, HOME 알림 |
 
 역할: **관리자** = 교육과정 편성·시간표 편성·자료 관리·관리자 메뉴 / **선생님** = HOME·학사일정(조회)·교육활동 일정(신청)·한국어 학급. 관리자는 상단 `👀 선생님 화면 보기`로 선생님 화면을 미리 볼 수 있습니다(이 창에서만, 데이터는 그대로).
 | `assets/` | 학교 로고(`logo.png`), 엠블럼 아이콘(`emblem.png`) |
@@ -31,7 +34,7 @@
 | `deploy.ps1`, `배포하기.cmd` | 로컬 폴더의 파일을 이 저장소로 올리는 배포 스크립트 |
 | `클라우드_설정_안내.md` | Firebase·GitHub Pages 설정과 운영 안내 |
 
-스크립트 로드 순서: `data.js → app.js → features.js → cloud-config.js → cloud.js → activities.js → haksa.js → menus.js → schedule.js → kclass.js → home.js` (모두 일반 `<script>`, 전역 함수·상태 공유)
+스크립트 로드 순서: `data.js → app.js → features.js → cloud-config.js → cloud.js → activities.js → haksa.js → menus.js → schedule.js → kclass.js → home.js → status.js → log.js → transfer.js` (모두 일반 `<script>`, 전역 함수·상태 공유)
 
 ## Firestore 데이터 구조
 
@@ -44,7 +47,11 @@
 | `activityDays/{YYYY-MM-DD}` | 날짜별 교육활동 `{ items: [ { id, date, kind, title, periods[], targets["3-1"...], status, ownerName, kslAdjust } ] }` |
 | `config/ksl` | 한국어학급 주간 시간표 `{ slots: { "요일-교시": { group, targets[] } }, teachers[] }` |
 | `kclassOwners/{1-3}`, `kclassTimetables/{1-3}` | 한국어학급 담임 지정 `{ email }`, 주간 시간표 `{ slots }` |
-| `dailyLogs/{YYYY-MM-DD}` | 학교운영일지 `{ text, by, byName, updatedAt }` — 승인된 선생님 읽기, 관리자만 작성 |
+| `dailyLogs/{YYYY-MM-DD}` | 학교운영일지 `{ text, by, byName, updatedAt }` — 승인된 선생님 읽기, 관리자·교무부장 작성 |
+| `config/roles` | `{ logWriters: [email] }` 교무부장(일지 작성자). 관리자만 지정 |
+| `config/stats` | 학생 현황·교직원 현황 `{ asOf, students:{byClass:{"학년-반":{m,f}}, male[], female[]}, staff:{m,f} }` — 관리자·교무부장 수정. 반 수는 학교 정보의 학급 수 |
+| `transfers/{id}` | 전입·전출 `{ date, type:in/out, grade, cls, sex, note, applied }` (학생 이름 없음) — 관리자·교무부장 등록·삭제 |
+| `config/migrant` | 이주배경학생 현황 `{ asOf, foreign, domestic, midEntry, nonMigrant, countries, note }` — 관리자·한국어학급 담당 수정 |
 
 겹침 규칙: 같은 날 + 교시가 겹치고 + 대상 학급이 겹치면 등록 불가 (취소 제외). 등록·수정은 `runTransaction`으로 처리해 동시 신청을 막습니다.
 

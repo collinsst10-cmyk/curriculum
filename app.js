@@ -783,7 +783,9 @@ function exportCal() {
  * 이벤트
  * ========================================================= */
 const RENDER = { home: renderHome, data: () => {}, admin: () => {}, info: renderInfo, cal: renderCal, days: renderDays, hours: renderHours, table: renderTable };
-const GROUP_FIRST = { home: 'home', haksa: 'hview', curr: 'school', tt: 'tt', act: 'act', kclass: 'kclass1', data: 'data', admin: 'admin' };
+const GROUP_FIRST = { home: 'home', haksa: 'hview', curr: 'school', tt: 'tt', act: 'act', kclass: 'kclass1', stats: 'stats1', log: 'log', data: 'data', admin: 'admin' };
+// 화면별 접근 확인: false = HOME으로, 문자열 = 그 화면으로 (status.js·log.js가 등록)
+const TAB_GUARDS = {};
 const lastInGroup = {};
 let curTab = 'home';
 
@@ -796,13 +798,16 @@ function showTab(t) {
   if (t === 'admin' && !(window.App.isAdmin && window.App.isAdmin())) t = 'home';
   // 선생님은 학사일정 보기·교육활동 일정만
   if (isTeacherView() && ['curr', 'tt', 'data', 'admin'].includes(groupOf(t))) t = 'home';
+  if (TAB_GUARDS[t]) { const ok = TAB_GUARDS[t](); if (ok === false) t = 'home'; else if (typeof ok === 'string') t = ok; }
   curTab = t;
   const g = groupOf(t);
   lastInGroup[g] = t;
   document.querySelectorAll('#mainNav [data-go]').forEach(b => b.classList.toggle('active', b.dataset.go === g));
   const tabs = $('tabs');
   tabs.hidden = g === 'home' || document.querySelectorAll(`#tabs [data-group="${g}"]`).length < 2;
-  tabs.querySelectorAll('button').forEach(b => { b.hidden = b.dataset.group !== g; b.classList.toggle('active', b.dataset.tab === t); });
+  const adminNow = !!(window.App.isAdmin && window.App.isAdmin());
+  const tabOk = tb => !TAB_GUARDS[tb] || TAB_GUARDS[tb]() === true;
+  tabs.querySelectorAll('button').forEach(b => { b.hidden = b.dataset.group !== g || (b.classList.contains('admin-tab') && !adminNow) || !tabOk(b.dataset.tab); b.classList.toggle('active', b.dataset.tab === t); });
   document.querySelectorAll('.tab').forEach(s => s.classList.toggle('active', s.id === 'tab-' + t));
   if (location.hash.slice(1) !== t) history.pushState(null, '', '#' + t);
   RENDER[t]();
@@ -911,23 +916,18 @@ function renderHome() {
   // 첫 번째 버튼: 관리자 = 교육과정 편성, 선생님 = 교육활동 신청
   $('homeBtn1').dataset.go = teacher ? 'act' : 'curr';
   $('homeBtn1').querySelector('span').textContent = teacher ? '교육활동 신청하기' : '교육과정 살펴보기';
-  $('homeTodoCard').hidden = teacher || !!locked;
   if (locked) return;
 
   const nClass = GRADES.reduce((t, g) => t + (Number(s.classes[g]) || 0), 0);
-  const todos = teacher ? [] : homeTodos();
   const monthN = (() => { const n = new Date(); return homeMonthItems(n.getFullYear(), n.getMonth()).length; })();
   const stat = (ico, value, label) => `<div class="hx-stat"><span class="hx-sico">${ico}</span><div><b>${value}</b><small>${label}</small></div></div>`;
   $('homeKpi').innerHTML = stat(ICON.cal, `${st.total}일`, '연간 수업일수') + stat(ICON.people, `${nClass}학급`, '편성 학급') +
-    (teacher ? stat(ICON.check, `${monthN}건`, '이번 달 학사일정') : stat(ICON.check, `${todos.length}건`, '확인할 항목'));
+    stat(ICON.check, `${monthN}건`, '이번 달 학사일정');
 
   renderHomeMonth();
-  if (!teacher) {
-    $('homeTodo').innerHTML = todos.length
-      ? todos.map(t => `<li title="${esc(t.tip.join('\n'))}"><a href="${t.href}"><span class="dot ${t.err ? 'err' : ''}"></span>${esc(t.label)}${t.n > 1 ? ` <span class="cnt">${t.n}</span>` : ''}</a></li>`).join('')
-      : '<li class="empty">확인할 항목이 없습니다. 👍</li>';
-  }
   if (window.HomeLog) HomeLog.render();
+  if (window.SchoolStatus) SchoolStatus.renderHome();
+  if (window.Transfers) Transfers.renderHome();
 }
 /** 다시 그린 뒤에도 입력 중이던 칸에 커서를 유지 */
 function rerenderKeepFocus(fn) {
@@ -1067,7 +1067,6 @@ function bind() {
     };
     r.readAsText(f, 'utf-8');
   });
-  $('btnPrint').addEventListener('click', () => window.print());
 }
 
 /* ---------- 시작 ---------- */
