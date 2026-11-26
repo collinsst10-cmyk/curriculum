@@ -164,7 +164,8 @@
   /** 반별 명단 합계가 있으면 그것으로 현황을 계산(명단 기준), 없으면 직접 입력한 값 */
   const fromList = () => classSums.length > 0;
   function effMigrant() {
-    if (!fromList()) return migrant;
+    // 이주배경학생 현황은 학급별 명단(이주배경학생 메뉴)만이 근거 — 직접 입력값은 쓰지 않음
+    if (!fromList()) return null;
     const n = k => classSums.reduce((t, s) => t + num(s[k]), 0);
     const foreign = n('foreign'), domestic = n('domestic'), midEntry = n('mid'), mig = foreign + domestic + midEntry;
     const tally = {};
@@ -181,12 +182,12 @@
     const locked = window.App && App.locked && App.locked();
     const ok = window.Cloud && Cloud.ready && !locked;
     const mg = effMigrant();
-    box.hidden = !ok || (!stats && !mg);
+    box.hidden = !ok;
     if (box.hidden) return;
     $('hsAsOf').textContent = (stats && stats.asOf) ? `(${stats.asOf} 기준)` : '';
     $('hsStudents').innerHTML = stats ? studentsView(stats) : '<p class="hint">아직 입력되지 않았습니다.</p>';
     $('hsStaff').innerHTML = stats ? staffView(stats) : '<p class="hint">아직 입력되지 않았습니다.</p>';
-    $('hsMigrant').innerHTML = mg ? (mg.asOf ? `<p class="hint">(${esc(mg.asOf)}${fromList() ? '' : ' 기준'})</p>` : '') + migrantView(mg) : '<p class="hint">아직 입력되지 않았습니다.</p>';
+    $('hsMigrant').innerHTML = mg ? migrantView(mg) : '<p class="hint mg-empty">담임 선생님들이 <b>이주배경학생 › 이주배경학생 현황</b>에 우리 반 학생을 등록하면 여기에 인원·비율·부모 출신국이 자동으로 나옵니다.</p>';
   }
 
   /* ---------- 편집 화면 ---------- */
@@ -251,7 +252,7 @@
   function renderEditMigrant() {
     const box = $('stEditMigrant');
     if (migrant === null) { box.innerHTML = notReady(); return; }
-    if (fromList()) { box.innerHTML = '<p class="hint">지금은 <b>이주배경학생 › 이주배경학생 현황</b>에 학급별로 입력한 명단으로 자동 계산합니다. 숫자를 고치려면 그 화면에서 학생을 등록·수정하세요.</p><h3>지금 현황</h3><div class="mg-prev">' + migrantView(effMigrant()) + '</div>'; return; }
+    box.innerHTML = '<p class="hint">이주배경학생 현황은 <b>이주배경학생 › 이주배경학생 현황</b>에 담임 선생님들이 학급별로 등록한 명단으로 자동 계산됩니다. 여기서는 고칠 수 없습니다.</p>' + (fromList() ? '<div class="mg-prev">' + migrantView(effMigrant()) + '</div>' : '<p class="hint">아직 등록된 학생이 없습니다.</p>'); return;
     const m = migrant || blankM();
     const f = (k, label, hint = '') => `<label>${label} ${nIn(`data-m="${k}"`, m[k])}${hint ? `<small class="hint">${hint}</small>` : ''}</label>`;
     box.innerHTML = `<label class="st-asof">기준 시점 <input id="mgAsOf" maxlength="30" placeholder="예: 2026. 3월" value="${esc(m.asOf || '')}"></label>

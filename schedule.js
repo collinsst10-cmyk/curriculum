@@ -129,6 +129,7 @@ function scheduleConflict(entries, candidate, editing) {
     const grade = Number($('scheduleGrade').value);
     const placements = state.schedule.map((entry, index) => ({ ...entry, index }))
       .filter(entry => entry.year === state.school.year && (!grade || entry.grade === grade) && (view === 'all' || (entry.grade >= minGrade && (areaOf(entry) === view || (view === 'computer' && scheduleFacility(entry) === '컴퓨터실')))));
+    grid.classList.toggle('area', view !== 'all');
     grid.innerHTML = '<tr><th>교시</th>' + days.map(day => `<th>${day}</th>`).join('') + '</tr>';
     for (let period = 1; period <= 8; period++) {
       grid.insertAdjacentHTML('beforeend', `<tr><th>${period}</th>${days.map((_, weekday) => {
@@ -141,8 +142,8 @@ function scheduleConflict(entries, candidate, editing) {
         return `<td class="${marked ? 'schedule-conflict' : ''}${selected?.weekday === weekday && selected.period === period ? ' schedule-selected' : ''}" ${view !== 'all' ? `data-slot="${weekday}:${period}"` : ''}><div class="schedule-square">
           ${marked ? '<span class="pill err">중복</span>' : ''}
           ${cells.map(entry => `<button class="btn schedule-item area-${areaOf(entry)}" data-entry="${entry.index}"
-          title="${esc(entry.title)} · ${classLabel(entry)} · ${entry.start}~${entry.end}교시"><span class="sbadge">${esc(shortTitle(entry))}</span> - <span class="nowrap">${classLabel(entry)}</span></button>`).join('')}
-          ${view !== 'all' ? `<button class="schedule-slot" type="button" aria-label="${days[weekday]}요일 ${period}교시 배치">+</button>` : ''}
+          title="${esc(entry.title)} · ${classLabel(entry)} · ${entry.start}~${entry.end}교시"><span class="sbadge">${esc(shortTitle(entry))}</span><span class="sdash"> - </span><span class="nowrap">${classLabel(entry)}</span></button>`).join('')}
+          ${view !== 'all' && !cells.length ? `<button class="schedule-slot" type="button" aria-label="${days[weekday]}요일 ${period}교시 배치">+</button>` : ''}
         </div></td>`;
       }).join('')}</tr>`);
     }

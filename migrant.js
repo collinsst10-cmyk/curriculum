@@ -49,7 +49,7 @@
     if (isWide()) q = col();
     else if (myRoom) q = F().query(col(), F().where('grade', '==', myRoom.g), F().where('cls', '==', myRoom.c));
     else { loaded = true; return; }
-    unsubList = F().onSnapshot(q, s => { list = s.docs.map(d => ({ id: d.id, ...d.data() })); loaded = true; if (curTab === 'kmig') render(); },
+    unsubList = F().onSnapshot(q, s => { list = s.docs.map(d => ({ id: d.id, ...d.data() })); loaded = true; if (curTab === 'kmig') render(); document.dispatchEvent(new Event('migrant-change')); },
       e => { console.warn('이주배경 학생 불러오기 실패', e); loaded = true; if (curTab === 'kmig') render(); });
   }
 
@@ -256,6 +256,8 @@
   });
   root.addEventListener('focusout', e => { if (e.target === acInput) setTimeout(() => { if (!acBox?.matches(':hover')) acClose(); }, 150); });
 
+  // 한국어학급 운영 시간표에서 등록 학생을 고를 수 있게 (이름을 볼 권한이 있는 사람에게만 목록이 채워짐)
+  window.MigrantStudents = { list: () => list.slice(), byId: id => list.find(s => s.id === id) || null };
   RENDER.kmig = () => { if (!sel && myRoom && !isWide()) sel = { ...myRoom }; render(); };
   document.addEventListener('cloud-change', () => { sel = null; editId = null; subscribe(); });
   // 한국어학급 담당 여부가 늦게 확인되면 전체 명단으로 다시 구독

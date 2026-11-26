@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=202611270103">
+<link rel="stylesheet" href="style.css?v=202611270112">
 </head>
 <body>
 <header class="topbar">
@@ -50,7 +50,7 @@
   <button data-tab="jd" data-group="tt">③ 교과전담</button>
   <button data-tab="act" data-group="act">① 일정 신청·관리</button>
   <button data-tab="kmig" data-group="kclass">이주배경학생 현황</button>
-  <button data-tab="kclass" data-group="kclass">한국어학급</button>
+  <button data-tab="kclass" data-group="kclass">한국어학급 운영</button>
   <button data-tab="ksl" data-group="act">② 한국어학급 연계</button>
   <button data-tab="data" data-group="data">클라우드·백업·내보내기</button>
   <button data-tab="stats1" data-group="stats" class="admin-tab">① 학생 현황</button>
@@ -251,7 +251,7 @@
   </section>
   <section id="tab-stats3" class="tab">
     <div class="card"><h2>③ 이주배경학생 현황</h2>
-      <p class="hint">한국어 학급 › 이주배경 학생에 학생을 등록하면 이 숫자와 부모 출신국이 자동으로 바뀝니다. 직접 고칠 수도 있지만, 명단을 바꾸면 다시 계산됩니다.</p>
+      
       <div id="stEditMigrant"></div></div>
   </section>
 
@@ -692,7 +692,7 @@
     <h2 id="kcDlgTitle">한국어학급 시간 설정</h2>
     <button class="x" id="kcClose" type="button" title="닫기">✕</button>
   </div>
-  <p class="hint">담임교사와 강사가 이 시간에 맡는 학생의 원학급(몇 학년 몇 반)을 눌러 고르세요. 수업명을 비우면 '한국어'로 저장됩니다.</p>
+  <p class="hint">이 시간에 담임교사·강사가 가르칠 학생을 이름으로 누르세요(이주배경학생 현황에 등록한 학생). 등록 전이면 반을 눌러 고를 수 있습니다. 수업명을 비우면 '한국어'로 저장됩니다.</p>
   <div class="kc-roles">
     <section class="kc-role t">
       <h3><span class="kc-who t">담임교사</span> <small id="kcName_t" class="hint"></small></h3>
@@ -721,21 +721,21 @@
   <div id="cloudBody"></div>
 </dialog>
 
-<script src="data.js?v=202611270103"></script>
-<script src="app.js?v=202611270103"></script>
-<script src="features.js?v=202611270103"></script>
-<script src="cloud-config.js?v=202611270103"></script>
-<script src="cloud.js?v=202611270103"></script>
-<script src="activities.js?v=202611270103"></script>
-<script src="haksa.js?v=202611270103"></script>
-<script src="menus.js?v=202611270103"></script>
-<script src="schedule.js?v=202611270103"></script>
-<script src="kclass.js?v=202611270103"></script>
-<script src="home.js?v=202611270103"></script>
-<script src="status.js?v=202611270103"></script>
-<script src="log.js?v=202611270103"></script>
-<script src="transfer.js?v=202611270103"></script>
-<script src="migrant.js?v=202611270103"></script>
-<script src="site.js?v=202611270103"></script>
+<script src="data.js?v=202611270112"></script>
+<script src="app.js?v=202611270112"></script>
+<script src="features.js?v=202611270112"></script>
+<script src="cloud-config.js?v=202611270112"></script>
+<script src="cloud.js?v=202611270112"></script>
+<script src="activities.js?v=202611270112"></script>
+<script src="haksa.js?v=202611270112"></script>
+<script src="menus.js?v=202611270112"></script>
+<script src="schedule.js?v=202611270112"></script>
+<script src="kclass.js?v=202611270112"></script>
+<script src="home.js?v=202611270112"></script>
+<script src="status.js?v=202611270112"></script>
+<script src="log.js?v=202611270112"></script>
+<script src="transfer.js?v=202611270112"></script>
+<script src="migrant.js?v=202611270112"></script>
+<script src="site.js?v=202611270112"></script>
 </body>
 </html>
