@@ -39,7 +39,30 @@ function defaultSemesters(y) {
   let s2s = new Date(y, 7, 16); while (s2s.getDay() !== 1) s2s = addDays(s2s, 1);
   while (isOff(s2s)) s2s = addDays(s2s, 1);
   let s2e = new Date(y + 1, 0, 5); while (s2e.getDay() !== 5) s2e = addDays(s2e, 1);
-  return { s1Start: fmt(s1s), s1End: fmt(s1e), s2Start: fmt(s2s), s2End: fmt(s2e) };
+  return semFull({ s1Start: fmt(s1s), s1End: fmt(s1e), s2Start: fmt(s2s), s2End: fmt(s2e) }, y);
+}
+
+/**
+ * 학기·방학 모델
+ *  s1Start(1학기 개학) · summer[시작, 끝] · winter[시작, 끝] · s2End(학년 마지막 수업일)
+ *  → s1End = 여름방학 시작 전날, s2Start = 여름방학 끝 다음 날 (자동)
+ *  겨울방학이 2월 말 전에 끝나면, 그 뒤 ~ s2End 까지는 2학기 수업일(2월 등교)
+ */
+function semFull(s, y = state.school.year) {
+  const t = { ...s };
+  if (!t.summer) t.summer = [fmt(addDays(parse(t.s1End), 1)), fmt(addDays(parse(t.s2Start), -1))];
+  if (!t.winter) t.winter = [fmt(addDays(parse(t.s2End), 1)), fmt(new Date(y + 1, 2, 0))];
+  return t;
+}
+/** 개학일·방학·종업일 입력값으로 학기 기간 계산 */
+function semFromInputs(v) {
+  return {
+    s1Start: v.s1Start,
+    s1End: fmt(addDays(parse(v.summer[0]), -1)),
+    s2Start: fmt(addDays(parse(v.summer[1]), 1)),
+    s2End: v.s2End,
+    summer: v.summer, winter: v.winter,
+  };
 }
 
 function defaultPeriods(g) {
@@ -117,7 +140,7 @@ function normalize(s) {
  * ========================================================= */
 const isTeacherView = () => !!(window.App && App.role && App.role() === 'teacher');
 // 선생님에게는 조회만 되는 화면
-const RO_SECTIONS = ['tab-cal', 'tab-days', 'tab-info', 'tab-hours', 'tab-table', 'tab-tt', 'tab-run', 'tab-jd'];
+const RO_SECTIONS = ['tab-cal', 'tab-event', 'tab-hours', 'tab-tt', 'tab-run', 'tab-jd'];
 function applyRoleView() {
   const t = isTeacherView();
   document.body.classList.toggle('role-teacher', t);
@@ -148,6 +171,7 @@ function save() {
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
     $('saveState').textContent = '이 PC에 저장됨 ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
     if (window.App && App.onSave) App.onSave();   // 클라우드 동기화(cloud.js)
+    if (window.Haksa && Haksa.onSaved) Haksa.onSaved();   // 학교 정보 공유(haksa.js)
   }, 300);
   updateTitles();
 }
@@ -207,6 +231,14 @@ function semOf(ds) {
   return 0;
 }
 
+/** 여름·겨울방학 기간이면 이름 */
+function vacName(ds) {
+  const s = semFull(calSem());
+  if (s.summer && ds >= s.summer[0] && ds <= s.summer[1]) return '여름방학';
+  if (s.winter && ds >= s.winter[0] && ds <= s.winter[1]) return '겨울방학';
+  return '';
+}
+
 /** 학년도 전체 날짜 정보 (3/1 ~ 다음해 2월 말) */
 function computeYear() {
   if (_yearCache) return _yearCache;
@@ -227,6 +259,8 @@ function computeYear() {
       type = 'holiday'; name = name || hol.name;
     } else if (dow === 0 || dow === 6) {
       type = 'weekend';
+    } else if (vacName(ds)) {
+      type = 'vacation'; name = name || vacName(ds); sem = 0;
     } else if (!sem) {
       type = 'vacation';
     } else {
@@ -399,9 +433,13 @@ function renderCal() {
   const today = fmt(new Date());
   const [a, b] = selRange();
   // 학기 기간
-  const sem = calSem();
-  ['s1Start', 's1End', 's2Start', 's2End'].forEach(k => { if (document.activeElement !== $(k)) $(k).value = sem[k]; $(k).disabled = !canEditCal(); });
+  const sem = semFull(calSem());
+  const semVals = { s1Start: sem.s1Start, summerStart: sem.summer[0], summerEnd: sem.summer[1], winterStart: sem.winter[0], winterEnd: sem.winter[1], s2End: sem.s2End };
+  Object.entries(semVals).forEach(([k, v]) => { if (document.activeElement !== $(k)) $(k).value = v; $(k).disabled = !canEditCal(); });
   $('btnDefaultSem').disabled = !canEditCal();
+  const nd = (a, b) => Math.round((parse(b) - parse(a)) / 86400000) + 1;
+  const stS = dayStats();
+  $('semSummary').innerHTML = `1학기 ${fmtK(sem.s1Start)}~${fmtK(sem.s1End)} (수업 ${stS.sem[1].days}일) · 여름방학 ${nd(...sem.summer)}일 · 2학기 ${fmtK(sem.s2Start)}~${fmtK(sem.s2End)} (수업 ${stS.sem[2].days}일) · 겨울방학 ${nd(...sem.winter)}일 · <b>연간 수업일수 ${stS.total}일</b>`;
   // 저장 위치·권한 안내
   const shared = haksaShared();
   $('calWhere').innerHTML = shared
@@ -447,17 +485,9 @@ function renderCalSide() {
     const n = computeYear().filter(x => x.ds >= a && x.ds <= b).length;
     $('edInfo').textContent = `${n}일 선택됨`;
     const ov = calDays()[a];
-    if (ov) {
-      $('edType').value = ov.type; $('edName').value = ov.name || '';
-      $('edHrs').value = ov.hrs || 0; $('edArea').value = ov.area || 'cha_auto';
-    }
-    const gs = ov?.grades?.length ? ov.grades : GRADES;
-    $('edGrades').innerHTML = '<span class="hint">대상</span>' + GRADES.map(g =>
-      `<label class="chk"><input type="checkbox" value="${g}" ${gs.includes(g) ? 'checked' : ''}>${g}학년</label>`).join('');
+    if (ov && ov.type !== 'event') { $('edType').value = ov.type; $('edName').value = ov.name || ''; }
+    if (ov && ov.type === 'event') $('edInfo').innerHTML = `${n}일 선택됨 · 교내행사 "${esc(ov.name)}"는 <a href="#event">② 교내행사</a>에서 수정`;
   } else $('edInfo').textContent = '달력에서 날짜를 선택하세요';
-  if (!$('edGrades').innerHTML) $('edGrades').innerHTML = '<span class="hint">대상</span>' + GRADES.map(g =>
-    `<label class="chk"><input type="checkbox" value="${g}" checked>${g}학년</label>`).join('');
-  $('evHrsBox').style.display = $('edType').value === 'event' ? '' : 'none';
 
   const st = dayStats();
   $('calSummary').innerHTML = `<div>1학기<b>${st.sem[1].days}</b></div><div>2학기<b>${st.sem[2].days}</b></div>
@@ -490,15 +520,11 @@ async function applyRange() {
   if (!a) { alert('시작일을 선택하세요.'); return; }
   if (b < a) [a, b] = [b, a];
   const type = $('edType').value, name = $('edName').value.trim();
-  const hrs = Math.min(8, toNum($('edHrs').value));
-  const grades = [...document.querySelectorAll('#edGrades input:checked')].map(i => Number(i.value));
-  const area = $('edArea').value;
   const patch = {};
   for (let d = parse(a); fmt(d) <= b; d = addDays(d, 1)) {
     const ds = fmt(d);
     if (type === 'clear') patch[ds] = null;
-    else if (type === 'event' && hrs > 0) patch[ds] = { type, name, hrs, area, grades: grades.length === 6 ? [] : grades };
-    else patch[ds] = { type, name };
+    else patch[ds] = { type, name };   // 교내행사는 ② 교내행사 화면에서
   }
   try { await writeDays(patch); } catch (e) { alert('저장 실패: ' + e.message); }
   renderCal();
@@ -679,7 +705,7 @@ function exportCal() {
  * 이벤트
  * ========================================================= */
 const RENDER = { home: renderHome, data: () => {}, admin: () => {}, info: renderInfo, cal: renderCal, days: renderDays, hours: renderHours, table: renderTable };
-const GROUP_FIRST = { home: 'home', haksa: 'cal', curr: 'info', tt: 'tt', act: 'act', data: 'data', admin: 'admin' };
+const GROUP_FIRST = { home: 'home', haksa: 'hview', curr: 'cal', tt: 'tt', act: 'act', data: 'data', admin: 'admin' };
 const lastInGroup = {};
 let curTab = 'home';
 
@@ -690,7 +716,8 @@ function showTab(t) {
   if (!RENDER[t] || !$('tab-' + t)) t = 'home';
   if (t !== 'home' && window.App.locked && window.App.locked()) { window.App.pendingTab = t; t = 'home'; }
   if (t === 'admin' && !(window.App.isAdmin && window.App.isAdmin())) t = 'home';
-  if (t === 'data' && isTeacherView()) t = 'home';
+  // 선생님은 학사일정 보기·교육활동 일정만
+  if (isTeacherView() && ['curr', 'tt', 'data', 'admin'].includes(groupOf(t))) t = 'home';
   curTab = t;
   const g = groupOf(t);
   lastInGroup[g] = t;
@@ -711,20 +738,21 @@ function renderHome() {
   const s = state.school, st = dayStats(), issues = collectIssues();
   const nErr = issues.filter(x => x[0] === 'err').length, nWarn = issues.filter(x => x[0] === 'warn').length;
   const teacher = isTeacherView();
-  $('homeTitle').textContent = teacher ? `${s.year}학년도 학교 교육과정` : `${s.year}학년도 교육과정 편성 도우미`;
+  $('homeTitle').textContent = teacher ? `${s.year}학년도 학사일정 · 교육활동` : `${s.year}학년도 교육과정 편성 도우미`;
   $('homeSub').textContent = teacher
-    ? '학사일정과 학교 교육과정(시수·시간표·편제표)을 조회하고, 외부강의·교내행사를 신청합니다.'
+    ? '학교 학사일정을 확인하고, 외부강의·교내행사 등 교육활동 일정을 신청합니다.'
     : '학사일정부터 시수 배정, 시간표, 편제표까지 한 곳에서 계획합니다.';
   const locked = window.App.locked && window.App.locked();
-  const pub = window.App.publishedInfo ? App.publishedInfo() : null;
+  const today = fmt(new Date());
+  const nextEv = computeYear().find(x => x.ds >= today && x.name && x.type !== 'weekend');
   $('homeKpi').innerHTML = locked ? '' : `
     <div class="kpi"><div class="t">연간 수업일수</div><div class="v">${st.total}일</div><div class="s">1학기 ${st.sem[1].days} · 2학기 ${st.sem[2].days}</div></div>
     <div class="kpi"><div class="t">학급 수</div><div class="v">${GRADES.reduce((t, g) => t + (Number(s.classes[g]) || 0), 0)}학급</div><div class="s">${GRADES.map(g => s.classes[g]).join(' · ')}</div></div>
     ${teacher
-      ? `<div class="kpi"><div class="t">학교 교육과정</div><div class="v" style="font-size:18px">${pub ? '게시됨' : '<span class="neg">게시 전</span>'}</div><div class="s">${pub ? esc(pub) : '관리자가 게시하면 표시됩니다'}</div></div>
+      ? `<div class="kpi"><div class="t">다가오는 학사일정</div><div class="v" style="font-size:18px">${nextEv ? esc(nextEv.name) : '-'}</div><div class="s">${nextEv ? fmtK(nextEv.ds) + ' · ' : ''}<a href="#hview">학사일정 보기</a></div></div>
          <div class="kpi"><div class="t">교육활동 일정</div><div class="v" style="font-size:18px">신청·조회</div><div class="s"><a href="#act">일정 신청하기</a></div></div>`
       : `<div class="kpi"><div class="t">검토 결과</div><div class="v">${nErr ? `<span class="neg">오류 ${nErr}</span>` : '<span class="pos">오류 없음</span>'}</div><div class="s">경고 ${nWarn}건 · <a href="#table">자세히 보기</a></div></div>
-         <div class="kpi"><div class="t">저장 위치</div><div class="v" style="font-size:18px">${esc($('cloudState').textContent || '이 PC')}</div><div class="s"><a href="#data">자료 관리</a>${pub ? ` · 선생님께 게시: ${esc(pub)}` : ''}</div></div>`}`;
+         <div class="kpi"><div class="t">저장 위치</div><div class="v" style="font-size:18px">${esc($('cloudState').textContent || '이 PC')}</div><div class="s"><a href="#data">자료 관리</a></div></div>`}`;
   $('homeMenu').classList.toggle('locked', !!locked);
   if (window.App.renderGate) window.App.renderGate($('homeGate')); else $('homeGate').innerHTML = '';
 }
@@ -761,16 +789,24 @@ function bind() {
     state.school.year = y; state.sem = defaultSemesters(y); _yearCache = null; save(); renderInfo();
     document.dispatchEvent(new Event('year-change'));   // 학교 공용 학사일정·교육활동을 해당 학년도로 다시 불러옴
   });
-  ['s1Start', 's1End', 's2Start', 's2End'].forEach(k => $(k).addEventListener('change', async e => {
+  // 학기·방학: 개학일, 여름방학, 겨울방학, 종업일
+  ['s1Start', 'summerStart', 'summerEnd', 'winterStart', 'winterEnd', 's2End'].forEach(k => $(k).addEventListener('change', async () => {
     if (!canEditCal()) return;
-    try { await writeSem({ ...calSem(), [k]: e.target.value }); } catch (err) { alert('저장 실패: ' + err.message); }
-    _yearCache = null; renderCal();
+    const v = { s1Start: $('s1Start').value, summer: [$('summerStart').value, $('summerEnd').value], winter: [$('winterStart').value, $('winterEnd').value], s2End: $('s2End').value };
+    if (Object.values(v).flat().some(x => !x)) return;
+    if (!(v.s1Start < v.summer[0] && v.summer[0] <= v.summer[1] && v.summer[1] < v.s2End && v.winter[0] <= v.winter[1])) {
+      alert('날짜 순서를 확인하세요: 개학일 < 여름방학 시작 ≤ 여름방학 끝 < 종업일, 겨울방학 시작 ≤ 끝'); renderCal(); return;
+    }
+    try { await writeSem(semFromInputs(v)); } catch (err) { alert('저장 실패: ' + err.message); }
+    _yearCache = null; RENDER.cal();
   }));
   $('btnDefaultSem').addEventListener('click', async () => {
     if (!canEditCal()) return;
-    await writeSem(defaultSemesters(state.school.year)); _yearCache = null; renderCal();
+    if (!confirm('학기·방학 날짜를 학년도 기본값으로 바꿀까요?')) return;
+    await writeSem(defaultSemesters(state.school.year)); _yearCache = null; RENDER.cal();
   });
-  $('tab-info').addEventListener('input', e => {
+  // 학급 수(학사일정 화면) · 요일별 교시 수(시수 배정 화면)
+  document.querySelector('main').addEventListener('input', e => {
     const t = e.target;
     if (t.dataset.cls) { state.school.classes[t.dataset.cls] = toNum(t.value); }
     else if (t.dataset.per) { state.school.periods[t.dataset.per][t.dataset.i] = Math.min(8, toNum(t.value)); }
@@ -779,7 +815,7 @@ function bind() {
   });
   $('btnReset').addEventListener('click', () => {
     if (!confirm('모든 입력(학사일정, 시수 배정 등)을 지우고 처음 상태로 되돌립니다. 되돌릴 수 없습니다. 먼저 백업 저장을 권장합니다. 계속할까요?')) return;
-    state = defaultState(); save(); showTab('info');
+    state = defaultState(); save(); showTab('cal');
   });
 
   // ② 학사일정
@@ -793,7 +829,6 @@ function bind() {
     calSel = { start: $('edStart').value || null, end: $('edEnd').value || null }; renderCal();
   }));
   $('btnApply').addEventListener('click', applyRange);
-  $('edType').addEventListener('change', () => { $('evHrsBox').style.display = $('edType').value === 'event' ? '' : 'none'; });
   $('edName').addEventListener('keydown', e => { if (e.key === 'Enter') applyRange(); });
   $('tblEvents').addEventListener('click', e => {
     const b = e.target.closest('[data-del]'); if (!b) return;

@@ -22,8 +22,6 @@
   let access = 'unknown';   // unknown | signedout | none | pending | approved
   let admin = false;
   let profileName = '';     // 가입 때 등록한 이름
-  let pubMeta = null;       // 게시된 학교 교육과정 정보 { at, by }
-  let unsubPub = null;
   let cur = null;           // { id, meta, unsub }
   let pushTimer = null, lastPushed = null;
 
@@ -38,7 +36,6 @@
     isAdmin: () => admin,
     /** 'admin' 편성·편집 / 'teacher' 조회 전용 / 'none' 로그인·승인 전. 클라우드를 안 쓰면 이 PC 도구로 'admin' */
     role: () => (!window.FIREBASE_CONFIG || fbFailed) ? 'admin' : (user && access === 'approved') ? (admin ? 'admin' : 'teacher') : 'none',
-    publishedInfo: () => pubMeta ? `${fmtTime(pubMeta.at)}${pubMeta.byName ? ' · ' + pubMeta.byName : ''}` : null,
     renderGate,
   });
   RENDER.data = () => renderPanel($('dataCloud'));
@@ -94,46 +91,16 @@
 
   async function onAuth(u) {
     user = u; admin = false;
-    if (!u) { closePlan(); if (unsubPub) { unsubPub(); unsubPub = null; } pubMeta = null; access = 'signedout'; setStatus('☁ 로그인 필요'); refreshUi(); return; }
+    if (!u) { closePlan(); access = 'signedout'; setStatus('☁ 로그인 필요'); refreshUi(); return; }
     await checkAccess();
     if (access === 'approved') {
       setStatus('☁ 로그인됨');
-      watchPublished();
       if (admin) {
         const last = localStorage.getItem(LAST_PLAN_KEY);
         if (last && !cur) { try { await openPlan(last); } catch (e) { localStorage.removeItem(LAST_PLAN_KEY); } }
       }
     } else setStatus(access === 'pending' ? '☁ 승인 대기 중' : '☁ 승인 필요');
     refreshUi();
-  }
-
-  /* ---------- 학교 교육과정 게시 (관리자 → 선생님 조회 화면) ---------- */
-  function watchPublished() {
-    if (unsubPub) unsubPub();
-    unsubPub = fb.F.onSnapshot(D('published', 'current'), d => {
-      const data = d.exists() ? d.data() : null;
-      pubMeta = data ? { at: data.publishedAt, byName: data.byName || '' } : null;
-      // 선생님은 게시된 교육과정을 그대로 조회
-      if (!admin && data && data.stateJson) { window.App.setState(JSON.parse(data.stateJson)); setStatus('☁ 학교 교육과정 조회 중'); }
-      if (curTab === 'home') RENDER.home();
-      if (curTab === 'admin') renderPublishBox();
-    }, err => console.warn('게시본 불러오기 실패', err));
-  }
-  async function publishCurriculum() {
-    if (!admin) return;
-    const s = window.App.getState();
-    if (!confirm(`지금 화면의 교육과정(${s.school.name} ${s.school.year}학년도: 학급 수·시수 배정·시간표·교과전담·편제표)을 선생님들께 게시합니다.\n선생님 화면은 이 내용으로 바뀌고 조회만 할 수 있습니다. 계속할까요?`)) return;
-    await fb.F.setDoc(D('published', 'current'), {
-      stateJson: JSON.stringify(s), year: s.school.year, title: s.school.name,
-      publishedAt: fb.F.serverTimestamp(), by: myEmail(), byName: profileName || '',
-    });
-    alert('게시했습니다. 선생님 화면에 바로 반영됩니다.');
-  }
-  function renderPublishBox() {
-    const el = $('admPublish'); if (!el) return;
-    el.innerHTML = `<div class="row"><button class="btn primary small" data-a="publish">지금 화면의 교육과정을 선생님들께 게시</button>
-      <span class="hint">${pubMeta ? `마지막 게시: ${esc(fmtTime(pubMeta.at))}${pubMeta.byName ? ' · ' + esc(pubMeta.byName) : ''}` : '아직 게시하지 않았습니다.'}</span></div>
-      <p class="hint">선생님들은 게시된 교육과정(학급 수·시수 배정·시간표·교과전담·편제표)을 조회만 합니다. 편성을 고친 뒤에는 다시 게시해야 선생님 화면에 반영됩니다. 학사일정은 학교 공용이라 게시 없이 바로 반영됩니다.</p>`;
   }
 
   async function checkAccess() {
@@ -330,7 +297,7 @@
     if (access !== 'approved') { renderGate(body); return; }
     if (!admin) {   // 선생님: 계정 정보만
       body.innerHTML = `<p><b>${esc(profileName || myEmail())}</b> 선생님 (${esc(myEmail())})</p>
-        <p class="hint">학교 교육과정과 학사일정은 관리자가 게시한 내용을 조회합니다. ${pubMeta ? '마지막 게시: ' + esc(fmtTime(pubMeta.at)) : '아직 게시된 교육과정이 없습니다.'}</p>
+        <p class="hint">학사일정은 관리자가 정한 학교 공용 학사일정을 조회하고, 교육활동 일정은 직접 신청할 수 있습니다.</p>
         <button class="btn small" data-c="logout">로그아웃</button>`;
       body.onclick = async e => { const b = e.target.closest('[data-c="logout"]'); if (b) { await logout(); if (dlg.open) dlg.close(); } };
       return;
@@ -384,7 +351,7 @@
   async function renderAdmin() {
     const el = $('adminBody');
     if (!admin) { el.innerHTML = '<div class="card">관리자만 볼 수 있습니다.</div>'; return; }
-    el.innerHTML = `<div class="card"><h2>학교 교육과정 게시</h2><div id="admPublish"></div></div>
+    el.innerHTML = `
       <div class="card"><h2>관리자 내 이름</h2>
         <div class="row"><input id="admMyName" type="text" maxlength="30" value="${esc(profileName)}" placeholder="이름(실명)" style="width:160px">
         <button class="btn small primary" data-a="myname">저장</button>
@@ -398,7 +365,6 @@
         </div>
         <div id="admAllowed" class="hint">불러오는 중…</div>
         <p class="hint">관리자 계정 추가·변경은 Firebase 콘솔의 <code>admins</code> 컬렉션에서 합니다.</p></div>`;
-    renderPublishBox();
     const F = fb.F;
     try {
       const [rq, al] = await Promise.all([F.getDocs(F.collection(fb.db, 'requests')), F.getDocs(F.collection(fb.db, 'allowed'))]);
@@ -433,8 +399,6 @@
         } else if (b.dataset.a === 'revoke') {
           if (!confirm(`${email} 의 사용 승인을 해제합니다. 이 사람은 더 이상 클라우드 문서를 열 수 없습니다. 계속할까요?`)) return;
           await F.deleteDoc(D('allowed', email));
-        } else if (b.dataset.a === 'publish') {
-          await publishCurriculum(); renderPublishBox(); return;
         } else if (b.dataset.a === 'myname') {
           if (!(await saveMyName($('admMyName').value))) return;
         } else if (b.dataset.a === 'rename') {

@@ -19,12 +19,16 @@
 | `cloud-config.js` | Firebase 웹 설정값(공개되어도 되는 값), `REQUIRE_LOGIN` |
 | `cloud.js` | 구글 로그인, 관리자 승인(가입·이름 등록), 교육과정 문서 클라우드 저장·공유·실시간 동기화, 관리자 화면 |
 | `activities.js` | 교육활동 일정(신청/확정/취소), 겹침 방지 트랜잭션, 한국어학급 시간표 연계·담당 교사 알림 |
+| `haksa.js` | 학교 공용 학사일정(`calendar/{학년도}`) 동기화, 학교 정보(`config/school`) 공유 |
+| `menus.js` | 화면 묶기: 학사일정 보기(선생님), 교육과정 편성 ①학사일정 ②교내행사 ③시수 배정 |
+
+역할: **관리자** = 교육과정 편성·시간표 편성·자료 관리·관리자 메뉴 / **선생님** = HOME·학사일정(조회)·교육활동 일정(신청)
 | `assets/` | 학교 로고(`logo.png`), 엠블럼 아이콘(`emblem.png`) |
 | `firestore.rules` | Firestore 보안 규칙 (Firebase 콘솔 > Firestore > 규칙 에 게시해야 적용됨) |
 | `deploy.ps1`, `배포하기.cmd` | 로컬 폴더의 파일을 이 저장소로 올리는 배포 스크립트 |
 | `클라우드_설정_안내.md` | Firebase·GitHub Pages 설정과 운영 안내 |
 
-스크립트 로드 순서: `data.js → app.js → features.js → cloud-config.js → cloud.js → activities.js` (모두 일반 `<script>`, 전역 함수·상태 공유)
+스크립트 로드 순서: `data.js → app.js → features.js → cloud-config.js → cloud.js → activities.js → haksa.js → menus.js` (모두 일반 `<script>`, 전역 함수·상태 공유)
 
 ## Firestore 데이터 구조
 

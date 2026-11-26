@@ -57,18 +57,48 @@
     Object.entries(patch).forEach(([ds, e]) => { days[ds] = e ? e : F.deleteField(); });
     await F.setDoc(ref(), { days, ...stamp() }, { merge: true });
   }
+  const semDoc = s => { const f = semFull(s); return { s1Start: f.s1Start, s1End: f.s1End, s2Start: f.s2Start, s2End: f.s2End, summer: f.summer, winter: f.winter }; };
   async function writeSem(sem) {
     guard();
-    const { s1Start, s1End, s2Start, s2End } = sem;
-    await Cloud.fb.F.setDoc(ref(), { sem: { s1Start, s1End, s2Start, s2End }, ...stamp() }, { merge: true });
+    await Cloud.fb.F.setDoc(ref(), { sem: semDoc(sem), ...stamp() }, { mergeFields: ['sem', 'updatedAt', 'updatedBy'] });
   }
   /** 이 PC의 학사일정(현재 화면)으로 학교 공용 학사일정을 처음 만듦 */
   async function createFromLocal() {
     guard();
-    const { s1Start, s1End, s2Start, s2End } = state.sem;
-    await Cloud.fb.F.setDoc(ref(), { year: state.school.year, sem: { s1Start, s1End, s2Start, s2End }, days: JSON.parse(JSON.stringify(state.days)), ...stamp() });
+    await Cloud.fb.F.setDoc(ref(), { year: state.school.year, sem: semDoc(state.sem), days: JSON.parse(JSON.stringify(state.days)), ...stamp() });
+    await writeSchool(true);
   }
 
-  document.addEventListener('cloud-change', subscribe);
+  /* ---------- 학교 정보(학교명·학년도·학급 수) 공유: config/school ----------
+   * 관리자가 고치면 저장되고, 선생님 화면은 이 값으로 학년도·학급 수를 맞춤(교육활동 대상 학급 등) */
+  let unsubSchool = null, lastSchool = '';
+  const schoolInfo = () => ({ name: state.school.name, year: state.school.year, classes: { ...state.school.classes } });
+  async function writeSchool(force) {
+    if (!H.canEdit()) return;
+    const json = JSON.stringify(schoolInfo());
+    if (!force && json === lastSchool) return;
+    lastSchool = json;
+    await Cloud.fb.F.setDoc(Cloud.fb.F.doc(Cloud.fb.db, 'config', 'school'), { ...schoolInfo(), ...stamp() });
+  }
+  H.onSaved = () => { if (window.Cloud && Cloud.ready && Cloud.isAdmin()) writeSchool().catch(e => console.warn('학교 정보 저장 실패', e)); };
+  function subscribeSchool() {
+    if (unsubSchool) { unsubSchool(); unsubSchool = null; }
+    if (!window.Cloud || !Cloud.ready) return;
+    unsubSchool = Cloud.fb.F.onSnapshot(Cloud.fb.F.doc(Cloud.fb.db, 'config', 'school'), d => {
+      if (!d.exists()) return;
+      const s = d.data();
+      if (Cloud.isAdmin()) { lastSchool = JSON.stringify({ name: s.name, year: s.year, classes: s.classes }); return; }
+      // 선생님: 관리자가 정한 학교 정보 사용
+      const yearChanged = s.year && s.year !== state.school.year;
+      state.school.name = s.name || state.school.name;
+      if (s.year) state.school.year = s.year;
+      if (s.classes) state.school.classes = { ...state.school.classes, ...s.classes };
+      updateTitles();
+      if (yearChanged) document.dispatchEvent(new Event('year-change'));
+      rerender();
+    }, err => console.warn('학교 정보 불러오기 실패', err));
+  }
+
+  document.addEventListener('cloud-change', () => { subscribe(); subscribeSchool(); });
   document.addEventListener('year-change', subscribe);
 })();

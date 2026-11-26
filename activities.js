@@ -149,6 +149,7 @@
     if (curTab === 'act') { renderGrid(); renderList(); renderCheck(); }
     if (curTab === 'ksl') { if (kslChanged) { renderKslTable(); renderKslTeachers(); } renderKslList(); }
     if (curTab === 'cal') renderCal();   // 학사일정 달력에 교육활동 표시
+    if (curTab === 'hview' || curTab === 'event') RENDER[curTab]();
     updateBell();
   }
 
