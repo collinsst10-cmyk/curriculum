@@ -203,6 +203,26 @@ input:focus, select:focus { outline: 2px solid var(--primary-weak); border-color
 .ck.ok { background: var(--ok-bg); color: var(--ok); } .ck.info { background: #f1f5fb; color: #334155; }
 .ck .hint { margin: 4px 0 0; }
 #actSave:disabled { opacity: .45; cursor: not-allowed; }
+#actSave { width: 100%; padding: 10px; font-size: 14px; }
+/* 단순화한 신청 양식: 눌러서 고르는 버튼 */
+.date-pick { border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px; background: #fafbfd; }
+.date-pick.set { border: 1px solid var(--primary); background: var(--primary-weak); color: var(--navy); }
+.date-pick b { font-size: 16px; }
+input.full { width: 100%; }
+.seg { display: flex; flex-wrap: wrap; gap: 4px; }
+.tg { display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; background: #fff; cursor: pointer; font-size: 13px; user-select: none; }
+.tg input { display: none; }
+.tg:hover { border-color: var(--primary); }
+.tg:has(input:checked) { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; }
+.tg.pending:has(input:checked) { background: var(--gold); border-color: var(--gold); color: #3b2a00; }
+.tg.confirmed:has(input:checked) { background: var(--ok); border-color: var(--ok); }
+#actPeriods .tg { flex: 1 0 auto; padding: 5px 4px; }
+.tgt { border-collapse: separate; border-spacing: 3px; width: 100%; table-layout: fixed; }
+.tgt td { padding: 0; text-align: center; font-size: 11px; }
+.tgt td:first-child { width: 40px; }
+.tg.mini { width: 100%; padding: 4px 0; font-size: 12px; }
+.tg.mini.grade { font-weight: 700; background: #f1f5fb; }
+.tg.mini.grade:has(input:checked) { background: var(--navy); border-color: var(--navy); color: #fff; }
 .ksl-cell { min-width: 150px; }
 .ksl-cell input { width: 100%; margin: 2px 0; text-align: left; }
 .ksl-prev { margin: 2px 0 0; min-height: 14px; }

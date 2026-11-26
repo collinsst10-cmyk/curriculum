@@ -14,7 +14,7 @@
   'use strict';
   const PERIODS = [1, 2, 3, 4, 5, 6];
   const KSL_PERIODS = [1, 2, 3];
-  const ST = { pending: '신청중', confirmed: '확정', canceled: '취소' };
+  const ST = { pending: '신청', confirmed: '확정', canceled: '취소' };
   const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
   let items = {};          // date -> [item]
@@ -223,15 +223,15 @@
   function renderList() {
     const list = monthItems();
     $('actListTitle').textContent = `${month.getMonth() + 1}월 교육활동 (${list.filter(x => x.status !== 'canceled').length}건)`;
-    $('actList').innerHTML = `<tr><th>날짜</th><th>교시</th><th>구분</th><th class="l">활동명 · 기관</th><th>대상</th><th>장소</th><th>상태</th><th>신청자</th><th></th></tr>` +
-      (list.length ? '' : '<tr><td colspan="9" class="hint">등록된 일정이 없습니다. 오른쪽에서 신청하세요.</td></tr>') +
+    $('actList').innerHTML = `<tr><th>날짜</th><th>교시</th><th>구분</th><th class="l">교육활동명</th><th>대상</th><th>상태</th><th>신청자</th><th></th></tr>` +
+      (list.length ? '' : '<tr><td colspan="8" class="hint">등록된 일정이 없습니다. 달력에서 날짜를 눌러 신청하세요.</td></tr>') +
       list.map(it => {
         const hits = kslHits(it), mine = canEdit(it);
         return `<tr class="${it.status === 'canceled' ? 'canceled' : ''}">
           <td class="num">${fmtK(it.date)}</td><td>${periodLabel(it.periods)}</td><td>${esc2(it.kind)}</td>
-          <td class="l"><b>${esc2(it.title)}</b>${it.org ? `<br><span class="hint">${esc2(it.org)}</span>` : ''}${it.memo ? `<br><span class="hint">📝 ${esc2(it.memo)}</span>` : ''}
+          <td class="l"><b>${esc2(it.title)}</b>
             ${hits.length ? `<br><span class="pill ${it.kslAdjust && it.kslAdjust.done ? 'ok' : 'warn'}">⚠ 한국어학급 ${hits.map(h => h.p + '교시').join('·')} ${it.kslAdjust && it.kslAdjust.done ? '조정 완료' : '조정 필요'}</span>` : ''}</td>
-          <td>${esc2(targetLabel(it.targets))}</td><td>${esc2(it.place || '')}</td>
+          <td>${esc2(targetLabel(it.targets))}</td>
           <td><span class="st ${it.status}">${ST[it.status]}</span></td>
           <td class="hint">${esc2(it.ownerName || it.ownerEmail || '')}</td>
           <td class="nowrap">${mine ? `
@@ -246,37 +246,50 @@
    * 신청 폼
    * ========================================================= */
   function renderForm() {
-    // 교시 · 대상 학급 체크박스는 학급 수에 따라 매번 다시 그림(체크 상태 유지)
+    // 교시 · 대상 학급 버튼은 학급 수에 따라 매번 다시 그림(선택 상태 유지)
     const ps = getPeriods();
-    $('actPeriods').innerHTML = PERIODS.map(p => `<label class="chk box"><input type="checkbox" value="${p}" ${ps.includes(p) ? 'checked' : ''}>${p}</label>`).join('') +
-      `<label class="chk box all"><input type="checkbox" id="actAllDay" ${ps.length === PERIODS.length ? 'checked' : ''}>종일</label>`;
+    $('actPeriods').innerHTML = PERIODS.map(p => `<label class="tg"><input type="checkbox" value="${p}" ${ps.includes(p) ? 'checked' : ''}>${p}교시</label>`).join('');
+
+    // 대상 학급: 가로 = 학년, 세로 = 반 (아래로 길어지지 않는 격자)
     const ts = getTargets();
-    $('actTargets').innerHTML = `<label class="chk"><input type="checkbox" id="actAllSchool" ${ts.length && ts.length === allClasses().length ? 'checked' : ''}><b>전교</b></label>` +
+    const maxC = Math.max(1, ...GRADES.map(classCount));
+    const allOn = ts.length && ts.length === allClasses().length;
+    let html = `<table class="tgt"><tr><td><label class="tg mini${allOn ? '' : ''}"><input type="checkbox" id="actAllSchool" ${allOn ? 'checked' : ''}>전교</label></td>` +
       GRADES.map(g => {
         const cls = Array.from({ length: classCount(g) }, (_, i) => `${g}-${i + 1}`);
         const all = cls.length && cls.every(t => ts.includes(t));
-        return `<div class="tg-row"><label class="chk"><input type="checkbox" data-grade="${g}" ${all ? 'checked' : ''}><b>${g}학년</b></label>
-          ${cls.map(t => `<label class="chk box"><input type="checkbox" value="${t}" ${ts.includes(t) ? 'checked' : ''}>${t.split('-')[1]}반</label>`).join('')}</div>`;
-      }).join('');
+        return `<td><label class="tg mini grade"><input type="checkbox" data-grade="${g}" ${all ? 'checked' : ''}>${g}학년</label></td>`;
+      }).join('') + '</tr>';
+    for (let c = 1; c <= maxC; c++) {
+      html += `<tr><td class="hint">${c}반</td>` + GRADES.map(g => c <= classCount(g)
+        ? `<td><label class="tg mini"><input type="checkbox" value="${g}-${c}" ${ts.includes(`${g}-${c}`) ? 'checked' : ''}>${g}-${c}</label></td>`
+        : '<td></td>').join('') + '</tr>';
+    }
+    $('actTargets').innerHTML = html + '</table>';
+
+    const d = $('actDate').value;
+    $('actDateLabel').innerHTML = d ? `<b>${fmtK(d)}</b> <span class="hint">${d.slice(0, 4)}년</span>` : '<span class="hint">달력에서 날짜를 누르세요</span>';
+    $('actDateLabel').classList.toggle('set', !!d);
     $('actFormTitle').textContent = editing ? '일정 수정' : '일정 신청';
     $('actSave').textContent = editing ? '수정 저장' : '신청 등록';
   }
   const getPeriods = () => [...document.querySelectorAll('#actPeriods input[value]:checked')].map(i => Number(i.value));
   const getTargets = () => [...document.querySelectorAll('#actTargets input[value]:checked')].map(i => i.value);
+  const getRadio = name => (document.querySelector(`input[name="${name}"]:checked`) || {}).value;
+  const setRadio = (name, v) => document.querySelectorAll(`input[name="${name}"]`).forEach(i => { i.checked = i.value === v; });
+  function setDate(ds) { $('actDate').value = ds || ''; renderForm(); renderGrid(); renderCheck(); }
 
   function formItem() {
     const u = me();
     return {
       id: editing ? editing.id : uid(),
       date: $('actDate').value,
-      kind: $('actKind').value,
+      kind: getRadio('actKind') || '외부강의',
       title: $('actTitle').value.trim(),
-      org: $('actOrg').value.trim(),
-      place: $('actPlace').value.trim(),
+      org: '', place: '', memo: '',
       periods: getPeriods(),
       targets: getTargets(),
-      status: $('actStatus').value,
-      memo: $('actMemo').value.trim(),
+      status: getRadio('actStatus') || 'pending',
       ownerUid: u ? u.uid : '', ownerEmail: u ? u.email : '', ownerName: u ? u.name : '',
       createdAt: Date.now(), updatedAt: Date.now(),
     };
@@ -288,13 +301,13 @@
     const box = $('actCheck');
     const msgs = [];
     let block = false;
-    if (!it.date) { box.innerHTML = '<div class="hint">날짜를 고르거나 달력에서 날짜를 누르세요.</div>'; $('actSave').disabled = true; return; }
+    if (!it.date) { box.innerHTML = '<div class="hint">왼쪽 달력에서 날짜를 누르세요.</div>'; $('actSave').disabled = true; return; }
     const same = (items[it.date] || []).filter(x => x.id !== it.id && x.status !== 'canceled');
     const c = same.filter(x => conflicts(x, it));
     if (it.periods.length && it.targets.length && c.length) {
       block = true;
       msgs.push(`<div class="ck err"><b>⛔ 겹치는 일정이 있어 신청할 수 없습니다.</b>${c.map(x =>
-        `<div>· ${periodLabel(x.periods)} <b>${esc2(x.title)}</b> (${esc2(targetLabel(x.targets))}${x.place ? ', ' + esc2(x.place) : ''}) — ${ST[x.status]}, ${esc2(x.ownerName || x.ownerEmail)}</div>`).join('')}
+        `<div>· ${periodLabel(x.periods)} <b>${esc2(x.title)}</b> (${esc2(targetLabel(x.targets))}) — ${ST[x.status]}, ${esc2(x.ownerName || x.ownerEmail)}</div>`).join('')}
         <div class="hint">다른 교시·날짜를 고르거나, 신청자와 협의하세요.</div></div>`);
     } else if (same.length) {
       msgs.push(`<div class="ck info">같은 날 다른 일정 ${same.length}건 (겹치지 않음): ${same.map(x => `${periodLabel(x.periods)} ${esc2(x.title)}`).join(', ')}</div>`);
@@ -304,7 +317,7 @@
     if (hits.length) msgs.push(`<div class="ck warn"><b>⚠ 한국어학급 시간과 겹칩니다.</b>${hits.map(h =>
       `<div>· ${h.p}교시 ${esc2(h.group)} (${esc2(h.classes.join(', '))} 학생)</div>`).join('')}
       <div class="hint">등록할 수 있지만, 해당 학생들이 활동에 참여하도록 한국어학급 시간을 조정해야 합니다. (② 한국어학급 연계에 자동 표시)</div></div>`);
-    if (!it.title) msgs.push('<div class="hint">활동명을 입력하세요.</div>');
+    if (!it.title) msgs.push('<div class="hint">교육활동명을 입력하세요.</div>');
     if (!it.periods.length) msgs.push('<div class="hint">교시를 하나 이상 고르세요.</div>');
     if (!it.targets.length) msgs.push('<div class="hint">대상 학급을 고르세요.</div>');
     if (!block && it.title && it.periods.length && it.targets.length && !c.length) msgs.unshift('<div class="ck ok">✅ 겹치는 일정이 없습니다.</div>');
@@ -314,8 +327,8 @@
 
   function resetForm(date) {
     editing = null;
-    ['actTitle', 'actOrg', 'actPlace', 'actMemo'].forEach(id => { $(id).value = ''; });
-    $('actKind').value = '외부강의'; $('actStatus').value = 'pending';
+    $('actTitle').value = '';
+    setRadio('actKind', '외부강의'); setRadio('actStatus', 'pending');
     document.querySelectorAll('#actPeriods input, #actTargets input').forEach(i => { i.checked = false; });
     if (date) $('actDate').value = date;
     renderForm(); renderGrid(); renderCheck();
@@ -323,9 +336,8 @@
 
   function loadToForm(it) {
     editing = { id: it.id, date: it.date };
-    $('actDate').value = it.date; $('actKind').value = it.kind; $('actTitle').value = it.title;
-    $('actOrg').value = it.org || ''; $('actPlace').value = it.place || ''; $('actStatus').value = it.status === 'confirmed' ? 'confirmed' : 'pending';
-    $('actMemo').value = it.memo || '';
+    $('actDate').value = it.date; $('actTitle').value = it.title;
+    setRadio('actKind', it.kind); setRadio('actStatus', it.status === 'confirmed' ? 'confirmed' : 'pending');
     renderForm();
     document.querySelectorAll('#actPeriods input[value]').forEach(i => { i.checked = it.periods.includes(Number(i.value)); });
     document.querySelectorAll('#actTargets input[value]').forEach(i => { i.checked = it.targets.includes(i.value); });
@@ -449,17 +461,15 @@
     const chip = e.target.closest('.chip');
     const day = e.target.closest('.aday[data-ds]');
     if (chip && day) { const it = (items[day.dataset.ds] || []).find(x => x.id === chip.dataset.id); if (it && canEdit(it)) { loadToForm(it); return; } }
-    if (day) { if (editing) resetForm(day.dataset.ds); else { $('actDate').value = day.dataset.ds; renderGrid(); renderCheck(); } }
+    if (day) { if (editing) resetForm(day.dataset.ds); else setDate(day.dataset.ds); }
   });
   $('actReset').onclick = () => resetForm($('actDate').value);
   $('actSave').onclick = onSave;
   $('actList').addEventListener('click', onListAction);
-  ['actDate', 'actKind', 'actTitle', 'actOrg', 'actPlace', 'actStatus', 'actMemo'].forEach(id => $(id).addEventListener('input', () => { renderCheck(); if (id === 'actDate') renderGrid(); }));
-  $('actPeriods').addEventListener('change', e => {
-    if (e.target.id === 'actAllDay') document.querySelectorAll('#actPeriods input[value]').forEach(i => { i.checked = e.target.checked; });
-    else $('actAllDay').checked = getPeriods().length === PERIODS.length;
-    renderCheck();
-  });
+  $('actTitle').addEventListener('input', renderCheck);
+  $('actKind').addEventListener('change', renderCheck);
+  $('actStatus').addEventListener('change', renderCheck);
+  $('actPeriods').addEventListener('change', renderCheck);
   $('actTargets').addEventListener('change', e => {
     const t = e.target;
     if (t.id === 'actAllSchool') document.querySelectorAll('#actTargets input').forEach(i => { i.checked = t.checked; });

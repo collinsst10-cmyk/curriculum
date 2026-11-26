@@ -136,7 +136,7 @@
               <button class="btn small" id="actToday">이번 달</button>
             </div>
             <div class="legend">
-              <span class="st pending">신청중</span><span class="st confirmed">확정</span><span class="st canceled">취소</span>
+              <span class="st pending">신청</span><span class="st confirmed">확정</span><span class="st canceled">취소</span>
               <span>⚠ 한국어학급 조정 필요</span>
             </div>
           </div>
@@ -153,22 +153,23 @@
       <aside>
         <div class="card sticky-side">
           <div class="card-head"><h2 id="actFormTitle">일정 신청</h2><button class="btn small" id="actReset">새로 쓰기</button></div>
-          <div class="form one">
-            <label>날짜 <input type="date" id="actDate"></label>
-            <label>구분
-              <select id="actKind"><option>외부강의</option><option>교내행사</option><option>기타</option></select>
-            </label>
-            <label>활동명 <input type="text" id="actTitle" maxlength="60" placeholder="예: 학교폭력 예방 교육"></label>
-            <label>기관·강사 <input type="text" id="actOrg" maxlength="60" placeholder="예: ○○경찰서"></label>
-            <label>장소 <input type="text" id="actPlace" maxlength="30" placeholder="예: 강당, 각 교실"></label>
+          <input type="hidden" id="actDate">
+          <div class="fld"><span class="fld-l">날짜</span><div id="actDateLabel" class="date-pick">달력에서 날짜를 누르세요</div></div>
+          <div class="fld"><span class="fld-l">구분</span>
+            <div class="seg" id="actKind">
+              <label class="tg"><input type="radio" name="actKind" value="외부강의" checked>외부강의</label>
+              <label class="tg"><input type="radio" name="actKind" value="교내행사">교내행사</label>
+              <label class="tg"><input type="radio" name="actKind" value="기타">기타</label>
+            </div>
           </div>
-          <div class="fld"><span class="fld-l">교시</span><div class="row" id="actPeriods"></div></div>
-          <div class="fld"><span class="fld-l">대상 학급</span><div id="actTargets" class="targets"></div></div>
-          <div class="form one">
-            <label>상태
-              <select id="actStatus"><option value="pending">신청중 (외부기관 신청, 확정 전)</option><option value="confirmed">확정</option></select>
-            </label>
-            <label>메모 <input type="text" id="actMemo" maxlength="100" placeholder="예: 3/10까지 회신 예정"></label>
+          <div class="fld"><span class="fld-l">교육활동명</span><input type="text" id="actTitle" maxlength="60" placeholder="예: 학교폭력 예방 교육" class="full"></div>
+          <div class="fld"><span class="fld-l">교시 <span class="hint">(여러 개 선택 가능)</span></span><div class="seg" id="actPeriods"></div></div>
+          <div class="fld"><span class="fld-l">대상 학급 <span class="hint">(학년 이름을 누르면 학년 전체)</span></span><div id="actTargets"></div></div>
+          <div class="fld"><span class="fld-l">상태</span>
+            <div class="seg" id="actStatus">
+              <label class="tg pending"><input type="radio" name="actStatus" value="pending" checked>신청</label>
+              <label class="tg confirmed"><input type="radio" name="actStatus" value="confirmed">확정</label>
+            </div>
           </div>
           <div id="actCheck" class="act-check"></div>
           <div class="row"><button class="btn primary" id="actSave">신청 등록</button></div>
