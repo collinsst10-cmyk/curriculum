@@ -20,7 +20,7 @@ const bandOf = g => BANDS[g <= 2 ? 0 : g <= 4 ? 1 : 2];
 
 /* ---------- 상태 ---------- */
 let state;
-let calSel = { start: null, end: null };
+
 let curGrade = 1;
 let _yearCache = null;
 
@@ -183,7 +183,7 @@ function updateTitles() {
   document.title = `${state.school.name || '초등학교'} 교육과정 편성 도우미`;
 }
 /** 상단 머리글 높이에 맞춰 하위 메뉴 고정 위치 조정 */
-function fitStickyTabs() { document.documentElement.style.setProperty('--hdr', document.querySelector('.topbar').offsetHeight + 'px'); }
+function fitStickyTabs() { document.documentElement.style.setProperty('--hdr', (document.querySelector('.topbar').offsetHeight + 14) + 'px'); }
 window.addEventListener('resize', fitStickyTabs);
 document.addEventListener('DOMContentLoaded', fitStickyTabs);
 
@@ -431,7 +431,6 @@ function renderInfo() {
 function renderCal() {
   const days = computeYear();
   const today = fmt(new Date());
-  const [a, b] = selRange();
   // 학기 기간
   const sem = semFull(calSem());
   const semVals = { s1Start: sem.s1Start, summerStart: sem.summer[0], summerEnd: sem.summer[1], winterStart: sem.winter[0], winterEnd: sem.winter[1], s2End: sem.s2End };
@@ -459,7 +458,7 @@ function renderCal() {
     html += WD.map(w => `<div class="dow">${w}</div>`).join('');
     for (let k = 0; k < list[0].dow; k++) html += '<div class="day empty"></div>';
     list.forEach(x => {
-      const sel = a && x.ds >= a && x.ds <= b ? ' sel' : '';
+      const sel = calPick.has(x.ds) ? ' sel' : '';
       const al = (acts[x.ds] || []).filter(t => t.status !== 'canceled');
       const tip = x.ds + ' ' + TYPE_LABEL[x.type] + (x.name ? ' · ' + x.name : '') + al.map(t => `\n· ${t.kind} ${t.title} (${t.status === 'confirmed' ? '확정' : '신청'})`).join('');
       html += `<div class="day ${x.type}${sel}${x.ds === today ? ' today' : ''}" data-ds="${x.ds}" title="${esc(tip)}">
@@ -471,36 +470,83 @@ function renderCal() {
   renderCalSide();
 }
 
-function selRange() {
-  if (!calSel.start) return [null, null];
-  const e = calSel.end || calSel.start;
-  return calSel.start <= e ? [calSel.start, e] : [e, calSel.start];
+/* ---------- 공휴일 자동 반영 ----------
+ * 학사일정 편성 화면을 열면 공개 공휴일 정보(date.nager.at)를 확인해,
+ * 기본 공휴일 목록·학사일정에 없는 새 공휴일(임시공휴일·새 대체공휴일 등)을 자동으로 넣습니다.
+ * 이 정보는 가끔 틀릴 수 있어 '자동' 표시를 달고, 관리자가 ✕로 뺄 수 있습니다(뺀 날은 다시 들어오지 않음). */
+let holSync = { year: null, added: [], status: '' };
+async function syncHolidays() {
+  const y = state.school.year;
+  if (holSync.year === y || !canEditCal()) return;
+  if (window.Cloud && Cloud.ready && window.Haksa && !Haksa.loaded) return;   // 공용 학사일정 불러온 뒤에
+  holSync = { year: y, added: [], status: 'checking' };
+  try {
+    const get = yy => fetch(`https://date.nager.at/api/v3/PublicHolidays/${yy}/KR`).then(r => (r.ok ? r.json() : []));
+    const list = [...await get(y), ...await get(y + 1)].filter(h => h.date >= `${y}-03-01` && h.date < `${y + 1}-03-01`);
+    const hm = holidayMap(y), cd = calDays(), patch = {};
+    list.forEach(h => { if (!hm[h.date] && !cd[h.date] && !patch[h.date]) patch[h.date] = { type: 'holiday', name: h.localName || h.name, auto: true }; });
+    if (Object.keys(patch).length) {
+      await writeDays(patch);
+      holSync.added = Object.entries(patch).map(([d, v]) => `${fmtK(d)} ${v.name}`);
+    }
+    holSync.status = 'ok';
+  } catch (e) { console.warn('공휴일 자동 확인 실패', e); holSync.status = 'fail'; }
+  _yearCache = null;
+  if (curTab === 'cal') RENDER.cal();
+}
+function holidaySyncNote() {
+  if (holSync.status === 'fail') return '<div class="notice">공휴일 자동 확인에 실패했습니다(인터넷 연결 확인). 기본 공휴일만 표시됩니다.</div>';
+  if (holSync.added.length) return `<div class="notice">새 공휴일 ${holSync.added.length}건을 자동 반영했습니다: ${esc(holSync.added.join(', '))}. 잘못된 날짜는 아래 목록에서 ✕로 빼세요.</div>`;
+  const autoN = Object.values(calDays()).filter(v => v.auto).length;
+  return autoN ? `<div class="hint">자동 반영된 공휴일 ${autoN}건 · 목록에 <span class="pill warn">자동</span> 표시</div>` : '';
+}
+
+/* ---------- 학사일정 편성: 달력에서 날짜를 눌러 고르고 구분을 적용 ---------- */
+const calPick = new Set();          // 고른 날짜들
+let calLastPick = null;             // Shift+클릭 범위 선택용
+const edKind = () => (document.querySelector('input[name="edKind"]:checked') || {}).value || 'closure';
+const edEtc = () => (document.querySelector('input[name="edEtc"]:checked') || {}).value || 'clear';
+
+function toggleCalPick(ds, shift) {
+  if (shift && calLastPick) {
+    const [a, b] = calLastPick <= ds ? [calLastPick, ds] : [ds, calLastPick];
+    for (let d = parse(a); fmt(d) <= b; d = addDays(d, 1)) calPick.add(fmt(d));
+  } else if (calPick.has(ds)) calPick.delete(ds);
+  else calPick.add(ds);
+  calLastPick = ds;
+  // 처음 고른 날에 이미 입력이 있으면 그 구분·내용을 보여 줌
+  if (calPick.size === 1) {
+    const ov = calDays()[[...calPick][0]];
+    if (ov) {
+      const k = ov.type === 'event' ? 'event' : ov.type === 'closure' ? 'closure' : 'etc';
+      document.querySelectorAll('input[name="edKind"]').forEach(i => { i.checked = i.value === k; });
+      $('edName').value = ov.type === 'event' ? (ov.name || '') : '';
+    }
+  }
 }
 
 function renderCalSide() {
-  const [a, b] = selRange();
-  $('edStart').value = a || '';
-  $('edEnd').value = b || '';
-  if (a) {
-    const n = computeYear().filter(x => x.ds >= a && x.ds <= b).length;
-    $('edInfo').textContent = `${n}일 선택됨`;
-    const ov = calDays()[a];
-    if (ov && ov.type !== 'event') { $('edType').value = ov.type; $('edName').value = ov.name || ''; }
-    if (ov && ov.type === 'event') $('edInfo').innerHTML = `${n}일 선택됨 · 교내행사 "${esc(ov.name)}"는 <a href="#event">② 교내행사</a>에서 수정`;
-  } else $('edInfo').textContent = '달력에서 날짜를 선택하세요';
+  const picked = [...calPick].sort();
+  $('edSel').innerHTML = picked.length
+    ? picked.map(ds => `<span class="pick">${fmtK(ds)}</span>`).join('') + ` <button class="x" id="edClearPick" title="선택 해제">✕</button>`
+    : '<span class="hint">선택한 날짜 없음</span>';
+  $('edSel').classList.toggle('set', picked.length > 0);
+  const k = edKind();
+  $('edNameBox').hidden = k !== 'event';
+  $('edEtcBox').hidden = k !== 'etc';
+  $('btnApply').disabled = !picked.length || (k === 'event' && !$('edName').value.trim());
 
   const st = dayStats();
   $('calSummary').innerHTML = `<div>1학기<b>${st.sem[1].days}</b></div><div>2학기<b>${st.sem[2].days}</b></div>
     <div>연간<b class="${st.total < MIN_SCHOOL_DAYS ? 'neg' : ''}">${st.total}</b></div>`;
 
   const y = state.school.year;
-  $('holidayWarn').innerHTML = PRESET_HOLIDAYS[y] ? '' :
-    `<div class="notice">${y}학년도는 음력 공휴일·대체공휴일 정보가 없습니다. 직접 '공휴일 추가'로 입력하세요.</div>`;
+  $('holidayWarn').innerHTML = holidaySyncNote();
 
   const hm = holidayMap(y), cd = calDays(), edit = canEditCal();
   const rows = [];
   Object.entries(hm).forEach(([ds, h]) => { if (!cd[ds]) rows.push({ ds, type: 'holiday', name: h.name + (h.check ? ' (지정 여부 확인)' : ''), preset: true }); });
-  Object.entries(cd).forEach(([ds, o]) => rows.push({ ds, type: o.type, name: o.name || '', preset: false,
+  Object.entries(cd).forEach(([ds, o]) => rows.push({ ds, type: o.type, name: o.autoOff ? `(자동 공휴일 제외)` : (o.name || ''), auto: o.auto, autoOff: o.autoOff, preset: false,
     hrs: o.hrs ? `1~${o.hrs}교시·${o.grades?.length ? o.grades.join(',') + '학년' : '전교'}` : '' }));
   // 교육활동 일정(외부강의 등)도 함께 표시
   const acts = window.Activities ? Activities.items : {};
@@ -510,23 +556,25 @@ function renderCalSide() {
     r.act
       ? `<tr class="act-row"><td class="num">${fmtK(r.ds)}</td><td><span class="st ${r.act.status}">${r.act.status === 'confirmed' ? '확정' : '신청'}</span></td>
          <td class="l">${esc(r.name)}<br><span class="hint">${esc(r.act.ownerName || '')}</span></td><td class="hint">${r.act.periods.length >= 6 ? '종일' : r.act.periods.join('·') + '교시'}</td><td><a class="hint" href="#act">보기</a></td></tr>`
-      : `<tr><td class="num">${fmtK(r.ds)}</td><td>${r.type === 'school' ? '수업일 지정' : r.type === 'event' ? '교내행사' : TYPE_LABEL[r.type]}</td><td class="l">${esc(r.name)}</td><td class="hint">${r.hrs || ''}</td>
-         <td>${r.preset ? '<span class="hint">기본</span>' : edit ? `<button class="x" data-del="${r.ds}" title="삭제">✕</button>` : ''}</td></tr>`).join('');
+      : `<tr><td class="num">${fmtK(r.ds)}</td><td>${r.type === 'school' ? '수업일' : r.type === 'event' ? '교내행사' : r.type === 'off' ? '제외' : TYPE_LABEL[r.type]}${r.auto ? ' <span class="pill warn">자동</span>' : ''}</td><td class="l">${esc(r.name)}</td><td class="hint">${r.hrs || ''}</td>
+         <td>${r.preset ? '<span class="hint">기본</span>' : edit ? `<button class="x" data-del="${r.ds}" title="${r.auto ? '자동 반영된 공휴일 빼기' : '삭제'}">✕</button>` : ''}</td></tr>`).join('');
 }
 
 async function applyRange() {
   if (!canEditCal()) { alert('학교 공용 학사일정은 관리자만 수정할 수 있습니다.'); return; }
-  let a = $('edStart').value, b = $('edEnd').value || a;
-  if (!a) { alert('시작일을 선택하세요.'); return; }
-  if (b < a) [a, b] = [b, a];
-  const type = $('edType').value, name = $('edName').value.trim();
+  const picked = [...calPick].sort();
+  if (!picked.length) return;
+  const k = edKind(), name = $('edName').value.trim(), cd = calDays();
   const patch = {};
-  for (let d = parse(a); fmt(d) <= b; d = addDays(d, 1)) {
-    const ds = fmt(d);
-    if (type === 'clear') patch[ds] = null;
-    else patch[ds] = { type, name };   // 교내행사는 ② 교내행사 화면에서
-  }
-  try { await writeDays(patch); } catch (e) { alert('저장 실패: ' + e.message); }
+  picked.forEach(ds => {
+    if (k === 'closure') patch[ds] = { type: 'closure', name: '재량휴업일' };
+    else if (k === 'event') {
+      const prev = cd[ds] && cd[ds].type === 'event' ? cd[ds] : {};   // 교시·학년 설정은 유지
+      patch[ds] = { ...prev, type: 'event', name };
+    } else patch[ds] = edEtc() === 'school' ? { type: 'school', name: '' } : null;
+  });
+  try { await writeDays(patch); } catch (e) { alert('저장 실패: ' + e.message); return; }
+  calPick.clear(); calLastPick = null; $('edName').value = '';
   renderCal();
 }
 
@@ -734,29 +782,94 @@ function showTab(t) {
 function goGroup(g) { showTab(lastInGroup[g] || GROUP_FIRST[g] || 'home'); }
 
 /* ---------- HOME ---------- */
-function renderHome() {
-  const s = state.school, st = dayStats(), issues = collectIssues();
-  const nErr = issues.filter(x => x[0] === 'err').length, nWarn = issues.filter(x => x[0] === 'warn').length;
-  const teacher = isTeacherView();
-  $('homeTitle').textContent = teacher ? `${s.year}학년도 학사일정 · 교육활동` : `${s.year}학년도 교육과정 편성 도우미`;
-  $('homeSub').textContent = teacher
-    ? '학교 학사일정을 확인하고, 외부강의·교내행사 등 교육활동 일정을 신청합니다.'
-    : '학사일정부터 시수 배정, 시간표, 편제표까지 한 곳에서 계획합니다.';
-  const locked = window.App.locked && window.App.locked();
-  const today = fmt(new Date());
-  const nextEv = computeYear().find(x => x.ds >= today && x.name && x.type !== 'weekend');
-  $('homeKpi').innerHTML = locked ? '' : `
-    <div class="kpi"><div class="t">연간 수업일수</div><div class="v">${st.total}일</div><div class="s">1학기 ${st.sem[1].days} · 2학기 ${st.sem[2].days}</div></div>
-    <div class="kpi"><div class="t">학급 수</div><div class="v">${GRADES.reduce((t, g) => t + (Number(s.classes[g]) || 0), 0)}학급</div><div class="s">${GRADES.map(g => s.classes[g]).join(' · ')}</div></div>
-    ${teacher
-      ? `<div class="kpi"><div class="t">다가오는 학사일정</div><div class="v" style="font-size:18px">${nextEv ? esc(nextEv.name) : '-'}</div><div class="s">${nextEv ? fmtK(nextEv.ds) + ' · ' : ''}<a href="#hview">학사일정 보기</a></div></div>
-         <div class="kpi"><div class="t">교육활동 일정</div><div class="v" style="font-size:18px">신청·조회</div><div class="s"><a href="#act">일정 신청하기</a></div></div>`
-      : `<div class="kpi"><div class="t">검토 결과</div><div class="v">${nErr ? `<span class="neg">오류 ${nErr}</span>` : '<span class="pos">오류 없음</span>'}</div><div class="s">경고 ${nWarn}건 · <a href="#table">자세히 보기</a></div></div>
-         <div class="kpi"><div class="t">저장 위치</div><div class="v" style="font-size:18px">${esc($('cloudState').textContent || '이 PC')}</div><div class="s"><a href="#data">자료 관리</a></div></div>`}`;
-  $('homeMenu').classList.toggle('locked', !!locked);
-  if (window.App.renderGate) window.App.renderGate($('homeGate')); else $('homeGate').innerHTML = '';
+const ICON = {
+  cal: '<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 17.5h.01M12 17.5h.01"/></svg>',
+  people: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.2"/><path d="M3 19.5c.6-3.3 3-5.2 6-5.2s5.4 1.9 6 5.2"/><circle cx="16.8" cy="9.5" r="2.5"/><path d="M15.8 14.6c2.6.1 4.6 1.8 5.2 4.9"/></svg>',
+  check: '<svg viewBox="0 0 24 24"><rect x="5" y="4.5" width="14" height="16.5" rx="2.5"/><path d="M9 3.5h6v3H9z"/><path d="M8.8 13.3l2.3 2.3 4.2-4.6"/></svg>',
+  act: '<svg viewBox="0 0 24 24"><path d="M12 3.5l2.4 5 5.4.6-4 3.7 1.1 5.4L12 15.5l-4.9 2.7 1.1-5.4-4-3.7 5.4-.6z"/></svg>',
+};
+/** 검토 결과를 짧은 '확인할 항목'으로 묶음 (같은 종류는 건수로) */
+const TODO_RULES = [
+  [/공휴일 지정 여부/, '공휴일 지정 여부 확인', '#cal'],
+  [/음력 공휴일/, '음력 공휴일 입력', '#cal'],
+  [/학기 기간/, '학기 기간 확인', '#cal'],
+  [/수업일수 .*부족/, '연간 수업일수 190일 미달', '#cal'],
+  [/증감 허용|감축할 수 없/, '시수 배정 기준 확인', '#hours'],
+  [/창의적 체험활동/, '창체 시수 확인', '#hours'],
+  [/총 수업시간.*부족/, '총 수업시간 미달', '#hours'],
+  [/수업 가능 시수/, '수업 가능 시수 초과', '#hours'],
+  [/학교자율시간/, '학교자율시간 과목명 확인', '#hours'],
+  [/기초 시간표가 편성되지/, '기초 시간표 편성', '#tt'],
+  [/운영 시수가 배정과 다릅니다/, '시간표 운영 시수 확인', '#run'],
+];
+function homeTodos() {
+  const map = new Map();
+  collectIssues().filter(x => x[0] !== 'ok').forEach(([lv, msg]) => {
+    const r = TODO_RULES.find(([re]) => re.test(msg)) || [null, msg.split(/[:—(]/)[0].trim(), '#hours'];
+    const cur = map.get(r[1]) || { label: r[1], href: r[2], n: 0, err: false, tip: [] };
+    cur.n++; cur.err = cur.err || lv === 'err'; cur.tip.push(msg);
+    map.set(r[1], cur);
+  });
+  const autoN = Object.values(calDays()).filter(v => v.auto).length;
+  if (autoN) map.set('auto', { label: '자동 반영된 공휴일 확인', href: '#cal', n: autoN, tip: ['공개 공휴일 정보로 자동 추가된 날짜입니다. 틀린 날짜는 학사일정 편성에서 빼세요.'] });
+  if (window.Haksa && Haksa.canCreate && Haksa.canCreate()) map.set('haksa', { label: '학교 공용 학사일정 만들기', href: '#cal', n: 1, err: true, tip: ['선생님 화면에 학사일정이 보이려면 필요합니다.'] });
+  if (window.Cloud && Cloud.ready && Cloud.isAdmin() && !Cloud.profileName) map.set('name', { label: '관리자 이름 등록', href: '#admin', n: 1, tip: ['관리자 메뉴에서 등록'] });
+  return [...map.values()];
 }
+/** 오늘 이후 학사일정 (방학처럼 여러 날은 하나로) */
+function upcomingHaksa(limit) {
+  const today = fmt(new Date()), out = [];
+  computeYear().forEach(x => {
+    if (x.ds < today || !x.name || x.type === 'weekend' || x.type === 'school') return;
+    const last = out[out.length - 1];
+    if (last && last.name === x.name && (parse(x.ds) - parse(last.end)) <= 4 * 86400000) { last.end = x.ds; return; }
+    out.push({ start: x.ds, end: x.ds, name: x.name, type: x.type });
+  });
+  return out.slice(0, limit);
+}
+const mdLabel = ds => { const d = parse(ds); return `${d.getMonth() + 1}월 ${d.getDate()}일`; };
 
+function renderHome() {
+  const s = state.school, st = dayStats();
+  const teacher = isTeacherView();
+  const locked = window.App.locked && window.App.locked();
+  $('homeYear').textContent = `${s.year}학년도`;
+  $('homeSub').textContent = teacher ? '학교 학사일정을 확인하고, 교육활동 일정을 신청하세요.' : '교육과정과 학교 일정을 한눈에 살펴보세요.';
+  if (window.App.renderGate) window.App.renderGate($('homeGate')); else $('homeGate').innerHTML = '';
+  // 승인된 상태에서는 안내 칸을 숨김(경고가 있을 때만 표시)
+  const gateOk = !locked && !$('homeGate').querySelector('.neg');
+  $('homeGate').hidden = gateOk && !!window.FIREBASE_CONFIG;
+  $('homeKpi').hidden = $('homePanel').hidden = !!locked;
+  if (locked) return;
+
+  const nClass = GRADES.reduce((t, g) => t + (Number(s.classes[g]) || 0), 0);
+  const today = fmt(new Date());
+  const mine = teacher && window.Activities && window.Cloud && Cloud.user
+    ? Object.values(Activities.items).flat().filter(t => t.ownerUid === Cloud.user.uid && t.date >= today && t.status !== 'canceled').sort((a, b) => a.date.localeCompare(b.date))
+    : [];
+  const todos = teacher ? [] : homeTodos();
+  const stat = (ico, label, value) => `<div class="hs-item"><span class="hs-ico">${ico}</span><div><div class="hs-label">${label}</div><div class="hs-value">${value}</div></div></div>`;
+  $('homeKpi').innerHTML = stat(ICON.cal, '연간 수업일수', `${st.total}일`) + stat(ICON.people, '편성 학급', `${nClass}학급`) +
+    (teacher ? stat(ICON.act, '나의 교육활동', `${mine.length}건`) : stat(ICON.check, '확인할 항목', `${todos.length}건`));
+
+  // 왼쪽: 관리자 = 확인이 필요한 항목 / 선생님 = 나의 교육활동
+  if (teacher) {
+    $('homeTodoTitle').textContent = '나의 교육활동';
+    $('homeTodo').innerHTML = mine.length
+      ? mine.slice(0, 5).map(t => `<li><a href="#act"><span class="dot ${t.status === 'confirmed' ? 'ok' : ''}"></span>${esc(mdLabel(t.date))} ${esc(t.title)} <span class="st ${t.status}">${t.status === 'confirmed' ? '확정' : '신청'}</span></a></li>`).join('')
+      : '<li class="empty">신청한 교육활동이 없습니다. <a href="#act">교육활동 일정</a>에서 신청하세요.</li>';
+  } else {
+    $('homeTodoTitle').textContent = '확인이 필요한 항목';
+    $('homeTodo').innerHTML = todos.length
+      ? todos.map(t => `<li title="${esc(t.tip.join('\n'))}"><a href="${t.href}"><span class="dot ${t.err ? 'err' : ''}"></span>${esc(t.label)}${t.n > 1 ? ` <span class="cnt">${t.n}</span>` : ''}</a></li>`).join('')
+      : '<li class="empty">확인할 항목이 없습니다. 👍</li>';
+  }
+  // 오른쪽: 다가오는 학사일정
+  const next = upcomingHaksa(5);
+  $('homeNext').innerHTML = next.length
+    ? next.map(r => `<li><a href="#hview"><span class="date-pill">${mdLabel(r.start)}${r.end !== r.start ? ' ~' : ''}</span><span>${esc(r.name)}</span></a></li>`).join('')
+    : '<li class="empty">남은 학사일정이 없습니다.</li>';
+}
 /** 다시 그린 뒤에도 입력 중이던 칸에 커서를 유지 */
 function rerenderKeepFocus(fn) {
   const a = document.activeElement;
@@ -820,20 +933,22 @@ function bind() {
 
   // ② 학사일정
   $('calGrid').addEventListener('click', e => {
-    const c = e.target.closest('.day[data-ds]'); if (!c) return;
-    if (e.shiftKey && calSel.start) calSel.end = c.dataset.ds;
-    else { calSel = { start: c.dataset.ds, end: null }; const ov = calDays()[c.dataset.ds]; if (!ov) $('edName').value = ''; }
+    const c = e.target.closest('.day[data-ds]'); if (!c || !canEditCal()) return;
+    toggleCalPick(c.dataset.ds, e.shiftKey);
     renderCal();
   });
-  ['edStart', 'edEnd'].forEach(id => $(id).addEventListener('change', () => {
-    calSel = { start: $('edStart').value || null, end: $('edEnd').value || null }; renderCal();
-  }));
+  $('edSel').addEventListener('click', e => { if (e.target.id === 'edClearPick') { calPick.clear(); calLastPick = null; renderCal(); } });
+  ['edKind', 'edEtc'].forEach(id => $(id).addEventListener('change', renderCalSide));
+  $('edName').addEventListener('input', renderCalSide);
   $('btnApply').addEventListener('click', applyRange);
   $('edName').addEventListener('keydown', e => { if (e.key === 'Enter') applyRange(); });
   $('tblEvents').addEventListener('click', e => {
     const b = e.target.closest('[data-del]'); if (!b) return;
     if (!canEditCal()) return;
-    writeDays({ [b.dataset.del]: null }).then(renderCal).catch(err => alert('삭제 실패: ' + err.message));
+    const cur = calDays()[b.dataset.del] || {};
+    // 자동 반영된 공휴일은 지우면 다시 들어오므로 '제외' 표시로 남김
+    const v = cur.auto ? { type: 'off', name: '', autoOff: true } : null;
+    writeDays({ [b.dataset.del]: v }).then(renderCal).catch(err => alert('삭제 실패: ' + err.message));
   });
   document.addEventListener('click', e => {
     if (e.target.id !== 'btnHaksaCreate') return;

@@ -14,7 +14,7 @@
   /* ---------- 화면 묶기 ---------- */
   const daysAndWeeks = RENDER.days;          // 수업일수 + 주차표 (features.js)
   const hoursOnly = RENDER.hours;
-  RENDER.cal = () => { renderInfo(); renderCal(); daysAndWeeks(); };
+  RENDER.cal = () => { renderInfo(); renderCal(); daysAndWeeks(); syncHolidays(); };
   RENDER.hours = () => { renderInfo(); hoursOnly(); daysAndWeeks(); renderTable(); };
   RENDER.hview = renderHview;
   RENDER.event = renderEvent;

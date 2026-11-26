@@ -52,14 +52,14 @@
     isAdmin: () => admin,
   };
 
-  function setStatus(msg) { $('cloudState').textContent = msg; }
+  function setStatus(msg) { $('cloudState').textContent = msg; $('btnCloud').title = msg + ' · ' + $('saveState').textContent; }
   function hhmm() { return new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }); }
   function fmtTime(ts) { try { return ts ? ts.toDate().toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''; } catch (e) { return ''; } }
   const myEmail = () => (user && user.email ? user.email.toLowerCase() : '');
   const D = (...p) => fb.F.doc(fb.db, ...p);
 
   function refreshUi() {
-    $('btnCloud').textContent = user ? '☁ ' + (profileName || user.displayName || myEmail()).split(' ')[0] : '☁ 로그인';
+    $('btnCloud').textContent = user ? '👤 ' + (profileName || user.displayName || myEmail()).split(' ')[0] : '👤 로그인';
     $('navAdmin').hidden = !admin;
     $('homeAdmin').hidden = !admin;
     document.dispatchEvent(new Event('cloud-change'));

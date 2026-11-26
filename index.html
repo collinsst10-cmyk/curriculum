@@ -11,11 +11,8 @@
 <body>
 <header class="topbar">
   <a class="brand" href="#home" title="HOME">
-    <img class="brand-emblem" src="assets/emblem.png" alt="용원초등학교 교표">
-    <span class="brand-text">
-      <h1>교육과정 편성 도우미</h1>
-      <span id="hdrSchool" class="sub"></span>
-    </span>
+    <img class="brand-logo" src="assets/logo.png" alt="용원초등학교 YONGWON ELEMENTARY">
+    <span id="hdrSchool" class="sub" hidden></span>
   </a>
   <nav class="mainnav" id="mainNav">
     <button data-go="home">HOME</button>
@@ -30,14 +27,14 @@
     <span id="saveState" class="save-state">자동 저장됨</span>
     <span id="cloudState" class="save-state"></span>
     <button id="kslBell" class="btn bell" hidden title="한국어학급 시간표 조정이 필요한 일정">🔔 <b id="kslBellN">0</b></button>
-    <button id="btnCloud" class="btn cloud">☁ 로그인</button>
+    <button id="btnCloud" class="btn cloud">👤 로그인</button>
     <button id="btnPrint" class="btn">인쇄</button>
   </div>
 </header>
 
 <nav class="tabs" id="tabs">
   <button data-tab="hview" data-group="haksa">학사일정</button>
-  <button data-tab="cal" data-group="curr">① 학사일정</button>
+  <button data-tab="cal" data-group="curr">① 학사일정 편성</button>
   <button data-tab="event" data-group="curr">② 교내행사</button>
   <button data-tab="hours" data-group="curr">③ 시수 배정</button>
   <button data-tab="tt" data-group="tt">① 기초 시간표</button>
@@ -58,16 +55,28 @@
 
   <!-- HOME -->
   <section id="tab-home" class="tab">
-    <div class="hero">
-      <div>
-        <img class="hero-logo" src="assets/logo.png" alt="용원초등학교 YONGWON ELEMENTARY">
-        <h2 id="homeTitle">교육과정 편성 도우미</h2>
-        <p id="homeSub" class="hint">학사일정부터 시수 배정, 시간표, 편제표까지 한 곳에서 계획합니다.</p>
+    <div class="home-card">
+    <div class="home-hero">
+      <div class="hh-text">
+        <span class="hh-year" id="homeYear"></span>
+        <h2 id="homeTitle">함께 그리는<br>우리 학교의 내일</h2>
+        <p id="homeSub">교육과정과 학교 일정을 한눈에 살펴보세요.</p>
       </div>
-      <div id="homeGate"></div>
     </div>
-    <div id="homeKpi" class="kpis"></div>
-    <div class="menu-grid" id="homeMenu">
+    <div class="home-stats" id="homeKpi"></div>
+    <div id="homeGate" class="home-gate"></div>
+    <div class="home-panel" id="homePanel">
+      <div class="hp-col">
+        <h3><span class="hp-ico"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M8 12.5l3 3 5.5-6.5"/></svg></span><span id="homeTodoTitle">확인이 필요한 항목</span></h3>
+        <ul id="homeTodo" class="hp-list"></ul>
+      </div>
+      <div class="hp-col">
+        <h3><span class="hp-ico"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/><circle cx="12" cy="15" r="1.3"/></svg></span>다가오는 학사일정</h3>
+        <ul id="homeNext" class="hp-dates"></ul>
+      </div>
+    </div>
+    </div>
+    <div class="menu-grid" id="homeMenu" hidden>
       <button class="menu-card" data-go="haksa">
         <span class="mc-ico">📆</span><b>학사일정</b>
         <span>학기·방학 · 교내행사 · 공휴일 · 재량휴업일 · 외부강의 등 교육활동 함께 보기</span>
@@ -277,26 +286,23 @@
       </div>
       <aside class="cal-side">
         <div class="card sticky" id="calEditor">
-          <h2>휴업일·공휴일 입력</h2>
-          <p class="hint">교내행사는 <a href="#event">② 교내행사</a>에서 입력합니다.</p>
-          <div class="form">
-            <label>시작일 <input id="edStart" type="date"></label>
-            <label>종료일 <input id="edEnd" type="date"></label>
-            <label>구분
-              <select id="edType">
-                <option value="closure">재량휴업일</option>
-                <option value="holiday">공휴일 추가</option>
-                <option value="vacation">방학(휴업) 추가</option>
-                <option value="school">수업일로 지정 (공휴일·방학 해제)</option>
-                <option value="clear">입력 삭제</option>
-              </select>
-            </label>
-            <label>내용 <input id="edName" type="text" placeholder="예: 개교기념일, 재량휴업일"></label>
+          <h2>일정 입력</h2>
+          <div id="edSel" class="date-pick"></div>
+          <div class="fld"><span class="fld-l">구분</span>
+            <div class="seg" id="edKind">
+              <label class="tg"><input type="radio" name="edKind" value="closure" checked>재량휴업일</label>
+              <label class="tg"><input type="radio" name="edKind" value="event">교내행사</label>
+              <label class="tg"><input type="radio" name="edKind" value="etc">기타</label>
+            </div>
           </div>
-          <div class="row">
-            <button id="btnApply" class="btn primary">적용</button>
-            <span id="edInfo" class="hint"></span>
+          <div class="fld" id="edNameBox" hidden><span class="fld-l">내용</span><input id="edName" type="text" class="full" maxlength="40" placeholder="예: 입학식, 운동회"></div>
+          <div class="fld" id="edEtcBox" hidden><span class="fld-l">기타</span>
+            <div class="seg" id="edEtc">
+              <label class="tg"><input type="radio" name="edEtc" value="clear" checked>입력 지우기</label>
+              <label class="tg"><input type="radio" name="edEtc" value="school">수업일로 지정</label>
+            </div>
           </div>
+          <button id="btnApply" class="btn primary" style="width:100%">적용</button>
           <div id="calSummary" class="mini-summary"></div>
         </div>
         <div class="card">
