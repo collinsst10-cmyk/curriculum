@@ -783,7 +783,7 @@ function exportCal() {
  * 이벤트
  * ========================================================= */
 const RENDER = { home: renderHome, data: () => {}, admin: () => {}, info: renderInfo, cal: renderCal, days: renderDays, hours: renderHours, table: renderTable };
-const GROUP_FIRST = { home: 'home', haksa: 'hview', curr: 'school', tt: 'schedule', act: 'act', data: 'data', admin: 'admin' };
+const GROUP_FIRST = { home: 'home', haksa: 'hview', curr: 'school', tt: 'tt', act: 'act', data: 'data', admin: 'admin' };
 const lastInGroup = {};
 let curTab = 'home';
 
