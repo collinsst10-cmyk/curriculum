@@ -25,6 +25,15 @@ if (-not (Test-Path (Join-Path $PSScriptRoot '.git'))) { throw '이 폴더가 Gi
 
 # ① 이 PC의 변경 사항 커밋 (가져오기만 할 때는 커밋하지 않고 잠시 보관했다가 되돌림)
 if (-not $PullOnly) {
+  $changes = git status --porcelain
+  if ($changes) {
+    # 브라우저가 예전 파일을 쓰지 않도록 index.html 의 js/css 주소에 새 버전 번호를 붙임
+    $idx = Join-Path $PSScriptRoot 'index.html'
+    $html = [IO.File]::ReadAllText($idx, [Text.Encoding]::UTF8)
+    $ver = Get-Date -Format 'yyyyMMddHHmm'
+    $html = [regex]::Replace($html, '((?:src|href)="[A-Za-z0-9_-]+\.(?:js|css))\?v=[0-9A-Za-z]+"', ('$1?v=' + $ver + '"'))
+    [IO.File]::WriteAllText($idx, $html, (New-Object Text.UTF8Encoding $false))
+  }
   Invoke-Git add -A
   $changes = git status --porcelain
   if ($changes) {
