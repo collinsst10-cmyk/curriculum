@@ -991,14 +991,19 @@ function bind() {
   // ② 학사일정
   $('calGrid').addEventListener('click', e => {
     const c = e.target.closest('.day[data-ds]');
-    if (!c) { if (calPick.size) { calPick.clear(); calLastPick = null; renderCal(); } return; }
+    if (!c) return;
     if (!canEditCal()) return;
     toggleCalPick(c.dataset.ds, e.shiftKey);
     renderCal();
   });
   document.addEventListener('click', e => {
-    if (curTab !== 'cal' || !calPick.size || e.target.closest('#calGrid, #calEditor')) return;
-    calPick.clear(); calLastPick = null; renderCal();
+    if (curTab !== 'cal' || !calPick.size) return;
+    if (e.target.closest('#calGrid .day[data-ds]')) return;
+    if (e.target.closest('#calEditor input, #calEditor label, #calEditor button')) return;
+    calPick.clear();
+    calLastPick = null;
+    $('calGrid').querySelectorAll('.day.sel').forEach(day => day.classList.remove('sel'));
+    renderCalSide();
   }, true);
   $('edSel').addEventListener('click', e => { if (e.target.id === 'edClearPick') { calPick.clear(); calLastPick = null; renderCal(); } });
   ['edKind', 'edEtc'].forEach(id => $(id).addEventListener('change', renderCalSide));
