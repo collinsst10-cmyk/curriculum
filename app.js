@@ -3,6 +3,7 @@
  * 초등 학교교육과정 편성 도우미 - 메인 로직
  * ========================================================= */
 const STORE_KEY = 'school-curriculum-planner-v1';
+const DEFAULT_SCHOOL = '용원초등학교';
 const WD = ['일', '월', '화', '수', '목', '금', '토'];
 const GRADES = [1, 2, 3, 4, 5, 6];
 const TYPE_LABEL = { school: '수업일', event: '행사', holiday: '공휴일', closure: '재량휴업일', vacation: '방학', weekend: '주말' };
@@ -61,7 +62,7 @@ function defaultState() {
   const y = now.getMonth() >= 9 ? now.getFullYear() + 1 : now.getFullYear();
   const s = {
     version: 1,
-    school: { name: '', year: y, classes: {}, periods: {} },
+    school: { name: DEFAULT_SCHOOL, year: y, classes: {}, periods: {} },
     sem: defaultSemesters(y),
     days: {},
     hours: {},
@@ -93,6 +94,7 @@ function load() {
 function normalize(s) {
   const d = defaultState();
   s.school = Object.assign(d.school, s.school || {});
+  if (!s.school.name) s.school.name = DEFAULT_SCHOOL;
   s.sem = Object.assign(defaultSemesters(s.school.year), s.sem || {});
   s.days = s.days || {};
   s.hours = s.hours || {};
@@ -120,8 +122,19 @@ function save() {
     $('saveState').textContent = '이 PC에 저장됨 ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
     if (window.App && App.onSave) App.onSave();   // 클라우드 동기화(cloud.js)
   }, 300);
-  $('hdrSchool').textContent = `${state.school.name || '학교명 미입력'} · ${state.school.year}학년도`;
+  updateTitles();
 }
+
+function updateTitles() {
+  const t = `${state.school.name || '학교명 미입력'} · ${state.school.year}학년도`;
+  $('hdrSchool').textContent = t;
+  $('printTitle').textContent = `${state.school.year}학년도 교육과정`;
+  document.title = `${state.school.name || '초등학교'} 교육과정 편성 도우미`;
+}
+/** 상단 머리글 높이에 맞춰 하위 메뉴 고정 위치 조정 */
+function fitStickyTabs() { document.documentElement.style.setProperty('--hdr', document.querySelector('.topbar').offsetHeight + 'px'); }
+window.addEventListener('resize', fitStickyTabs);
+document.addEventListener('DOMContentLoaded', fitStickyTabs);
 
 /** 다른 모듈(cloud.js)이 쓰는 상태 접근 API */
 window.App = {
@@ -132,7 +145,7 @@ window.App = {
     state = normalize(data);
     _yearCache = null;
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
-    $('hdrSchool').textContent = `${state.school.name || '학교명 미입력'} · ${state.school.year}학년도`;
+    updateTitles();
     rerenderKeepFocus(() => RENDER[curTab]());
   },
 };
@@ -624,7 +637,7 @@ function goGroup(g) { showTab(lastInGroup[g] || GROUP_FIRST[g] || 'home'); }
 function renderHome() {
   const s = state.school, st = dayStats(), issues = collectIssues();
   const nErr = issues.filter(x => x[0] === 'err').length, nWarn = issues.filter(x => x[0] === 'warn').length;
-  $('homeTitle').textContent = s.name ? `${s.name} ${s.year}학년도 교육과정` : '초등 학교교육과정 편성 도우미';
+  $('homeTitle').textContent = `${s.year}학년도 교육과정 편성 도우미`;
   const locked = window.App.locked && window.App.locked();
   $('homeKpi').innerHTML = locked ? '' : `
     <div class="kpi"><div class="t">연간 수업일수</div><div class="v">${st.total}일</div><div class="s">1학기 ${st.sem[1].days} · 2학기 ${st.sem[2].days}</div></div>
