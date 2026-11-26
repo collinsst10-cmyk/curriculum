@@ -296,6 +296,18 @@ input.full { width: 100%; }
 .dlg code { background: #f1f3f6; padding: 1px 4px; border-radius: 4px; }
 
 /* 검토 */
+.date-fix[hidden] { display: none; }
+.date-fix { margin-top: 16px; border: 1px solid #dfbf77; background: #fff8e8; border-radius: 14px; padding: 16px 18px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; color: #664919; }
+.date-fix strong { font-size: 15px; }
+.date-fix span { font-size: 13px; }
+.date-fix .btn { margin-left: auto; }
+.review-intro { display: flex; justify-content: space-between; align-items: center; gap: 24px; background: #f0f5e9; border: 1px solid #d7e4cb; border-radius: 22px; padding: 28px 32px; margin-bottom: 24px; }
+.review-intro h2 { font-size: clamp(23px, 3vw, 34px); margin: 8px 0; color: #29462a; }
+.review-intro p { margin: 0; color: #647761; }
+.review-intro .eyebrow { font-size: 11px; letter-spacing: .16em; font-weight: 800; color: #557e4d; }
+.review-summary { display: flex; flex-direction: column; gap: 7px; background: #fff; padding: 18px 22px; border-radius: 15px; min-width: 250px; color: #647761; font-size: 13px; }
+.review-summary b { font-size: 21px; color: #29462a; }
+@media (max-width: 720px) { .review-intro { flex-direction: column; align-items: stretch; padding: 22px; } .review-summary { min-width: 0; } }
 .issues { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .issues li { padding: 8px 12px; border-radius: 6px; font-size: 13px; }
 .issues li.err { background: var(--err-bg); color: var(--err); }
