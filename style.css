@@ -506,3 +506,28 @@ body { font-weight: 400; }
   #tab-cal .cal-layout { grid-template-columns: minmax(0, 1fr); }
   .cal-side .sticky { max-height: none; overflow: visible; }
 }
+
+/* Two months per row, with space for full event names. */
+#calGrid, #hvGrid, #evCalendar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#calGrid .day .n, #hvGrid .day .n, #evCalendar .day .n {
+  display: block;
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  -webkit-line-clamp: unset;
+}
+#evCalendar { margin-bottom: 16px; }
+#evCalendar button.day { font: inherit; color: inherit; text-align: left; align-content: start; }
+.schedule-layout { display: grid; grid-template-columns: minmax(0, 690px) minmax(240px, 320px); gap: 16px; align-items: start; }
+.schedule-layout > * { min-width: 0; }
+.schedule-views { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.schedule-views [aria-pressed="true"] { background: var(--green-pale); border-color: var(--green); color: var(--green-d); }
+.schedule-layout .schedule-grid { min-width: 460px; }
+.schedule-square { aspect-ratio: 1; min-height: 64px; overflow-y: auto; }
+.schedule-conflict { background: var(--err-bg); }
+.schedule-conflict .schedule-item { color: var(--err); border-color: var(--err); }
+#scheduleForm[hidden] { display: none; }
+#scheduleForm label[hidden] { display: none; }
+@media (max-width: 1000px) { .schedule-layout { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 650px) { #calGrid, #hvGrid, #evCalendar { grid-template-columns: minmax(0, 1fr); } }

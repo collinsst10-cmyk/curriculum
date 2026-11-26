@@ -40,7 +40,7 @@
   /* =========================================================
    * 학사일정 보기 (조회 전용)
    * ========================================================= */
-  function renderHview() {
+  function renderHview(target = 'hvGrid') {
     const days = computeYear(), today = fmt(new Date()), A = acts();
     let html = '';
     for (let i = 0; i < 12; i++) {
@@ -51,12 +51,14 @@
       for (let k = 0; k < list[0].dow; k++) html += '<div class="day empty"></div>';
       list.forEach(x => {
         const al = (A[x.ds] || []).filter(t => t.status !== 'canceled');
+        const eventDate = target === 'evCalendar';
+        const selected = eventDate && $('evStart').value && x.ds >= $('evStart').value && x.ds <= ($('evEnd').value || $('evStart').value);
         const tip = `${x.ds} ${TYPE_LABEL[x.type]}${x.name ? ' · ' + x.name : ''}` + al.map(t => `\n· ${t.kind} ${t.title} (${t.status === 'confirmed' ? '확정' : '신청'})`).join('');
-        html += `<div class="day ${x.type}${x.ds === today ? ' today' : ''}" title="${e2(tip)}"><span class="d">${x.d.getDate()}</span>${al.length ? `<span class="acts ${al.some(t => t.status === 'confirmed') ? 'c' : ''}">${al.length}</span>` : ''}<span class="n">${calendarLabel(x.name || (al[0] ? al[0].title : ''))}</span></div>`;
+        html += `<${eventDate ? 'button type="button" data-event-date="' + x.ds + '" aria-pressed="' + Boolean(selected) + '"' : 'div'} class="day ${x.type}${selected ? ' sel' : ''}${x.ds === today ? ' today' : ''}" title="${e2(tip)}"><span class="d">${x.d.getDate()}</span>${al.length ? `<span class="acts ${al.some(t => t.status === 'confirmed') ? 'c' : ''}">${al.length}</span>` : ''}<span class="n">${calendarLabel(x.name || (al[0] ? al[0].title : ''))}</span></${eventDate ? 'button' : 'div'}>`;
       });
       html += '</div></div>';
     }
-    $('hvGrid').innerHTML = html;
+    $(target).innerHTML = html;
   }
 
   /* =========================================================
@@ -120,6 +122,7 @@
 
   function renderEvent() {
     renderEventForm();
+    renderHview('evCalendar');
     const list = eventRanges();
     $('evListTitle').textContent = `교내행사 (${list.length}건)`;
     $('evList').innerHTML = `<tr><th>날짜</th><th class="l">행사명</th><th>시간</th><th>대상</th><th>창체</th><th></th></tr>` +
@@ -157,7 +160,7 @@
     $('evStart').value = ''; $('evEnd').value = ''; $('evName').value = '';
     document.querySelectorAll('input[name="evHours"]').forEach(i => { i.checked = i.value === '0'; });
     document.querySelectorAll('#evGrades input').forEach(i => { i.checked = i.id === 'evAllGrades'; });
-    renderEventForm(); renderEvCheck();
+    renderEventForm(); renderEvCheck(); renderHview('evCalendar');
   }
 
   function loadEvent(start, end) {
@@ -169,7 +172,7 @@
     document.querySelectorAll('#evGrades input[value]').forEach(i => { i.checked = gs.includes(Number(i.value)); });
     $('evAllGrades').checked = !gs.length;
     document.querySelectorAll('input[name="evArea"]').forEach(i => { i.checked = i.value === (v.area || 'cha_auto'); });
-    renderEventForm(); renderEvCheck();
+    renderEventForm(); renderEvCheck(); renderHview('evCalendar');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -185,7 +188,26 @@
   });
   $('evSave').addEventListener('click', saveEvent);
   $('evReset').addEventListener('click', resetEventForm);
-  ['evStart', 'evEnd', 'evName'].forEach(id => $(id).addEventListener('input', renderEvCheck));
+  $('evCalendar').addEventListener('click', event => {
+    const date = event.target.closest('[data-event-date]')?.dataset.eventDate;
+    if (!date || !canEditCal() || isTeacherView()) return;
+    const start = $('evStart');
+    const end = $('evEnd');
+    if (event.shiftKey && start.value) {
+      [start.value, end.value] = [start.value, date].sort();
+    } else {
+      start.value = date;
+      end.value = '';
+    }
+    renderEvCheck();
+    renderHview('evCalendar');
+    $('evCalendar').querySelector('[data-event-date="' + date + '"]')?.focus({ preventScroll: true });
+  });
+  ['evStart', 'evEnd'].forEach(id => $(id).addEventListener('input', () => {
+    renderEvCheck();
+    renderHview('evCalendar');
+  }));
+  $('evName').addEventListener('input', renderEvCheck);
   $('evHours').addEventListener('change', renderEvCheck);
   $('evArea').addEventListener('change', renderEvCheck);
   $('evGrades').addEventListener('change', e => {
