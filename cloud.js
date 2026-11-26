@@ -102,6 +102,16 @@
     isAdmin: effAdmin,
     realAdmin: () => admin,            // 미리보기 중에도 실제 관리자인지
     listPlans: () => listPlans(),       // 작년 자료 불러오기 등에서 씀
+    /** '저장' 단추: 기다리는 클라우드 저장을 바로 하고, 다른 화면의 직접 쓰기도 끝날 때까지 기다림. 결과: { cloud, error } */
+    flush: async () => {
+      let cloud = false, error = '';
+      try {
+        if (pushTimer) { clearTimeout(pushTimer); await push(); }
+        cloud = !!cur;
+        if (fb) await fb.F.waitForPendingWrites(fb.db);
+      } catch (e) { error = e.message; }
+      return { cloud, error };
+    },
     get position() { return effPosition(); },          // 직위(개발자가 다른 권한으로 보면 그 직위)
     get developer() { return developer; },
     get viewRole() { return developer && preview ? viewRole : ''; },

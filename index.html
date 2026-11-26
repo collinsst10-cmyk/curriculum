@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=202611270809">
+<link rel="stylesheet" href="style.css?v=202611270816">
 </head>
 <body>
 <header class="topbar">
@@ -16,7 +16,7 @@
   </a>
   <nav class="mainnav" id="mainNav">
     <button data-go="home">HOME</button>
-    <button data-go="curr" class="admin-only">교육과정 편성</button>
+    <button data-go="curr">교육과정 편성</button>
     <button data-go="haksa">학사일정</button>
     <button data-go="cls">학급관리</button>
     <button data-go="tt" class="admin-only">시간표 편성</button>
@@ -45,12 +45,12 @@
   <button data-tab="act" data-group="haksa">신규 학사일정 등록</button>
   <button data-tab="ksl" data-group="haksa">한국어학급 연계</button>
   <button data-tab="school" data-group="curr">① 학교 정보</button>
-  <button data-tab="env" data-group="curr">② 학교사용환경설정</button>
-  <button data-tab="cal" data-group="curr">③ 학사일정 편성</button>
-  <button data-tab="event" data-group="curr">④ 교내행사</button>
-  <button data-tab="hours" data-group="curr">⑤ 시수 편제</button>
-  <button data-tab="schedule" data-group="curr">⑥ 시간표 배치</button>
-  <button data-tab="review" data-group="curr">⑦ 검토·확정</button>
+  <button data-tab="env" data-group="curr" class="admin-tab">② 학교사용환경설정</button>
+  <button data-tab="cal" data-group="curr" class="admin-tab">③ 학사일정 편성</button>
+  <button data-tab="event" data-group="curr" class="admin-tab">④ 교내행사</button>
+  <button data-tab="hours" data-group="curr" class="admin-tab">⑤ 시수 편제</button>
+  <button data-tab="schedule" data-group="curr" class="admin-tab">⑥ 시간표 배치</button>
+  <button data-tab="review" data-group="curr" class="admin-tab">⑦ 검토·확정</button>
   <button data-tab="tt" data-group="tt">① 기초 시간표</button>
   <button data-tab="run" data-group="tt">② 시수 운영 확인</button>
   <button data-tab="jd" data-group="tt">③ 교과전담</button>
@@ -423,7 +423,7 @@
   <!-- 교육과정 편성 ① 학교 정보 (관리자) -->
   <section id="tab-school" class="tab">
     <div class="card school-card">
-      <h2>학교 정보</h2>
+      <h2>학교 정보 <span id="schoolRo" class="pill" hidden>조회 전용 · 운영자·개발자만 수정</span></h2>
       <div class="form school-form">
         <label>학교명 <input id="inSchool" type="text" placeholder="예: ○○초등학교"></label>
         <label>NEIS 학교코드 <input id="inNeis" type="text" inputmode="numeric" maxlength="10" placeholder="예: 7380xxx (7자리)"></label>
@@ -745,26 +745,27 @@
   <div id="cloudBody"></div>
 </dialog>
 
-<script src="data.js?v=202611270809"></script>
-<script src="app.js?v=202611270809"></script>
-<script src="features.js?v=202611270809"></script>
-<script src="cloud-config.js?v=202611270809"></script>
-<script src="cloud.js?v=202611270809"></script>
-<script src="activities.js?v=202611270809"></script>
-<script src="haksa.js?v=202611270809"></script>
-<script src="menus.js?v=202611270809"></script>
-<script src="schedule.js?v=202611270809"></script>
-<script src="kclass.js?v=202611270809"></script>
-<script src="home.js?v=202611270809"></script>
-<script src="status.js?v=202611270809"></script>
-<script src="log.js?v=202611270809"></script>
-<script src="transfer.js?v=202611270809"></script>
-<script src="migrant.js?v=202611270809"></script>
-<script src="roster.js?v=202611270809"></script>
-<script src="site.js?v=202611270809"></script>
-<script src="env.js?v=202611270809"></script>
-<script src="pyeonje.js?v=202611270809"></script>
-<script src="pyeonje-grade.js?v=202611270809"></script>
-<script src="calextra.js?v=202611270809"></script>
+<script src="data.js?v=202611270816"></script>
+<script src="app.js?v=202611270816"></script>
+<script src="features.js?v=202611270816"></script>
+<script src="cloud-config.js?v=202611270816"></script>
+<script src="cloud.js?v=202611270816"></script>
+<script src="activities.js?v=202611270816"></script>
+<script src="haksa.js?v=202611270816"></script>
+<script src="menus.js?v=202611270816"></script>
+<script src="schedule.js?v=202611270816"></script>
+<script src="kclass.js?v=202611270816"></script>
+<script src="home.js?v=202611270816"></script>
+<script src="status.js?v=202611270816"></script>
+<script src="log.js?v=202611270816"></script>
+<script src="transfer.js?v=202611270816"></script>
+<script src="migrant.js?v=202611270816"></script>
+<script src="roster.js?v=202611270816"></script>
+<script src="site.js?v=202611270816"></script>
+<script src="env.js?v=202611270816"></script>
+<script src="pyeonje.js?v=202611270816"></script>
+<script src="pyeonje-grade.js?v=202611270816"></script>
+<script src="calextra.js?v=202611270816"></script>
+<script src="savebar.js?v=202611270816"></script>
 </body>
 </html>

@@ -179,16 +179,27 @@ function save() {
   _yearCache = null;
   $('saveState').textContent = '저장 중…';
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    // 학년도별 시수 편제 사본(다음 해 '작년편제 불러오기'·'작년시수 편제표'에 씀)
-    state.yearArchive = state.yearArchive || {};
-    state.yearArchive[state.school.year] = JSON.parse(JSON.stringify({ hours: state.hours, satName: state.satName, satNameB: state.satNameB, chaMode: state.chaMode || 'part', classes: state.school.classes }));
-    localStorage.setItem(STORE_KEY, JSON.stringify(state));
-    $('saveState').textContent = '이 PC에 저장됨 ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-    if (window.App && App.onSave) App.onSave();   // 클라우드 동기화(cloud.js)
-    if (window.Haksa && Haksa.onSaved) Haksa.onSaved();   // 학교 정보 공유(haksa.js)
-  }, 300);
+  saveTimer = setTimeout(writeNow, 300);
+  document.dispatchEvent(new Event('save-pending'));
   updateTitles();
+}
+/** 지금 바로 이 PC에 쓰고 클라우드 동기화를 요청 */
+function writeNow() {
+  saveTimer = null;
+  // 학년도별 시수 편제 사본(다음 해 '작년편제 불러오기'·'작년시수 편제표'에 씀)
+  state.yearArchive = state.yearArchive || {};
+  state.yearArchive[state.school.year] = JSON.parse(JSON.stringify({ hours: state.hours, satName: state.satName, satNameB: state.satNameB, chaMode: state.chaMode || 'part', classes: state.school.classes }));
+  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  $('saveState').textContent = '이 PC에 저장됨 ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+  if (window.App && App.onSave) App.onSave();   // 클라우드 동기화(cloud.js)
+  if (window.Haksa && Haksa.onSaved) Haksa.onSaved();   // 학교 정보 공유(haksa.js)
+  document.dispatchEvent(new Event('save-done'));
+}
+/** '저장' 단추: 기다리는 저장을 바로 실행 */
+function saveNow() {
+  if (isTeacherView()) return;
+  if (saveTimer) { clearTimeout(saveTimer); writeNow(); }
+  else writeNow();
 }
 
 function updateTitles() {
@@ -427,6 +438,7 @@ function collectIssues() {
  * 렌더링: ① 기본 정보
  * ========================================================= */
 function renderInfo() {
+  $('schoolRo').hidden = !isTeacherView();   // 학교 정보는 운영자·개발자만 고침
   $('inSchool').value = state.school.name;
   if (document.activeElement !== $('inNeis')) $('inNeis').value = state.school.neis || '';
   const ys = $('inYear'); const y0 = new Date().getFullYear();
@@ -825,7 +837,9 @@ function showTab(t) {
   if (t !== 'home' && window.App.locked && window.App.locked()) { window.App.pendingTab = t; t = 'home'; }
   if (t === 'admin' && !(window.App.isAdmin && window.App.isAdmin())) t = 'home';
   // 선생님은 학사일정 보기·교육활동 일정만
-  if (isTeacherView() && ['curr', 'tt', 'data', 'admin'].includes(groupOf(t))) t = 'home';
+  // 선생님: 교육과정 편성은 ① 학교 정보(조회)만, 시간표 편성·자료 관리·관리자는 못 들어감
+  if (isTeacherView() && ['tt', 'data', 'admin'].includes(groupOf(t))) t = 'home';
+  if (isTeacherView() && groupOf(t) === 'curr' && t !== 'school') t = 'school';
   if (TAB_GUARDS[t]) { const ok = TAB_GUARDS[t](); if (ok === false) t = 'home'; else if (typeof ok === 'string') t = ok; }
   curTab = t;
   const g = groupOf(t);
