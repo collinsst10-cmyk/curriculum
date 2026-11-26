@@ -10,7 +10,8 @@
   let dirty = false;
 
   const isAdm = () => !!(window.Cloud && Cloud.ready && Cloud.isAdmin());
-  const isWriter = () => !!(window.Cloud && Cloud.ready && (isAdm() || writers.includes(String(Cloud.email || '').toLowerCase())));
+  // 일지 작성: 관리자 · 지정된 작성자 · 직위가 교무부장인 선생님
+  const isWriter = () => !!(window.Cloud && Cloud.ready && (isAdm() || writers.includes(String(Cloud.email || '').toLowerCase()) || (Cloud.position && Cloud.position.head === '교무부장')));
   TAB_GUARDS.log = () => isWriter();
   window.LogRoles = { isWriter };
   const ref = ds => Cloud.fb.F.doc(Cloud.fb.db, 'dailyLogs', ds);

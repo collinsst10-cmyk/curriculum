@@ -35,7 +35,9 @@
     stopList(); myRoom = undefined; rooms = []; sums = [];
     if (!ready()) { if (curTab === 'kmig') render(); return; }
     unsubHome = F().onSnapshot(F().doc(db(), 'homerooms', Cloud.email), d => {
-      myRoom = d.exists() ? { g: d.data().grade, c: d.data().cls } : null;
+      // 직접 고른 학급이 없으면 관리자가 정한 직위(담임 학급)를 씀
+      const pos = Cloud.position || {}, [pg, pc] = String(pos.posCls || '').split('-').map(Number);
+      myRoom = d.exists() ? { g: d.data().grade, c: d.data().cls } : (pos.posType === 'homeroom' && pg && pc ? { g: pg, c: pc } : null);
       if (!sel && myRoom && !isWide()) sel = { ...myRoom };
       watchList(); if (curTab === 'kmig') render();
     }, () => { myRoom = null; watchList(); if (curTab === 'kmig') render(); });

@@ -275,7 +275,18 @@
     document.querySelectorAll('[data-kc-panel]').forEach(p => { p.hidden = Number(p.dataset.kcPanel) !== n; });
     render(n);
   }
-  RENDER.kclass = () => showPanel(kcCur);
+  // 학교 정보의 한국어학급 수만큼만 반 단추를 보임 (0이면 안내)
+  RENDER.kclass = () => {
+    const n = Math.max(0, Math.min(3, Number(state.school.kclass ?? 3)));
+    document.querySelectorAll('#kcSwitch [data-kc]').forEach(b => { b.hidden = Number(b.dataset.kc) > n; });
+    if (!n) {
+      document.querySelectorAll('[data-kc-panel]').forEach(p => { p.hidden = true; });
+      $('kcSwitch').insertAdjacentHTML('beforeend', $('kcNone') ? '' : '<span id="kcNone" class="hint">교육과정 편성 › ① 학교 정보에서 한국어학급 수를 입력하세요.</span>');
+      return;
+    }
+    $('kcNone')?.remove();
+    showPanel(kcCur > n ? 1 : kcCur);
+  };
   $('kcSwitch').addEventListener('click', e => { const b = e.target.closest('[data-kc]'); if (b) showPanel(Number(b.dataset.kc)); });
 
   window.KoreanClasses = {

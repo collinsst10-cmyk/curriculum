@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=202611270747">
+<link rel="stylesheet" href="style.css?v=202611270800">
 </head>
 <body>
 <header class="topbar">
@@ -30,11 +30,13 @@
     <span id="cloudState" class="save-state"></span>
     <button id="kslBell" class="btn bell" hidden title="한국어학급 시간표 조정이 필요한 일정">🔔 <b id="kslBellN">0</b></button>
     <button id="btnPreview" class="btn preview" hidden title="관리자 계정으로 선생님들이 보는 화면을 확인합니다">👀 선생님 화면 보기</button>
+    <label id="roleViewWrap" class="role-view" hidden title="개발자: 어떤 권한으로 사이트를 볼지 고릅니다">권한 보기 <select id="roleView"></select></label>
+    <span id="whoBadge" class="who-badge" hidden></span>
     <button id="btnCloud" class="btn cloud">👤 로그인</button>
   </div>
 </header>
 
-<div id="previewBar" class="preview-bar" hidden>👀 지금 <b>선생님 화면</b>으로 보고 있습니다. 메뉴와 권한이 선생님과 같습니다. <button id="previewBack" class="btn small">관리자 화면으로 돌아가기</button></div>
+<div id="previewBar" class="preview-bar" hidden>👀 지금 <b id="previewRole">선생님</b> 권한으로 보고 있습니다. 메뉴와 권한이 그 직위와 같습니다. <button id="previewBack" class="btn small">관리자 화면으로 돌아가기</button></div>
 
 <nav class="tabs" id="tabs">
   <button data-tab="hview" data-group="haksa">학사일정</button>
@@ -735,24 +737,24 @@
   <div id="cloudBody"></div>
 </dialog>
 
-<script src="data.js?v=202611270747"></script>
-<script src="app.js?v=202611270747"></script>
-<script src="features.js?v=202611270747"></script>
-<script src="cloud-config.js?v=202611270747"></script>
-<script src="cloud.js?v=202611270747"></script>
-<script src="activities.js?v=202611270747"></script>
-<script src="haksa.js?v=202611270747"></script>
-<script src="menus.js?v=202611270747"></script>
-<script src="schedule.js?v=202611270747"></script>
-<script src="kclass.js?v=202611270747"></script>
-<script src="home.js?v=202611270747"></script>
-<script src="status.js?v=202611270747"></script>
-<script src="log.js?v=202611270747"></script>
-<script src="transfer.js?v=202611270747"></script>
-<script src="migrant.js?v=202611270747"></script>
-<script src="site.js?v=202611270747"></script>
-<script src="env.js?v=202611270747"></script>
-<script src="pyeonje.js?v=202611270747"></script>
-<script src="calextra.js?v=202611270747"></script>
+<script src="data.js?v=202611270800"></script>
+<script src="app.js?v=202611270800"></script>
+<script src="features.js?v=202611270800"></script>
+<script src="cloud-config.js?v=202611270800"></script>
+<script src="cloud.js?v=202611270800"></script>
+<script src="activities.js?v=202611270800"></script>
+<script src="haksa.js?v=202611270800"></script>
+<script src="menus.js?v=202611270800"></script>
+<script src="schedule.js?v=202611270800"></script>
+<script src="kclass.js?v=202611270800"></script>
+<script src="home.js?v=202611270800"></script>
+<script src="status.js?v=202611270800"></script>
+<script src="log.js?v=202611270800"></script>
+<script src="transfer.js?v=202611270800"></script>
+<script src="migrant.js?v=202611270800"></script>
+<script src="site.js?v=202611270800"></script>
+<script src="env.js?v=202611270800"></script>
+<script src="pyeonje.js?v=202611270800"></script>
+<script src="calextra.js?v=202611270800"></script>
 </body>
 </html>

@@ -432,9 +432,12 @@ function renderInfo() {
   for (let y = y0 - 1; y <= y0 + 3; y++) ys.add(new Option(`${y}학년도${PRESET_HOLIDAYS[y] ? '' : ' (공휴일 직접 입력)'}`, y));
   ys.value = state.school.year;
 
-  $('tblClasses').innerHTML = `<tr>${GRADES.map(g => `<th>${g}학년</th>`).join('')}<th>계</th></tr>
+  // 한국어학급 수: 학급 현황 설정·한국어학급 운영에 쓰임 (지금 시간표는 최대 3개 학급)
+  const kc = Number(state.school.kclass ?? 3);
+  $('tblClasses').innerHTML = `<tr>${GRADES.map(g => `<th>${g}학년</th>`).join('')}<th>계</th><th class="kc-col">한국어학급</th></tr>
     <tr>${GRADES.map(g => `<td><input data-cls="${g}" inputmode="numeric" value="${state.school.classes[g]}"></td>`).join('')}
-    <td class="num"><b>${GRADES.reduce((t, g) => t + (Number(state.school.classes[g]) || 0), 0)}</b></td></tr>`;
+    <td class="num"><b>${GRADES.reduce((t, g) => t + (Number(state.school.classes[g]) || 0), 0)}</b></td>
+    <td class="kc-col"><input data-kcls="1" inputmode="numeric" value="${kc}" title="한국어학급 수 (0~3)"></td></tr>`;
 
   const st = dayStats();
   $('tblPeriods').innerHTML = `<tr><th>학년</th>${['월', '화', '수', '목', '금'].map(d => `<th>${d}</th>`).join('')}<th>주당 교시</th><th>1학기 가능 시수</th><th>2학기 가능 시수</th><th>연간 가능 시수</th><th>연간 배정 시수</th></tr>` +
@@ -1016,6 +1019,7 @@ function bind() {
   document.querySelector('main').addEventListener('input', e => {
     const t = e.target;
     if (t.dataset.cls) { state.school.classes[t.dataset.cls] = toNum(t.value); }
+    else if (t.dataset.kcls) { state.school.kclass = Math.max(0, Math.min(3, toNum(t.value))); }
     else if (t.dataset.per) { state.school.periods[t.dataset.per][t.dataset.i] = Math.min(8, toNum(t.value)); }
     else return;
     save(); rerenderKeepFocus(renderInfo);

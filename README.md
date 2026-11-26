@@ -46,14 +46,14 @@
 | 경로 | 내용 |
 |---|---|
 | `admins/{email}` | 관리자 (콘솔에서만 추가) |
-| `allowed/{email}` | 승인된 사용자 `{ email, name, addedBy, addedAt }` — `name`이 일정 기록자 이름 |
+| `allowed/{email}` | 승인된 사용자 `{ email, name, addedBy, addedAt, posType(homeroom/subject), posCls("1-2"), posSubj("영어"), head(교무부장/연구부장) }` — 직위는 관리자가 지정, 교무부장 = 학교 일지 작성, 담임 = 그 반 이주배경 명단 |
 | `requests/{email}` | 사용 승인 요청 `{ email, name, requestedAt }` |
 | `plans/{id}` | 교육과정 문서 `{ ownerUid, ownerEmail, editors[], title, year, stateJson }` |
 | `activityDays/{YYYY-MM-DD}` | 날짜별 교육활동 `{ items: [ { id, date, kind, title, periods[], targets["3-1"...], status, ownerName, kslAdjust } ] }` |
 | `config/ksl` | 한국어학급 주간 시간표 `{ slots: { "요일-교시": { group, targets[] } }, teachers[] }` |
 | `kclassOwners/{1-3}`, `kclassTimetables/{1-3}` | 한국어학급 담임 지정 `{ email }`, 주간 시간표 `{ slots }` |
 | `dailyLogs/{YYYY-MM-DD}` | 학교운영일지 `{ text, by, byName, updatedAt }` — 승인된 선생님 읽기, 관리자·교무부장 작성 |
-| `config/roles` | `{ logWriters: [email] }` 교무부장(일지 작성자). 관리자만 지정 |
+| `config/roles` | `{ logWriters: [email], developers: [email] }` 일지 작성자 · 개발자(운영자 중 권한 보기 가능). 관리자만 지정 |
 | `config/stats` | 학생 현황·교직원 현황 `{ asOf, students:{byClass:{"학년-반":{m,f}}, male[], female[]}, staff:{m,f} }` — 관리자·교무부장 수정. 반 수는 학교 정보의 학급 수 |
 | `transfers/{id}` | 전입·전출 `{ date, type:in/out, grade, cls, sex, note, applied }` (학생 이름 없음) — 관리자·교무부장 등록·삭제 |
 | `migrantStudents/{id}` | 이주배경 학생 `{ grade, cls, no, name, country, type:foreign/mid/domestic }` — 개인정보, 관리자·한국어학급 담당만 |

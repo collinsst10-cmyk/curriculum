@@ -74,7 +74,7 @@
   let unsubSchool = null, lastSchool = '';
   // 일과시간(교시 시각)도 함께 공유 → 선생님 화면의 시간표에도 시각 표시
   const bellRows = () => ((state.env && state.env.bell && state.env.bell.rows) || []).map(r => ({ label: r.label, start: r.start, end: r.end, kind: r.kind }));
-  const schoolInfo = () => ({ name: state.school.name, neis: state.school.neis || '', year: state.school.year, classes: { ...state.school.classes }, bell: bellRows() });
+  const schoolInfo = () => ({ name: state.school.name, neis: state.school.neis || '', year: state.school.year, classes: { ...state.school.classes }, kclass: Number(state.school.kclass ?? 3), bell: bellRows() });
   async function writeSchool(force) {
     if (!H.canEdit()) return;
     const json = JSON.stringify(schoolInfo());
@@ -96,6 +96,7 @@
       state.school.name = s.name || state.school.name;
       if (s.year) state.school.year = s.year;
       if (s.classes) state.school.classes = { ...state.school.classes, ...s.classes };
+      if (s.kclass !== undefined) state.school.kclass = Number(s.kclass);
       if (Array.isArray(s.bell) && s.bell.length) { state.env = state.env || {}; state.env.bell = { ...(state.env.bell || {}), rows: s.bell }; }
       updateTitles();
       if (yearChanged) document.dispatchEvent(new Event('year-change'));

@@ -22,6 +22,8 @@
   let access = 'unknown';   // unknown | signedout | none | pending | approved
   let admin = false;
   let profileName = '';     // 가입 때 등록한 이름
+  let position = {};       // 직위 { posType:'homeroom'|'subject'|'', posCls:'1-2', posSubj:'영어', head:'교무부장'|'연구부장'|'' } (allowed 문서)
+  let developer = false;   // 개발자(관리자 중 config/roles.developers 에 든 계정)
   let cur = null;           // { id, meta, unsub }
   let pushTimer = null, lastPushed = null;
 
@@ -31,7 +33,22 @@
 
   /* ---------- 관리자: '선생님 화면으로 보기' (이 탭에서만, 새로고침해도 유지) ---------- */
   let preview = sessionStorage.getItem('viewAsTeacher') === '1';
+  /* 개발자: 어떤 권한으로 볼지 고름 (개발자·운영자 = 관리자 권한, 나머지 = 선생님 화면 + 그 직위) */
+  const VIEW_ROLES = [['dev', '개발자 (모든 권한)'], ['operator', '운영자'], ['교무부장', '교무부장'], ['연구부장', '연구부장'], ['homeroom', '담임교사'], ['subject', '전담교사'], ['teacher', '일반 선생님']];
+  let viewRole = sessionStorage.getItem('viewRole') || 'dev';
   const effAdmin = () => admin && !preview;   // 화면에서 쓰는 관리자 여부
+  /** 화면에서 쓰는 직위: 개발자가 다른 권한으로 볼 때는 그 직위로 흉내 냄 */
+  function effPosition() {
+    if (!(developer && preview)) return position;
+    if (viewRole === '교무부장' || viewRole === '연구부장') return { ...position, head: viewRole };
+    if (viewRole === 'homeroom') return { posType: 'homeroom', posCls: position.posCls || '1-1', posSubj: '', head: '' };
+    if (viewRole === 'subject') return { posType: 'subject', posCls: '', posSubj: position.posSubj || '영어', head: '' };
+    return { posType: '', posCls: '', posSubj: '', head: '' };
+  }
+  function setViewRole(r) {
+    viewRole = r; sessionStorage.setItem('viewRole', r);
+    setPreview(!(r === 'dev' || r === 'operator'));
+  }
   function setPreview(on) {
     preview = !!on;
     sessionStorage.setItem('viewAsTeacher', preview ? '1' : '0');
@@ -40,7 +57,27 @@
     window.scrollTo(0, 0);
   }
   $('btnPreview').addEventListener('click', () => setPreview(!preview));
-  $('previewBack').addEventListener('click', () => setPreview(false));
+  $('previewBack').addEventListener('click', () => { if (developer) { viewRole = 'dev'; sessionStorage.setItem('viewRole', 'dev'); } setPreview(false); });
+  $('roleView').addEventListener('change', e => setViewRole(e.target.value));
+
+  /** 오른쪽 위 표시: "1-2 담임 김준호", "영어전담 이소은" + 부장·운영자·개발자 배지 */
+  function posLabel(p) {
+    if (p.posType === 'homeroom' && p.posCls) return `${p.posCls} 담임`;
+    if (p.posType === 'subject' && p.posSubj) return `${p.posSubj}전담`;
+    return '';
+  }
+  function renderWho() {
+    const btn = $('btnCloud'), badge = $('whoBadge');
+    if (!user) { btn.innerHTML = '👤 로그인'; badge.hidden = true; return; }
+    const name = (profileName || user.displayName || myEmail()).split(' ')[0];
+    const p = position, pl = posLabel(p);
+    btn.innerHTML = `${pl ? `<span class="who-pos">${esc(pl)}</span>` : ''}<span class="who-name">${esc(name)}</span>`;
+    const tags = [];
+    if (admin) tags.push(developer ? ['dev', '개발자'] : ['op', '운영자']);
+    if (p.head) tags.push(['head', p.head]);
+    badge.innerHTML = tags.map(([c, t]) => `<span class="who-tag ${c}">${esc(t)}</span>`).join('');
+    badge.hidden = !tags.length;
+  }
 
   /* ---------- app.js 와의 연결 ---------- */
   Object.assign(window.App, {
@@ -65,6 +102,9 @@
     isAdmin: effAdmin,
     realAdmin: () => admin,            // 미리보기 중에도 실제 관리자인지
     listPlans: () => listPlans(),       // 작년 자료 불러오기 등에서 씀
+    get position() { return effPosition(); },          // 직위(개발자가 다른 권한으로 보면 그 직위)
+    get developer() { return developer; },
+    get viewRole() { return developer && preview ? viewRole : ''; },
     get previewing() { return admin && preview; },
   };
 
@@ -75,11 +115,16 @@
   const D = (...p) => fb.F.doc(fb.db, ...p);
 
   function refreshUi() {
-    $('btnCloud').textContent = user ? '👤 ' + (profileName || user.displayName || myEmail()).split(' ')[0] : '👤 로그인';
+    renderWho();
     $('navAdmin').hidden = !effAdmin();
     $('homeAdmin').hidden = !effAdmin();
-    $('btnPreview').hidden = !(admin && access === 'approved');
+    // 운영자: '선생님 화면 보기' 단추 / 개발자: 권한 고르기
+    $('btnPreview').hidden = !(admin && !developer && access === 'approved');
     $('btnPreview').textContent = preview ? '🛠 관리자 화면' : '👀 선생님 화면 보기';
+    $('roleViewWrap').hidden = !(admin && developer && access === 'approved');
+    $('roleView').innerHTML = VIEW_ROLES.map(([v, l]) => `<option value="${v}" ${v === (preview ? viewRole : (viewRole === 'operator' ? 'operator' : 'dev')) ? 'selected' : ''}>${l}</option>`).join('');
+    const roleName = developer && preview ? (VIEW_ROLES.find(r => r[0] === viewRole) || [, '선생님'])[1] : '선생님';
+    $('previewRole').textContent = roleName;
     $('previewBar').hidden = !(admin && preview);
     document.body.classList.toggle('previewing', !!(admin && preview));
     document.dispatchEvent(new Event('cloud-change'));
@@ -133,6 +178,10 @@
     admin = isAdm;
     // 가입(승인 요청) 때 등록한 이름. 기록자 이름으로 쓰임
     profileName = isAllowed ? (al.data().name || '') : isReq ? (rq.data().name || '') : '';
+    const ad = isAllowed ? al.data() : {};
+    position = { posType: ad.posType || '', posCls: ad.posCls || '', posSubj: ad.posSubj || '', head: ad.head || '' };
+    developer = false;
+    if (isAdm) { const r = await safe(F.getDoc(D('config', 'roles'))); developer = !!(r && r.exists() && (r.data().developers || []).includes(e)); }
     access = isAdm || isAllowed ? 'approved' : isReq ? 'pending' : 'none';
   }
 
@@ -375,7 +424,10 @@
       <div class="card"><h2>관리자 내 이름</h2>
         <div class="row"><input id="admMyName" type="text" maxlength="30" value="${esc(profileName)}" placeholder="이름(실명)" style="width:160px">
         <button class="btn small primary" data-a="myname">저장</button>
-        <span class="hint">관리자 계정의 사이트 표시 이름(일정 기록자 등)입니다.</span></div></div>
+        <span class="hint">관리자 계정의 사이트 표시 이름(일정 기록자 등)입니다.</span></div>
+        <div class="row adm-dev"><span>이 계정의 구분: <b class="who-tag ${developer ? 'dev' : 'op'}">${developer ? '개발자' : '운영자'}</b></span>
+          <button class="btn small" data-a="dev">${developer ? '운영자로 바꾸기' : '개발자로 지정'}</button>
+          <span class="hint">운영자는 사이트 전체를 관리합니다. 개발자는 운영자 권한에 더해, 오른쪽 위 '권한 보기'로 모든 직위의 화면을 골라 볼 수 있습니다.</span></div></div>
       <div class="card"><h2>등록 신청 (승인 대기)</h2><div id="admReq" class="hint">불러오는 중…</div></div>
       <div class="card"><div class="card-head"><h2>허용된 사용자</h2></div>
         <div class="row" style="margin-bottom:10px">
@@ -397,15 +449,28 @@
           <button class="btn small danger" data-a="reject" data-e="${esc(r.id)}">거절</button></td></tr>`).join('') + '</table>'
         : '대기 중인 요청이 없습니다.';
       $('admAllowed').classList.remove('hint');
-      $('admAllowed').innerHTML = allowed.length ? `<table class="tbl compact"><tr><th class="l">이메일</th><th>이름 (사이트 표시)</th><th>담당</th><th>승인자</th><th>승인 시각</th><th></th></tr>` +
+      // 직위: 담임교사(학급) · 전담교사(과목) / 부장: 교무부장 · 연구부장
+      const clsOpts = cur => '<option value="">학급</option>' + GRADES.map(g => Array.from({ length: Number(state.school.classes[g]) || 0 }, (_, i) => `${g}-${i + 1}`)
+        .map(k => `<option ${k === cur ? 'selected' : ''}>${k}</option>`).join('')).join('');
+      const SUBJ = ['영어', '과학', '체육', '음악', '미술', '실과', '도덕', '사회', '수학', '국어', '정보'];
+      const subjOpts = cur => '<option value="">과목</option>' + SUBJ.map(s => `<option ${s === cur ? 'selected' : ''}>${s}</option>`).join('');
+      const posCell = a => `<div class="adm-pos" data-e="${esc(a.id)}">
+          <select class="adm-pt"><option value="">직위 없음</option><option value="homeroom" ${a.posType === 'homeroom' ? 'selected' : ''}>담임교사</option><option value="subject" ${a.posType === 'subject' ? 'selected' : ''}>전담교사</option></select>
+          <select class="adm-pc" ${a.posType === 'homeroom' ? '' : 'hidden'}>${clsOpts(a.posCls)}</select>
+          <select class="adm-ps" ${a.posType === 'subject' ? '' : 'hidden'}>${subjOpts(a.posSubj)}</select>
+          <select class="adm-hd"><option value="">부장 아님</option><option ${a.head === '교무부장' ? 'selected' : ''}>교무부장</option><option ${a.head === '연구부장' ? 'selected' : ''}>연구부장</option></select></div>`;
+      $('admAllowed').innerHTML = allowed.length ? `<table class="tbl compact adm-users"><tr><th class="l">이메일</th><th>이름 (사이트 표시)</th><th>직위 · 부장</th><th>담당(신청 때)</th><th>승인자</th><th>승인 시각</th><th></th></tr>` +
         allowed.map(a => `<tr><td class="l">${esc(a.id)}</td>
-          <td><input class="adm-name" data-e="${esc(a.id)}" value="${esc(a.name || '')}" style="width:110px"><button class="btn small" data-a="rename" data-e="${esc(a.id)}">저장</button></td>
+          <td><input class="adm-name" data-e="${esc(a.id)}" value="${esc(a.name || '')}" style="width:110px"></td>
+          <td>${posCell(a)}<button class="btn small primary" data-a="rename" data-e="${esc(a.id)}">저장</button></td>
           <td>${esc(a.role || '')}</td>
           <td>${esc(a.addedBy || '')}</td><td class="num">${fmtTime(a.addedAt)}</td>
           <td><button class="btn small danger" data-a="revoke" data-e="${esc(a.id)}">승인 해제</button></td></tr>`).join('') + '</table>'
         : '아직 허용된 사용자가 없습니다. (관리자는 별도로 항상 허용)';
     } catch (e) { el.insertAdjacentHTML('afterbegin', `<div class="notice">불러오기 실패: ${esc(e.message)}</div>`); }
 
+    // 직위를 바꾸면 학급·과목 칸 보이기
+    el.onchange = e => { if (!e.target.classList.contains('adm-pt')) return; const box = e.target.closest('.adm-pos'); box.querySelector('.adm-pc').hidden = e.target.value !== 'homeroom'; box.querySelector('.adm-ps').hidden = e.target.value !== 'subject'; };
     el.onclick = async e => {
       const b = e.target.closest('[data-a]'); if (!b) return;
       const email = (b.dataset.e || '').toLowerCase();
@@ -423,8 +488,19 @@
           if (!(await saveMyName($('admMyName').value))) return;
         } else if (b.dataset.a === 'rename') {
           const v = el.querySelector(`.adm-name[data-e="${CSS.escape(email)}"]`).value.trim();
-          await F.setDoc(D('allowed', email), { name: v }, { merge: true });
-          if (email === myEmail()) { profileName = v; refreshUi(); }
+          const box = el.querySelector(`.adm-pos[data-e="${CSS.escape(email)}"]`);
+          const posType = box.querySelector('.adm-pt').value;
+          const pos = { posType, posCls: posType === 'homeroom' ? box.querySelector('.adm-pc').value : '', posSubj: posType === 'subject' ? box.querySelector('.adm-ps').value : '', head: box.querySelector('.adm-hd').value };
+          if (posType === 'homeroom' && !pos.posCls) { alert('담임 학급을 고르세요.'); return; }
+          if (posType === 'subject' && !pos.posSubj) { alert('전담 과목을 고르세요.'); return; }
+          await F.setDoc(D('allowed', email), { name: v, ...pos }, { merge: true });
+          if (email === myEmail()) { profileName = v; position = pos; refreshUi(); }
+        } else if (b.dataset.a === 'dev') {
+          const on = !developer;
+          await F.setDoc(D('config', 'roles'), { developers: on ? F.arrayUnion(myEmail()) : F.arrayRemove(myEmail()) }, { merge: true });
+          developer = on;
+          if (!on) { viewRole = 'dev'; sessionStorage.setItem('viewRole', 'dev'); preview = false; sessionStorage.setItem('viewAsTeacher', '0'); }
+          refreshUi();
         } else if (b.dataset.a === 'add') {
           const v = $('admEmail').value.trim().toLowerCase();
           if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) { alert('이메일 형식을 확인하세요.'); return; }

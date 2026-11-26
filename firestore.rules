@@ -128,10 +128,19 @@ service cloud.firestore {
         || (exists(/databases/$(database)/documents/config/ksl)
             && myEmail() in get(/databases/$(database)/documents/config/ksl).data.get('teachers', [])));
     }
-    // 학교 일지 작성자(교무부장). 관리자가 config/roles.logWriters 에 지정
+    // 직위(allowed 문서의 posType·posCls·head). 관리자가 사용자 승인 관리에서 정함
+    function myAllowed() {
+      return get(/databases/$(database)/documents/allowed/$(myEmail())).data;
+    }
+    function hasAllowed() {
+      return exists(/databases/$(database)/documents/allowed/$(myEmail()));
+    }
+    // 학교 일지 작성자: 지정된 작성자 또는 직위가 교무부장인 선생님
     function isLogWriter() {
-      return isApproved() && exists(/databases/$(database)/documents/config/roles)
-        && myEmail() in get(/databases/$(database)/documents/config/roles).data.get('logWriters', []);
+      return isApproved() && (
+        (exists(/databases/$(database)/documents/config/roles)
+          && myEmail() in get(/databases/$(database)/documents/config/roles).data.get('logWriters', []))
+        || (hasAllowed() && myAllowed().get('head', '') == '교무부장'));
     }
 
     // 학교 현황(학생·교직원). 승인된 선생님은 읽기(HOME), 관리자 수정 (교무부장은 전입·전출 반영 때 수정)
@@ -166,11 +175,14 @@ service cloud.firestore {
       allow update: if false;
     }
 
-    // 담임 학급(본인이 한 번 고름). 이주배경학생 명단을 그 반만 보고 고칠 수 있게 하는 근거
+    // 그 반 담임: 본인이 고른 학급(homerooms) 또는 관리자가 정한 직위(담임 학급)
     function isHomeroomOf(g, c) {
-      return isApproved() && exists(/databases/$(database)/documents/homerooms/$(myEmail()))
-        && get(/databases/$(database)/documents/homerooms/$(myEmail())).data.grade == g
-        && get(/databases/$(database)/documents/homerooms/$(myEmail())).data.cls == c;
+      return isApproved() && (
+        (exists(/databases/$(database)/documents/homerooms/$(myEmail()))
+          && get(/databases/$(database)/documents/homerooms/$(myEmail())).data.grade == g
+          && get(/databases/$(database)/documents/homerooms/$(myEmail())).data.cls == c)
+        || (hasAllowed() && myAllowed().get('posType', '') == 'homeroom'
+          && myAllowed().get('posCls', '') == string(g) + '-' + string(c)));
     }
     match /homerooms/{email} {
       allow read: if signedIn() && (myEmail() == email || isAdmin());
