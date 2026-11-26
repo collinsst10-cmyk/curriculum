@@ -38,6 +38,15 @@
   RENDER.data = () => renderPanel($('dataCloud'));
   RENDER.admin = renderAdmin;
 
+  /** 다른 모듈(activities.js)이 쓰는 클라우드 접근점. 상태가 바뀌면 'cloud-change' 이벤트 */
+  window.Cloud = {
+    get ready() { return !!fb && !!user && access === 'approved'; },
+    get fb() { return fb; },
+    get user() { return user; },
+    get configured() { return !!window.FIREBASE_CONFIG && !fbFailed; },
+    isAdmin: () => admin,
+  };
+
   function setStatus(msg) { $('cloudState').textContent = msg; }
   function hhmm() { return new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }); }
   function fmtTime(ts) { try { return ts ? ts.toDate().toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''; } catch (e) { return ''; } }
@@ -48,7 +57,10 @@
     $('btnCloud').textContent = user ? '☁ ' + (user.displayName || myEmail()).split(' ')[0] : '☁ 로그인';
     $('navAdmin').hidden = !admin;
     $('homeAdmin').hidden = !admin;
+    document.dispatchEvent(new Event('cloud-change'));
+    const pending = window.App.pendingTab;
     if (window.App.locked() && curTab !== 'home') showTab('home');
+    else if (!window.App.locked() && pending) { window.App.pendingTab = null; showTab(pending); }
     else RENDER[curTab]();
     if (dlg.open) renderPanel($('cloudBody'));
   }

@@ -608,7 +608,7 @@ function exportCal() {
  * 이벤트
  * ========================================================= */
 const RENDER = { home: renderHome, data: () => {}, admin: () => {}, info: renderInfo, cal: renderCal, days: renderDays, hours: renderHours, table: renderTable };
-const GROUP_FIRST = { home: 'home', curr: 'info', tt: 'tt', data: 'data', admin: 'admin' };
+const GROUP_FIRST = { home: 'home', curr: 'info', tt: 'tt', act: 'act', data: 'data', admin: 'admin' };
 const lastInGroup = {};
 let curTab = 'home';
 
@@ -617,7 +617,7 @@ function groupOf(t) { const b = document.querySelector(`#tabs [data-tab="${t}"]`
 /** 화면 전환. 로그인·승인이 필요한데 안 된 경우(App.locked) HOME 으로 */
 function showTab(t) {
   if (!RENDER[t] || !$('tab-' + t)) t = 'home';
-  if (t !== 'home' && window.App.locked && window.App.locked()) t = 'home';
+  if (t !== 'home' && window.App.locked && window.App.locked()) { window.App.pendingTab = t; t = 'home'; }
   if (t === 'admin' && !(window.App.isAdmin && window.App.isAdmin())) t = 'home';
   curTab = t;
   const g = groupOf(t);
