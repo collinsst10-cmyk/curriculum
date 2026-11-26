@@ -69,7 +69,7 @@
       <h3 class="pj-h">《 학년별 수업 시수 편제 현황 》</h3>
       <div class="tbl-scroll"><table class="pj-grid"><thead><tr><th></th>${COLS.map(([, l]) => `<th>${l}</th>`).join('')}<th>창체</th><th title="학교자율시간">자율</th><th class="tot">총계</th></tr></thead><tbody>
         ${GRADES.map(g => `<tr class="${g === curGrade ? 'cur' : ''}" data-pjg="${g}" title="눌러서 ${g}학년 시수 편성"><th>${g}학년</th>${COLS.map(([k]) => cell(g, k)).join('')}
-          <td>${chaTotal(g)}</td><td class="${g < 3 ? 'na' : ''}">${g < 3 ? '' : ann(g, 'sat')}</td><td class="tot">${gradeTotal(g)}</td></tr>`).join('')}
+          <td>${chaTotal(g)}</td><td class="${g < 3 ? 'na' : ''}">${g < 3 ? '' : ann(g, 'sat') + ann(g, 'satB')}</td><td class="tot">${gradeTotal(g)}</td></tr>`).join('')}
       </tbody></table></div>
       <div id="pjOut" class="pj-out">${outHtml()}</div>`;
     if (out === 'table' || out === 'prev') fillTable();   // 편제표가 열려 있으면 다시 채움
@@ -168,7 +168,7 @@
   document.addEventListener('click', e => {
     if (curTab !== 'hours' || !e.target.closest('#pjPanel')) return;
     const g = e.target.closest('[data-pjg]');
-    if (g) { curGrade = Number(g.dataset.pjg); renderHours(); $('tblHours').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+    if (g) { curGrade = Number(g.dataset.pjg); renderHours(); if (window.PjGrade) PjGrade.open(curGrade); return; }
     const a = e.target.closest('[data-pj]')?.dataset.pj; if (!a) return;
     if (a === 'close') { out = ''; renderPanel(); return; }
     if (a === 'check' || a === 'std') { out = out === a ? '' : a; renderPanel(); return; }

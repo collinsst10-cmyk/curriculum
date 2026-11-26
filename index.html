@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=202611270800">
+<link rel="stylesheet" href="style.css?v=202611270809">
 </head>
 <body>
 <header class="topbar">
@@ -18,6 +18,7 @@
     <button data-go="home">HOME</button>
     <button data-go="curr" class="admin-only">교육과정 편성</button>
     <button data-go="haksa">학사일정</button>
+    <button data-go="cls">학급관리</button>
     <button data-go="tt" class="admin-only">시간표 편성</button>
     <button data-go="kclass">이주배경학생</button>
     <button data-go="data" class="admin-only">자료 관리</button>
@@ -39,6 +40,7 @@
 <div id="previewBar" class="preview-bar" hidden>👀 지금 <b id="previewRole">선생님</b> 권한으로 보고 있습니다. 메뉴와 권한이 그 직위와 같습니다. <button id="previewBack" class="btn small">관리자 화면으로 돌아가기</button></div>
 
 <nav class="tabs" id="tabs">
+  <button data-tab="roster" data-group="cls">우리 반 학생</button>
   <button data-tab="hview" data-group="haksa">학사일정</button>
   <button data-tab="act" data-group="haksa">신규 학사일정 등록</button>
   <button data-tab="ksl" data-group="haksa">한국어학급 연계</button>
@@ -355,6 +357,11 @@
       <p id="kclassStatus3" role="status"></p>
     </div>
   </section>
+  <!-- 학급관리 › 우리 반 학생 (담임: 자기 반 / 관리자: 모든 반) -->
+  <section id="tab-roster" class="tab">
+    <div id="rsMain"></div>
+  </section>
+
   <!-- 이주배경학생 › 이주배경학생 현황 (담임: 우리 반 입력 / 관리자·한국어학급 담당: 전체) -->
   <section id="tab-kmig" class="tab">
     <div class="km-top">
@@ -703,6 +710,7 @@
 
 <footer class="foot">기준: 2022 개정 초등학교 교육과정 시간 배당, 초·중등교육법 시행령 제45조(수업일수 190일 이상). 공휴일 정보는 반드시 관보·교육청 지침으로 확인하세요.</footer>
 
+<dialog id="pjDlg" class="dlg pj-dlg" aria-label="학년 교육과정 편제"></dialog>
 <dialog id="kclassDlg" class="dlg kc-dlg">
   <div class="card-head">
     <h2 id="kcDlgTitle">한국어학급 시간 설정</h2>
@@ -737,24 +745,26 @@
   <div id="cloudBody"></div>
 </dialog>
 
-<script src="data.js?v=202611270800"></script>
-<script src="app.js?v=202611270800"></script>
-<script src="features.js?v=202611270800"></script>
-<script src="cloud-config.js?v=202611270800"></script>
-<script src="cloud.js?v=202611270800"></script>
-<script src="activities.js?v=202611270800"></script>
-<script src="haksa.js?v=202611270800"></script>
-<script src="menus.js?v=202611270800"></script>
-<script src="schedule.js?v=202611270800"></script>
-<script src="kclass.js?v=202611270800"></script>
-<script src="home.js?v=202611270800"></script>
-<script src="status.js?v=202611270800"></script>
-<script src="log.js?v=202611270800"></script>
-<script src="transfer.js?v=202611270800"></script>
-<script src="migrant.js?v=202611270800"></script>
-<script src="site.js?v=202611270800"></script>
-<script src="env.js?v=202611270800"></script>
-<script src="pyeonje.js?v=202611270800"></script>
-<script src="calextra.js?v=202611270800"></script>
+<script src="data.js?v=202611270809"></script>
+<script src="app.js?v=202611270809"></script>
+<script src="features.js?v=202611270809"></script>
+<script src="cloud-config.js?v=202611270809"></script>
+<script src="cloud.js?v=202611270809"></script>
+<script src="activities.js?v=202611270809"></script>
+<script src="haksa.js?v=202611270809"></script>
+<script src="menus.js?v=202611270809"></script>
+<script src="schedule.js?v=202611270809"></script>
+<script src="kclass.js?v=202611270809"></script>
+<script src="home.js?v=202611270809"></script>
+<script src="status.js?v=202611270809"></script>
+<script src="log.js?v=202611270809"></script>
+<script src="transfer.js?v=202611270809"></script>
+<script src="migrant.js?v=202611270809"></script>
+<script src="roster.js?v=202611270809"></script>
+<script src="site.js?v=202611270809"></script>
+<script src="env.js?v=202611270809"></script>
+<script src="pyeonje.js?v=202611270809"></script>
+<script src="pyeonje-grade.js?v=202611270809"></script>
+<script src="calextra.js?v=202611270809"></script>
 </body>
 </html>

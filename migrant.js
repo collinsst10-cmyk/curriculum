@@ -60,16 +60,16 @@
     if (!ready()) { $('kmMain').innerHTML = '<p class="hint">승인된 계정으로 로그인해 주세요.</p>'; $('kmPicker').innerHTML = ''; return; }
     if (myRoom === undefined) { $('kmMain').innerHTML = '<p class="hint">불러오는 중…</p>'; return; }
     renderPicker();
-    if (!isWide() && !myRoom) { $('kmLead').textContent = ''; $('kmMain').innerHTML = roomSetup(); return; }
-    if (!sel) { $('kmLead').textContent = '학년·반별 이주배경학생 수입니다. 반을 누르면 명단을 보고 고칠 수 있습니다.'; $('kmMain').innerHTML = overview(); return; }
-    $('kmLead').textContent = isWide() ? '' : '우리 반 이주배경학생을 등록하세요. 저장하면 학교 전체 현황(HOME)에 바로 반영됩니다.';
+    if (!isWide() && !myRoom) { $('kmLead').textContent = ''; $('kmMain').innerHTML = '<div class="card km-setup"><h3>담임 학급이 정해지지 않았습니다</h3><p class="hint">학급관리 › 우리 반 학생에서 담임 학급을 고르거나, 관리자에게 직위(담임 학급) 지정을 요청하세요.</p><button type="button" class="btn primary" data-act="go-roster">학급관리로 가기</button></div>'; return; }
+    if (!sel) { $('kmLead').textContent = '학년·반별 이주배경학생 수입니다. 반을 누르면 명단을 볼 수 있습니다. 등록·수정은 학급관리에서 합니다.'; $('kmMain').innerHTML = overview(); return; }
+    $('kmLead').textContent = isWide() ? '' : '우리 반 이주배경학생 명단입니다(조회). 등록·수정은 학급관리 › 우리 반 학생에서 합니다.';
     $('kmMain').innerHTML = classView(sel.g, sel.c);
   }
 
   function renderPicker() {
     const box = $('kmPicker');
     if (!isWide()) {
-      box.innerHTML = myRoom ? `<span class="km-my">내 학급 <b>${myRoom.g}학년 ${myRoom.c}반</b></span> <button type="button" class="btn small" data-act="change-room">학급 바꾸기</button>` : '';
+      box.innerHTML = myRoom ? `<span class="km-my">내 학급 <b>${myRoom.g}학년 ${myRoom.c}반</b></span>` : '';
       return;
     }
     const g = sel ? sel.g : 0;
@@ -112,39 +112,22 @@
   const typeSeg = (cur, attr) => `<div class="km-seg" role="radiogroup">${TYPES.map(([k, l]) => `<button type="button" class="${k}${k === cur ? ' on' : ''}" data-${attr}="${k}" role="radio" aria-checked="${k === cur}">${l}</button>`).join('')}</div>`;
   const flag = name => { const u = window.SchoolStatus?.flagUrl(name); return u ? `<img src="${u}" alt="" width="22" height="16">` : ''; };
 
+  /** 학급 명단 보기(조회 전용). 등록·수정은 학급관리 › 우리 반 학생에서 */
   function classView(g, c) {
     if (!loaded) return '<p class="hint">불러오는 중…</p>';
     const ss = inClass(g, c);
-    const next = ss.reduce((m, s) => Math.max(m, s.no || 0), 0) + 1;
     const counts = TYPES.map(([k, l]) => { const n = ss.filter(s => s.type === k).length; return n ? `<span class="km-badge ${k}">${l} ${n}</span>` : ''; }).join('');
-    const row = s => editId === s.id ? `<li class="km-row editing" data-id="${s.id}">
-        <div class="km-form">
-          <label class="f-no">번호<input type="number" min="0" max="99" data-e="no" value="${s.no || ''}"></label>
-          <label class="f-name">이름<input data-e="name" maxlength="20" value="${esc(s.name)}"></label>
-          <label class="f-country">부모 출신국<span class="km-ac-wrap"><input data-e="country" maxlength="30" autocomplete="off" value="${esc(s.country || '')}" placeholder="글자를 입력하면 나라가 떠요"></span></label>
-          <div class="f-type"><span>구분</span>${typeSeg(s.type, 'etype')}</div>
-          <div class="f-btn"><button type="button" class="btn primary" data-act="save-edit">저장</button><button type="button" class="btn" data-act="cancel-edit">취소</button></div>
-        </div></li>`
-      : `<li class="km-row" data-id="${s.id}">
+    const canEdit = isAdm() || (myRoom && myRoom.g === g && myRoom.c === c);
+    const row = s => `<li class="km-row" data-id="${s.id}">
         <span class="km-no">${s.no || '-'}</span>
         <span class="km-name">${esc(s.name)}</span>
         <span class="km-country">${flag(s.country)}${esc(s.country || '출신국 미입력')}</span>
-        <span class="km-badge ${s.type}">${TYPE_L[s.type] || ''}</span>
-        <span class="km-acts"><button type="button" class="btn small" data-edit="${s.id}">수정</button><button type="button" class="btn small" data-del="${s.id}">삭제</button></span></li>`;
+        <span class="km-badge ${s.type}">${TYPE_L[s.type] || ''}</span><span></span></li>`;
     return `<div class="card km-classcard">
         <div class="km-class-h"><h3>${g}학년 ${c}반 <span>${ss.length}명</span></h3><div class="km-counts">${counts}</div></div>
-        ${ss.length ? `<ul class="km-rows">${ss.map(row).join('')}</ul>` : '<p class="km-empty">아직 등록한 학생이 없습니다. 우리 반에 이주배경학생이 없으면 비워 두면 됩니다.</p>'}
-      </div>
-      <div class="card km-addcard">
-        <h3>학생 등록</h3>
-        <div class="km-form" id="kmAdd">
-          <label class="f-no">번호<input type="number" min="0" max="99" id="kmNo" value="${next}"></label>
-          <label class="f-name">이름<input id="kmName" maxlength="20" placeholder="학생 이름"></label>
-          <label class="f-country">부모 출신국<span class="km-ac-wrap"><input id="kmCountry" maxlength="30" autocomplete="off" placeholder="예: 베 → 베트남"></span></label>
-          <div class="f-type"><span>구분</span>${typeSeg(addType, 'atype')}</div>
-          <div class="f-btn"><button type="button" class="btn primary" data-act="add">등록</button></div>
-        </div>
-        <p class="hint">Enter를 눌러도 등록됩니다. 학생 이름은 이 반 담임, 관리자, 한국어학급 담당만 볼 수 있고 HOME에는 인원·비율만 나옵니다.</p>
+        ${ss.length ? `<ul class="km-rows">${ss.map(row).join('')}</ul>` : '<p class="km-empty">이 반에 등록된 이주배경학생이 없습니다.</p>'}
+        <div class="km-ro-note"><span>학생 등록·수정은 <b>학급관리 › 우리 반 학생</b>에서 합니다. 거기서 '이주배경'을 고르면 여기에 자동으로 나옵니다.</span>
+          ${canEdit ? '<button type="button" class="btn small primary" data-act="go-roster">학급관리로 가기</button>' : ''}</div>
       </div>`;
   }
 
@@ -228,6 +211,7 @@
     const ac = t.closest('[data-ac]'); if (ac) { acPick(ac.dataset.ac); return; }
     const act = t.closest('[data-act]')?.dataset.act;
     if (act === 'all') { sel = null; editId = null; say(''); render(); return; }
+    if (act === 'go-roster') { showTab('roster'); return; }
     if (act === 'save-room') { saveRoom(Number($('kmRoomG').value), Number($('kmRoomC').value)); return; }
     if (act === 'change-room') { myRoom = null; stopList(); loaded = true; sel = null; render(); return; }
     if (act === 'add') { add(); return; }

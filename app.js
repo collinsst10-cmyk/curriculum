@@ -84,6 +84,7 @@ function defaultHours(g) {
   const std = chaStdOf(b);
   CHA_PARTS.forEach(p => { h[p.key] = split(std[p.key]); });
   h.sat = { s1: 0, s2: 0 };
+  h.satB = { s1: 0, s2: 0 };   // 학교자율시간 B
   return h;
 }
 
@@ -131,6 +132,7 @@ function normalize(s) {
   s.days = s.days || {};
   s.hours = s.hours || {};
   s.satName = s.satName || {};
+  s.satNameB = s.satNameB || {};   // 학교자율시간 B 과목명
   s.timetable = s.timetable || {};
   s.jundam = Array.isArray(s.jundam) ? s.jundam : [];
   GRADES.forEach(g => {
@@ -180,7 +182,7 @@ function save() {
   saveTimer = setTimeout(() => {
     // 학년도별 시수 편제 사본(다음 해 '작년편제 불러오기'·'작년시수 편제표'에 씀)
     state.yearArchive = state.yearArchive || {};
-    state.yearArchive[state.school.year] = JSON.parse(JSON.stringify({ hours: state.hours, satName: state.satName, chaMode: state.chaMode || 'part', classes: state.school.classes }));
+    state.yearArchive[state.school.year] = JSON.parse(JSON.stringify({ hours: state.hours, satName: state.satName, satNameB: state.satNameB, chaMode: state.chaMode || 'part', classes: state.school.classes }));
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
     $('saveState').textContent = '이 PC에 저장됨 ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
     if (window.App && App.onSave) App.onSave();   // 클라우드 동기화(cloud.js)
@@ -362,7 +364,7 @@ function gradeKeys(g) {
   const b = bandOf(g); const keys = [];
   b.groups.forEach(gr => gr.subs.forEach(s => keys.push(s.key)));
   CHA_PARTS.forEach(p => keys.push(p.key));
-  if (g >= 3) keys.push('sat');
+  if (g >= 3) keys.push('sat', 'satB');
   return keys;
 }
 const gradeSem = (g, s) => gradeKeys(g).reduce((t, k) => t + hv(g, k, s), 0);
@@ -380,7 +382,7 @@ function bandCheck(b) {
     return { gr, sum, diff, rate, level, msg };
   });
   const cha = chaTotal(ga) + chaTotal(gb);
-  const sat = ann(ga, 'sat') + ann(gb, 'sat');
+  const sat = ann(ga, 'sat') + ann(gb, 'sat') + ann(ga, 'satB') + ann(gb, 'satB');
   const total = gradeTotal(ga) + gradeTotal(gb);
   return {
     groups,
@@ -809,7 +811,7 @@ function exportCal() {
  * 이벤트
  * ========================================================= */
 const RENDER = { home: renderHome, data: () => {}, admin: () => {}, info: renderInfo, cal: renderCal, days: renderDays, hours: renderHours, table: renderTable };
-const GROUP_FIRST = { home: 'home', haksa: 'hview', curr: 'school', tt: 'tt', act: 'act', kclass: 'kmig', stats: 'stats1', log: 'log', data: 'data', admin: 'admin' };
+const GROUP_FIRST = { home: 'home', haksa: 'hview', curr: 'school', tt: 'tt', act: 'act', kclass: 'kmig', cls: 'roster', stats: 'stats1', log: 'log', data: 'data', admin: 'admin' };
 // 화면별 접근 확인: false = HOME으로, 문자열 = 그 화면으로 (status.js·log.js가 등록)
 const TAB_GUARDS = {};
 const lastInGroup = {};

@@ -27,7 +27,8 @@
 | `status.js` | 학교 현황(학생·교직원·이주배경학생) 편집 화면과 HOME의 '우리 학교 현황' |
 | `log.js` | 학교 일지 작성(관리자·교무부장)과 교무부장(일지 작성자) 지정 |
 | `transfer.js` | 학생 전입·전출 등록(관리자·교무부장), 학생 현황 인원 자동 반영, HOME 알림 |
-| `migrant.js` | 한국어 학급 › 이주배경 학생 명부(관리자·한국어학급 담당), 이주배경학생 현황 자동 계산 |
+| `migrant.js` | 이주배경학생 › 이주배경학생 현황(조회): 전체 현황·학급별 명단 보기 |
+| `roster.js` | 학급관리 › 우리 반 학생: 담임이 학생 등록·관리(이주배경 표시 → 이주배경 명단·반별 합계 자동 반영) |
 | `site.js` | 관리자 › 홈페이지 관리: HOME 대표 사진 슬라이드 등록·순서·간격 |
 | `env.js` | 교육과정 편성 › ② 학교사용환경설정: 학급 현황·특별실-전담·검정교과·범교과 주제어·일과시간 (교육과정 문서 `state.env`에 저장) |
 | `pyeonje.js` | 교육과정 편성 › ⑤ 시수 편제: 창체 영역별 편성 여부, 오류점검, 전학년 초기화, 창체 기준시수, 편제 현황표, 편제표·작년 편제표, 작년편제 불러오기 (`state.yearArchive` 학년도별 사본) |
@@ -39,7 +40,7 @@
 | `deploy.ps1`, `배포하기.cmd` | 로컬 폴더의 파일을 이 저장소로 올리는 배포 스크립트 |
 | `클라우드_설정_안내.md` | Firebase·GitHub Pages 설정과 운영 안내 |
 
-스크립트 로드 순서: `data.js → app.js → features.js → cloud-config.js → cloud.js → activities.js → haksa.js → menus.js → schedule.js → kclass.js → home.js → status.js → log.js → transfer.js → migrant.js → site.js → env.js → pyeonje.js → calextra.js` (모두 일반 `<script>`, 전역 함수·상태 공유)
+스크립트 로드 순서: `data.js → app.js → features.js → cloud-config.js → cloud.js → activities.js → haksa.js → menus.js → schedule.js → kclass.js → home.js → status.js → log.js → transfer.js → migrant.js → roster.js → site.js → env.js → pyeonje.js → calextra.js` (모두 일반 `<script>`, 전역 함수·상태 공유)
 
 ## Firestore 데이터 구조
 
@@ -57,6 +58,7 @@
 | `config/stats` | 학생 현황·교직원 현황 `{ asOf, students:{byClass:{"학년-반":{m,f}}, male[], female[]}, staff:{m,f} }` — 관리자·교무부장 수정. 반 수는 학교 정보의 학급 수 |
 | `transfers/{id}` | 전입·전출 `{ date, type:in/out, grade, cls, sex, note, applied }` (학생 이름 없음) — 관리자·교무부장 등록·삭제 |
 | `migrantStudents/{id}` | 이주배경 학생 `{ grade, cls, no, name, country, type:foreign/mid/domestic }` — 개인정보, 관리자·한국어학급 담당만 |
+| `students/{id}` | 우리 반 학생 `{ grade, cls, no, name, sex, mig, country, note }` — 개인정보, 그 반 담임·관리자만 |
 | `heroPhotos/{id}` | HOME 대표 사진 `{ data(JPEG data URL, 1MB 미만), order }` — 관리자만 등록 |
 | `config/site` | `{ interval }` 사진 바뀌는 간격(초) |
 | `config/migrant` | 이주배경학생 현황 `{ asOf, foreign, domestic, midEntry, nonMigrant, countries, note }` — 관리자·한국어학급 담당 수정 |

@@ -199,6 +199,23 @@ service cloud.firestore {
         && d.country is string && d.country.size() <= 30
         && d.type in ['foreign', 'mid', 'domestic'];
     }
+    // 학급관리 › 우리 반 학생 명단(학생 이름 = 개인정보). 그 반 담임과 관리자만
+    function validStudent(d) {
+      return d.keys().hasOnly(['grade', 'cls', 'no', 'name', 'sex', 'mig', 'country', 'note', 'updatedBy', 'updatedAt'])
+        && d.grade is int && d.grade >= 1 && d.grade <= 6 && d.cls is int && d.cls >= 1 && d.cls <= 20
+        && d.no is int && d.no >= 0 && d.no <= 99
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 20
+        && d.sex in ['', 'm', 'f'] && d.mig in ['', 'foreign', 'mid', 'domestic']
+        && d.country is string && d.country.size() <= 30 && d.note is string && d.note.size() <= 60;
+    }
+    match /students/{id} {
+      allow read, delete: if isAdmin() || isHomeroomOf(resource.data.grade, resource.data.cls);
+      allow create: if validStudent(request.resource.data)
+        && (isAdmin() || isHomeroomOf(request.resource.data.grade, request.resource.data.cls));
+      allow update: if validStudent(request.resource.data)
+        && (isAdmin() || (isHomeroomOf(resource.data.grade, resource.data.cls)
+          && request.resource.data.grade == resource.data.grade && request.resource.data.cls == resource.data.cls));
+    }
     // 이주배경학생 명단(학생 이름 = 개인정보). 그 반 담임, 관리자, 한국어학급 담당만
     match /migrantStudents/{id} {
       allow read, delete: if isAdmin() || isHomeroomOf(resource.data.grade, resource.data.cls) || isKclassStaff();
