@@ -1939,3 +1939,9 @@ th.kc-col { color: #5b21b6; }
 .cv-preview { margin-top: 14px; border-radius: 12px; background: #fdf3f2; border: 1px solid #f3d3cf; padding: 10px 14px; }
 .cv-preview span { font-size: 12px; color: #c0392b; font-family: var(--f6); }
 .cv-preview pre { margin: 4px 0 0; font: inherit; font-size: 14px; white-space: pre-wrap; color: #2a3247; }
+
+.school-address-copy-row { display: flex; align-items: stretch; gap: 8px; }
+.school-address-copy-row input { flex: 1; min-width: 0; }
+.school-address-copy-row .btn { flex: none; min-width: 56px; }
+.school-address-copy-status { margin: 6px 0 0; }
+.school-address-copy-status:empty { display: none; }
