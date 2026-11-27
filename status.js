@@ -205,7 +205,7 @@
     const s = stats || blank(), st = s.students || blank().students;
     const legacy = !st.byClass && G6.some(i => num(st.male?.[i]) + num(st.female?.[i]));
     box.innerHTML = `<label class="st-asof">기준 시점 <input id="stAsOf" maxlength="30" placeholder="예: 2026. 3월" value="${esc(s.asOf || '')}"></label>
-      <p class="hint">반 수는 <a href="#school">교육과정 편성 › ① 학교 정보</a>의 학급 수를 따릅니다. 전입·전출을 ④에 등록하면 인원이 자동으로 바뀝니다.</p>
+      <p class="hint">반 수는 <a href="#school">학교 정보 › 기본 정보</a>의 학급 수를 따릅니다. 전입·전출을 ④에 등록하면 인원이 자동으로 바뀝니다.</p>
       ${legacy ? '<p class="hint">지금은 학년 합계만 저장되어 있습니다. 반별 남·여 인원을 입력하면 반별로 보여 줍니다.</p>' : ''}
       <div class="tbl-scroll"><table class="tbl st-edit2"><thead><tr><th>학년</th><th>반별 인원 (남 · 여)</th><th>학년 계</th></tr></thead><tbody>
       ${G6.map(i => { const n = classCnt(i), gs = gradeSum(st, i); return `<tr><th scope="row">${i + 1}학년 <small class="hint">${n}학급</small></th>

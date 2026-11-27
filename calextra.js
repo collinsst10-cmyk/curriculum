@@ -206,6 +206,22 @@
     box.innerHTML = board();
   }
 
+  function renderKeyDates() {
+    const s = semFull(calSem());
+    const date = ds => ds ? md(ds) : '미정';
+    const range = ([start, end]) => start && end ? date(start) + ' ~ ' + date(end) : '미정';
+    const rows = [
+      ['1학기 시작', date(s.s1Start)],
+      ['입학일', date(s.entrance)],
+      ['여름방학', range(s.summer)],
+      ['2학기 시작', date(s.s2Start)],
+      ['겨울방학', range(s.winter)],
+      ['졸업일', date(s.graduation)],
+      ['종업일', date(s.s2End)],
+    ];
+    $('calKeyDates').innerHTML = rows.map(([label, value]) => `<div><dt>${label}</dt><dd>${value}</dd></div>`).join('');
+  }
+
   /* ---------- 이벤트 ---------- */
   document.addEventListener('click', async e => {
     if (curTab !== 'cal') return;
@@ -246,6 +262,6 @@
 
   // 학사일정 편성 화면을 그릴 때마다 표시·현황판도 함께
   const base = renderCal;
-  renderCal = function () { base(); decorate(); renderBoard(); };
+  renderCal = function () { base(); decorate(); renderKeyDates(); renderBoard(); };
   RENDER.cal = renderCal;
 })();

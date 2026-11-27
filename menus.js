@@ -18,6 +18,14 @@
   RENDER.review = renderTable;
   RENDER.hview = renderHview;
   RENDER.school = renderInfo;
+  RENDER.purchase = () => {};
+  RENDER.schoolstructure = () => {
+    $('schoolStructure').innerHTML = GRADES.map(grade => {
+      const count = Number(state.school.classes[grade]) || 0;
+      const classes = Array.from({ length: count }, (_, i) => `<span>${i + 1}반</span>`).join('');
+      return `<section><h3>${grade}학년 <small>${count}학급</small></h3><div>${classes || '편성 학급 없음'}</div></section>`;
+    }).join('');
+  };
   RENDER.event = renderEvent;
 
   /* =========================================================

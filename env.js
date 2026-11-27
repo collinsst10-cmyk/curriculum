@@ -80,7 +80,7 @@
     const jd = (g, c) => { const list = jundamOf(g, c);
       return list.length ? list.map(x => `<span class="env-jd" title="${esc(x.teacher ? x.subj + ' · ' + x.teacher : x.subj)}">${esc(x.subj)}${x.teacher ? `<small>${esc(x.teacher)}</small>` : ''}</span>`).join('') : '<span class="hint">-</span>'; };
     return `<div class="env-head"><h2>학급 현황 설정</h2><span class="hint">일반 학급 ${total}개 · 한국어학급 ${kc}개 · 특수학급 ${e.special.length}개</span></div>
-      <p class="hint">학급(반)과 한국어학급은 ① 학교 정보에 입력한 수에 맞춰 자동으로 나옵니다. 수를 바꾸려면 학교 정보에서 고치세요. 여기서는 담임 이름을 적고, 전담 교과는 특별실-전담 배정에서 정한 내용이 함께 보입니다.</p>
+      <p class="hint">학급 수는 <a href="#school">학교 정보 › 기본 정보</a>에서 정합니다. 여기서는 담임 이름을 적고 특별실·전담 배정에서 정한 교과를 확인합니다.</p>
       <div class="env-grades">${GRADES.map(g => { const n = Number(state.school.classes[g]) || 0; return `<section class="env-grade">
         <div class="env-grade-h"><b>${g}학년</b><span class="hint">${n}학급</span></div>
         <table class="tbl env-tbl"><thead><tr><th>학급</th><th>담임</th><th>전담</th></tr></thead><tbody>
@@ -91,7 +91,7 @@
       <section class="env-sub"><div class="env-sub-h"><h3>한국어학급</h3><span class="hint">${kc}학급 · 학교 정보의 한국어학급 수</span></div>
         <table class="tbl env-tbl env-kc"><thead><tr><th>학급</th><th>담임</th></tr></thead><tbody>
         ${Array.from({ length: kc }, (_, i) => { const k = `k-${i + 1}`, ci = e.classInfo[k] || {}; return `<tr><th class="env-cls-name">한국어학급 ${i + 1}</th>
-          <td><input data-ci="${k}" data-f="teacher" maxlength="20" placeholder="담임 이름" value="${esc(ci.teacher || '')}"></td></tr>`; }).join('') || '<tr><td colspan="2" class="hint">① 학교 정보에서 한국어학급 수를 입력하세요</td></tr>'}
+          <td><input data-ci="${k}" data-f="teacher" maxlength="20" placeholder="담임 이름" value="${esc(ci.teacher || '')}"></td></tr>`; }).join('') || '<tr><td colspan="2" class="hint"><a href="#school">학교 정보 › 기본 정보</a>에서 한국어학급 수를 입력하세요.</td></tr>'}
         </tbody></table></section>
       <section class="env-sub"><div class="env-sub-h"><h3>특수학급</h3><button type="button" class="btn small" data-add="special">+ 특수학급 추가</button></div>
         <table class="tbl env-tbl"><thead><tr><th>학급 이름</th><th>담임</th><th>학생 수</th><th></th></tr></thead><tbody>

@@ -281,7 +281,7 @@
     document.querySelectorAll('#kcSwitch [data-kc]').forEach(b => { b.hidden = Number(b.dataset.kc) > n; });
     if (!n) {
       document.querySelectorAll('[data-kc-panel]').forEach(p => { p.hidden = true; });
-      $('kcSwitch').insertAdjacentHTML('beforeend', $('kcNone') ? '' : '<span id="kcNone" class="hint">교육과정 편성 › ① 학교 정보에서 한국어학급 수를 입력하세요.</span>');
+      $('kcSwitch').insertAdjacentHTML('beforeend', $('kcNone') ? '' : '<span id="kcNone" class="hint"><a href="#school">학교 정보 › 기본 정보</a>에서 한국어학급 수를 입력하세요.</span>');
       return;
     }
     $('kcNone')?.remove();

@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=202611270957">
+<link rel="stylesheet" href="style.css?v=202611271131">
 </head>
 <body>
 <header class="topbar">
@@ -16,7 +16,8 @@
   </a>
   <nav class="mainnav" id="mainNav">
     <button data-go="home">HOME</button>
-    <button data-go="curr">교육과정 편성</button>
+    <button data-go="curr" class="admin-only">교육과정 편성</button>
+    <button data-go="schoolinfo">학교 정보</button>
     <button data-go="haksa">학사일정</button>
     <button data-go="cls">학급관리</button>
     <button data-go="tt" class="admin-only">시간표 편성</button>
@@ -44,13 +45,15 @@
   <button data-tab="hview" data-group="haksa">학사일정</button>
   <button data-tab="act" data-group="haksa">신규 학사일정 등록</button>
   <button data-tab="ksl" data-group="haksa">한국어학급 연계</button>
-  <button data-tab="school" data-group="curr">① 학교 정보</button>
-  <button data-tab="env" data-group="curr" class="admin-tab">② 학교사용환경설정</button>
-  <button data-tab="cal" data-group="curr" class="admin-tab">③ 학사일정 편성</button>
-  <button data-tab="event" data-group="curr" class="admin-tab">④ 교내행사</button>
-  <button data-tab="hours" data-group="curr" class="admin-tab">⑤ 시수 편제</button>
-  <button data-tab="schedule" data-group="curr" class="admin-tab">⑥ 시간표 배치</button>
-  <button data-tab="review" data-group="curr" class="admin-tab">⑦ 검토·확정</button>
+  <button data-tab="purchase" data-group="schoolinfo">물품 구입</button>
+  <button data-tab="schoolstructure" data-group="schoolinfo">학교 구조</button>
+  <button data-tab="school" data-group="schoolinfo">기본 정보</button>
+  <button data-tab="env" data-group="curr" class="admin-tab">학교사용환경설정</button>
+  <button data-tab="cal" data-group="curr" class="admin-tab">학사일정 편성</button>
+  <button data-tab="event" data-group="curr" class="admin-tab">교내행사</button>
+  <button data-tab="hours" data-group="curr" class="admin-tab">시수 편제</button>
+  <button data-tab="schedule" data-group="curr" class="admin-tab">시간표 배치</button>
+  <button data-tab="review" data-group="curr" class="admin-tab">검토·확정</button>
   <button data-tab="tt" data-group="tt">① 기초 시간표</button>
   <button data-tab="run" data-group="tt">② 시수 운영 확인</button>
   <button data-tab="jd" data-group="tt">③ 교과전담</button>
@@ -409,6 +412,26 @@
 
   <!-- 관리자 -->
   <section id="tab-admin" class="tab">
+    <section class="card school-card" id="shoppingAccounts" hidden>
+      <h2>물품 구입 계정</h2>
+      <p class="hint">운영자·개발자 전용입니다. 계정 정보는 입력한 브라우저에 암호화해 보관합니다.</p>
+      <form id="shoppingAccountForm" autocomplete="off">
+        <div class="form school-form">
+          <label>쇼핑몰 <select id="shoppingProvider"><option value="coupang">쿠팡</option><option value="iscreammall">아이스크림몰</option></select></label>
+          <label>학교 아이디 <input id="shoppingId" type="text" maxlength="200" spellcheck="false"></label>
+          <label>학교 비밀번호 <input id="shoppingPassword" type="password" maxlength="300" autocomplete="new-password"></label>
+        </div>
+        <label>보관함 잠금 암호 <input id="shoppingLock" type="password" required minlength="12" maxlength="200" autocomplete="new-password"></label>
+        <p class="hint">쇼핑몰 비밀번호와 다른 잠금 암호를 12자 이상으로 정하세요. 저장한 계정을 열 때 같은 암호를 입력합니다.</p>
+        <div class="row">
+          <button type="submit" class="btn primary">암호화해 저장</button>
+          <button type="button" class="btn" id="shoppingUnlock">저장한 계정 열기</button>
+          <button type="button" class="btn small" id="shoppingReveal" aria-pressed="false">비밀번호 보기</button>
+          <button type="button" class="btn small" id="shoppingClear">입력란 잠그기</button>
+        </div>
+        <p id="shoppingStatus" class="hint" role="status"></p>
+      </form>
+    </section>
     <div id="adminBody"></div>
   </section>
 
@@ -427,10 +450,32 @@
     <div id="hvGrid" class="cal-grid hv-full compact-calendar"></div>
   </section>
 
-  <!-- 교육과정 편성 ① 학교 정보 (관리자) -->
+  <section id="tab-purchase" class="tab">
+    <div class="card school-card">
+      <h2>물품 구입</h2>
+      <p class="hint">쇼핑몰은 새 탭에서 열립니다. 학교 계정은 각 쇼핑몰에서 로그인하세요.</p>
+      <div class="school-purchase-links">
+        <a href="https://www.coupang.com/" target="_blank" rel="noopener noreferrer">
+          <strong>쿠팡</strong><span>사무용품·생활용품</span>
+        </a>
+        <a href="https://i-screammall.co.kr/" target="_blank" rel="noopener noreferrer">
+          <strong>아이스크림몰</strong><span>수업 교구·학급 운영 물품</span>
+        </a>
+      </div>
+    </div>
+  </section>
+  <section id="tab-schoolstructure" class="tab">
+    <div class="card school-card"><h2>학년별 학급 편성</h2><div id="schoolStructure" class="school-structure"></div></div>
+  </section>
+
+  <!-- 학교 정보 · 기본 정보 -->
   <section id="tab-school" class="tab">
     <div class="card school-card">
-      <h2>학교 정보 <span id="schoolRo" class="pill" hidden>조회 전용 · 운영자·개발자만 수정</span></h2>
+      <h2>기본 정보 <span id="schoolRo" class="pill" hidden>조회 전용 · 운영자·개발자만 수정</span></h2>
+      <div class="row" id="schoolUnlockRow" hidden>
+        <button type="button" class="btn primary small" id="schoolUnlock">Google 계정 확인 후 수정</button>
+        <span class="hint" id="schoolUnlockStatus" role="status">운영자는 수정 전에 Google 계정을 다시 확인합니다.</span>
+      </div>
       <div class="form school-form">
         <label>학교명 <input id="inSchool" type="text" placeholder="예: ○○초등학교"></label>
         <label>NEIS 학교코드 <input id="inNeis" type="text" inputmode="numeric" maxlength="10" placeholder="예: 7380xxx (7자리)"></label>
@@ -479,8 +524,14 @@
         <div id="calGrid" class="cal-grid compact-calendar"></div>
       </section>
       <aside class="cal-side">
-        <div class="card sticky" id="calEditor">
-          <h2>선택한 날짜 편집</h2>
+        <div class="card sticky calendar-side-panel">
+          <h2>학사일정 현황</h2>
+          <div id="calSummary" class="mini-summary"></div>
+          <dl id="calKeyDates" class="calendar-key-dates"></dl>
+          <button type="button" id="btnCalendarOverview" class="btn small">전체 현황 보기</button>
+          <div id="holidayWarn"></div>
+          <details id="calEditor">
+          <summary>재량휴업일·날짜 설정</summary>
           <div id="edSel" class="date-pick"></div>
           <div class="fld"><span class="fld-l">구분</span>
             <div class="seg" id="edKind">
@@ -496,14 +547,13 @@
             </div>
           </div>
           <button id="btnApply" class="btn primary" style="width:100%">적용</button>
-          <div id="calSummary" class="mini-summary"></div>
-          <div id="holidayWarn"></div>
           <ul id="calSelectedDetails" class="calendar-selection-details" hidden></ul>
+          </details>
         </div>
       </aside>
     </div>
 
-    <h2 class="sec-title">학사일정 현황</h2>
+    <h2 class="sec-title" id="calendarOverview">학사일정 현황</h2>
     <div class="card hb" id="hbBoard"></div>
     <h2 class="sec-title">수업일수</h2>
     <div id="daysKpi" class="kpis"></div>
@@ -580,7 +630,7 @@
           <button id="btnTtClear" class="btn small danger admin-only">비우기</button>
         </div>
       </div>
-      <p class="hint">칸을 클릭해 과목을 고르세요. 요일별 교시 수는 교육과정 편성 › ③ 시수 배정에서 정합니다. 학년 공통 시간표로 계산합니다.</p>
+      <p class="hint">칸을 클릭해 과목을 고르세요. 요일별 교시 수는 교육과정 편성 › 시수 편제에서 정합니다. 학년 공통 시간표로 계산합니다.</p>
       <div class="tt-layout">
         <div class="tbl-scroll"><table class="tbl tt" id="tblTt"></table></div>
         <div><table class="tbl compact" id="tblTtCount"></table></div>
@@ -761,27 +811,28 @@
   <div id="cloudBody"></div>
 </dialog>
 
-<script src="data.js?v=202611270957"></script>
-<script src="app.js?v=202611270957"></script>
-<script src="features.js?v=202611270957"></script>
-<script src="cloud-config.js?v=202611270957"></script>
-<script src="cloud.js?v=202611270957"></script>
-<script src="activities.js?v=202611270957"></script>
-<script src="haksa.js?v=202611270957"></script>
-<script src="menus.js?v=202611270957"></script>
-<script src="schedule.js?v=202611270957"></script>
-<script src="kclass.js?v=202611270957"></script>
-<script src="home.js?v=202611270957"></script>
-<script src="status.js?v=202611270957"></script>
-<script src="log.js?v=202611270957"></script>
-<script src="transfer.js?v=202611270957"></script>
-<script src="migrant.js?v=202611270957"></script>
-<script src="roster.js?v=202611270957"></script>
-<script src="site.js?v=202611270957"></script>
-<script src="env.js?v=202611270957"></script>
-<script src="pyeonje.js?v=202611270957"></script>
-<script src="pyeonje-grade.js?v=202611270957"></script>
-<script src="calextra.js?v=202611270957"></script>
-<script src="savebar.js?v=202611270957"></script>
+<script src="data.js?v=202611271131"></script>
+<script src="app.js?v=202611271131"></script>
+<script src="features.js?v=202611271131"></script>
+<script src="cloud-config.js?v=202611271131"></script>
+<script src="cloud.js?v=202611271131"></script>
+<script src="shopping-accounts.js?v=202611271131"></script>
+<script src="activities.js?v=202611271131"></script>
+<script src="haksa.js?v=202611271131"></script>
+<script src="menus.js?v=202611271131"></script>
+<script src="schedule.js?v=202611271131"></script>
+<script src="kclass.js?v=202611271131"></script>
+<script src="home.js?v=202611271131"></script>
+<script src="status.js?v=202611271131"></script>
+<script src="log.js?v=202611271131"></script>
+<script src="transfer.js?v=202611271131"></script>
+<script src="migrant.js?v=202611271131"></script>
+<script src="roster.js?v=202611271131"></script>
+<script src="site.js?v=202611271131"></script>
+<script src="env.js?v=202611271131"></script>
+<script src="pyeonje.js?v=202611271131"></script>
+<script src="pyeonje-grade.js?v=202611271131"></script>
+<script src="calextra.js?v=202611271131"></script>
+<script src="savebar.js?v=202611271131"></script>
 </body>
 </html>

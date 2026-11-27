@@ -487,6 +487,7 @@ function renderInfo() {
     <tr>${GRADES.map(g => `<td><input data-cls="${g}" inputmode="numeric" value="${state.school.classes[g]}"></td>`).join('')}
     <td class="num"><b>${GRADES.reduce((t, g) => t + (Number(state.school.classes[g]) || 0), 0)}</b></td>
     <td class="kc-col"><input data-kcls="1" inputmode="numeric" value="${kc}" title="한국어학급 수 (0~3)"></td></tr>`;
+  updateSchoolEditControls();
 
   const st = dayStats();
   $('tblPeriods').innerHTML = `<tr><th>학년</th>${['월', '화', '수', '목', '금'].map(d => `<th>${d}</th>`).join('')}<th>주당 교시</th><th>1학기 가능 시수</th><th>2학기 가능 시수</th><th>연간 가능 시수</th><th>연간 배정 시수</th></tr>` +
@@ -497,6 +498,13 @@ function renderInfo() {
         <td class="num">${p.reduce((t, v) => t + (Number(v) || 0), 0)}</td><td class="num">${c1}</td><td class="num">${c2}</td>
         <td class="num"><b>${c1 + c2}</b></td><td class="num ${asg > c1 + c2 ? 'neg' : ''}">${asg}</td></tr>`;
     }).join('');
+}
+
+const canEditSchool = () => !isTeacherView() && (window.App.canEditSchool?.() ?? !window.FIREBASE_CONFIG);
+function updateSchoolEditControls() {
+  const editable = canEditSchool();
+  $('schoolUnlockRow').hidden = editable || !window.Cloud?.isAdmin();
+  $('tab-school').querySelectorAll('input, select').forEach(input => { input.disabled = !editable; });
 }
 
 /* =========================================================
@@ -871,7 +879,7 @@ function exportCal() {
  * 이벤트
  * ========================================================= */
 const RENDER = { home: renderHome, data: () => {}, admin: () => {}, info: renderInfo, cal: renderCal, days: renderDays, hours: renderHours, table: renderTable };
-const GROUP_FIRST = { home: 'home', haksa: 'hview', curr: 'school', tt: 'tt', act: 'act', kclass: 'kmig', cls: 'roster', stats: 'stats1', log: 'log', data: 'data', admin: 'admin' };
+const GROUP_FIRST = { home: 'home', haksa: 'hview', schoolinfo: 'school', curr: 'cal', tt: 'tt', act: 'act', kclass: 'kmig', cls: 'roster', stats: 'stats1', log: 'log', data: 'data', admin: 'admin' };
 // 화면별 접근 확인: false = HOME으로, 문자열 = 그 화면으로 (status.js·log.js가 등록)
 const TAB_GUARDS = {};
 const lastInGroup = {};
@@ -884,11 +892,9 @@ function showTab(t) {
   if (!RENDER[t] || !$('tab-' + t)) t = 'home';
   if (t !== 'home' && window.App.locked && window.App.locked()) { window.App.pendingTab = t; t = 'home'; }
   if (t === 'admin' && !(window.App.isAdmin && window.App.isAdmin())) t = 'home';
-  // 선생님은 학사일정 보기·교육활동 일정만
-  // 선생님: 교육과정 편성은 ① 학교 정보(조회)만, 시간표 편성·자료 관리·관리자는 못 들어감
-  if (isTeacherView() && ['tt', 'data', 'admin'].includes(groupOf(t))) t = 'home';
-  if (isTeacherView() && groupOf(t) === 'curr' && t !== 'school') t = 'school';
+  if (isTeacherView() && ['curr', 'tt', 'data', 'admin'].includes(groupOf(t))) t = 'home';
   if (TAB_GUARDS[t]) { const ok = TAB_GUARDS[t](); if (ok === false) t = 'home'; else if (typeof ok === 'string') t = ok; }
+  if (curTab !== t) window.ShoppingAccounts?.lock();
   curTab = t;
   const g = groupOf(t);
   lastInGroup[g] = t;
@@ -901,7 +907,9 @@ function showTab(t) {
   document.querySelectorAll('.tab').forEach(s => s.classList.toggle('active', s.id === 'tab-' + t));
   if (location.hash.slice(1) !== t) history.pushState(null, '', '#' + t);
   RENDER[t]();
+  window.ShoppingAccounts?.refresh();
   applyRoleView();
+  if (t === 'school') updateSchoolEditControls();
   window.scrollTo(0, 0);
 }
 function goGroup(g) { showTab(lastInGroup[g] || GROUP_FIRST[g] || 'home'); }
@@ -1074,9 +1082,20 @@ function bind() {
   window.addEventListener('hashchange', () => { if (location.hash.slice(1) !== curTab) showTab(location.hash.slice(1) || 'home'); });
 
   // ① 기본 정보
-  $('inSchool').addEventListener('input', e => { state.school.name = e.target.value; save(); });
-  $('inNeis').addEventListener('input', e => { state.school.neis = e.target.value.replace(/[^0-9A-Za-z]/g, '').slice(0, 10); save(); });
+  $('schoolUnlock').addEventListener('click', async () => {
+    const button = $('schoolUnlock');
+    button.disabled = true;
+    try {
+      await App.unlockSchool();
+      if (curTab === 'school') { updateSchoolEditControls(); $('inSchool').focus(); }
+    } catch {
+      $('schoolUnlockStatus').textContent = '계정 확인을 완료하지 못했습니다. 같은 Google 계정으로 다시 시도해 주세요.';
+    } finally { button.disabled = false; }
+  });
+  $('inSchool').addEventListener('input', e => { if (canEditSchool()) { state.school.name = e.target.value; save(); } });
+  $('inNeis').addEventListener('input', e => { if (canEditSchool()) { state.school.neis = e.target.value.replace(/[^0-9A-Za-z]/g, '').slice(0, 10); save(); } });
   $('inYear').addEventListener('change', e => {
+    if (!canEditSchool()) return;
     const y = Number(e.target.value);
     if (!haksaShared() && Object.keys(state.days).length && !confirm('학년도를 바꾸면 학기 기간이 기본값으로 바뀝니다. 입력한 일정은 유지됩니다(날짜가 달라 표시되지 않을 수 있음). 계속할까요?')) { e.target.value = state.school.year; return; }
     state.school.year = y; state.sem = defaultSemesters(y); _yearCache = null; save(); renderInfo();
@@ -1112,6 +1131,7 @@ function bind() {
   // 학급 수(학사일정 화면) · 요일별 교시 수(시수 배정 화면)
   document.querySelector('main').addEventListener('input', e => {
     const t = e.target;
+    if ((t.dataset.cls || t.dataset.kcls) && !canEditSchool()) return;
     if (t.dataset.cls) { state.school.classes[t.dataset.cls] = toNum(t.value); }
     else if (t.dataset.kcls) { state.school.kclass = Math.max(0, Math.min(3, toNum(t.value))); }
     else if (t.dataset.per) { state.school.periods[t.dataset.per][t.dataset.i] = Math.min(8, toNum(t.value)); }
@@ -1135,7 +1155,7 @@ function bind() {
   document.addEventListener('click', e => {
     if (curTab !== 'cal' || !calPick.size) return;
     if (e.target.closest('#calGrid .day[data-ds]')) return;
-    if (e.target.closest('#calEditor input, #calEditor label, #calEditor button')) return;
+    if (e.target.closest('#calEditor')) return;
     calPick.clear();
     calLastPick = null;
     $('calGrid').querySelectorAll('.day.sel').forEach(day => {
@@ -1145,6 +1165,7 @@ function bind() {
     renderCalSide();
   }, true);
   $('edSel').addEventListener('click', e => { if (e.target.id === 'edClearPick') { calPick.clear(); calLastPick = null; renderCal(); } });
+  $('btnCalendarOverview').addEventListener('click', () => $('calendarOverview').scrollIntoView());
   ['edKind', 'edEtc'].forEach(id => $(id).addEventListener('change', renderCalSide));
   $('btnApply').addEventListener('click', applyRange);
   document.addEventListener('click', e => {

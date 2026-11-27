@@ -24,6 +24,8 @@
   let profileName = '';     // 가입 때 등록한 이름
   let position = {};       // 직위 { posType:'homeroom'|'subject'|'', posCls:'1-2', posSubj:'영어', head:'교무부장'|'연구부장'|'' } (allowed 문서)
   let developer = false;   // 개발자(관리자 중 config/roles.developers 에 든 계정)
+  let schoolEditUntil = 0;
+  let schoolEditTimer;
   let cur = null;           // { id, meta, unsub }
   let pushTimer = null, lastPushed = null;
 
@@ -50,6 +52,7 @@
     setPreview(!(r === 'dev' || r === 'operator'));
   }
   function setPreview(on) {
+    lockSchool();
     preview = !!on;
     sessionStorage.setItem('viewAsTeacher', preview ? '1' : '0');
     refreshUi();
@@ -84,6 +87,8 @@
     /** 로그인·승인 전이면 메뉴 잠금 (연결 실패 시에는 이 PC 모드로 허용) */
     locked: () => REQUIRE && !fbFailed && access !== 'approved',
     isAdmin: effAdmin,
+    canEditSchool: () => !window.FIREBASE_CONFIG || (effAdmin() && ((developer && viewRole !== 'operator') || Date.now() < schoolEditUntil)),
+    unlockSchool,
     /** 'admin' 편성·편집 / 'teacher' 조회 전용 / 'none' 로그인·승인 전. 클라우드를 안 쓰면 이 PC 도구로 'admin' */
     role: () => (!window.FIREBASE_CONFIG || fbFailed) ? 'admin' : (user && access === 'approved') ? (effAdmin() ? 'admin' : 'teacher') : 'none',
     renderGate,
@@ -165,6 +170,7 @@
   }
 
   async function onAuth(u) {
+    lockSchool();
     user = u; admin = false;
     if (!u) { closePlan(); access = 'signedout'; setStatus('☁ 로그인 필요'); refreshUi(); return; }
     await checkAccess();
@@ -310,6 +316,24 @@
       else if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') alert('로그인 실패: ' + (e.code === 'auth/unauthorized-domain' ? '이 주소가 Firebase 승인 도메인에 등록되지 않았습니다.' : e.message));
     }
   }
+  function lockSchool() {
+    clearTimeout(schoolEditTimer);
+    schoolEditUntil = 0;
+  }
+
+  async function unlockSchool() {
+    if (!fb || !effAdmin() || !user) throw new Error('운영자 계정으로 로그인해 주세요.');
+    const currentUser = user;
+    const provider = new fb.A.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'login', max_age: '0', login_hint: currentUser.email });
+    await fb.A.reauthenticateWithPopup(currentUser, provider);
+    const token = await currentUser.getIdTokenResult(true);
+    if (user?.uid !== currentUser.uid || !effAdmin()) throw new Error('로그인 상태가 바뀌었습니다.');
+    schoolEditUntil = Date.parse(token.authTime) + 10 * 60 * 1000;
+    if (!(schoolEditUntil > Date.now())) { lockSchool(); throw new Error('최근 계정 확인을 완료하지 못했습니다.'); }
+    clearTimeout(schoolEditTimer);
+    schoolEditTimer = setTimeout(() => { lockSchool(); if (curTab === 'school') renderInfo(); }, schoolEditUntil - Date.now());
+  }
   async function logout() {
     closePlan(); localStorage.removeItem(LAST_PLAN_KEY);
     await fb.A.signOut(fb.auth);
@@ -436,7 +460,7 @@
         <button class="btn small primary" data-a="myname">저장</button>
         <span class="hint">관리자 계정의 사이트 표시 이름(일정 기록자 등)입니다.</span></div>
         <div class="row adm-dev"><span>이 계정의 구분: <b class="who-tag ${developer ? 'dev' : 'op'}">${developer ? '개발자' : '운영자'}</b></span>
-          <button class="btn small" data-a="dev">${developer ? '운영자로 바꾸기' : '개발자로 지정'}</button>
+          ${developer ? '<button class="btn small" data-a="dev">운영자로 바꾸기</button>' : ''}
           <span class="hint">운영자는 사이트 전체를 관리합니다. 개발자는 운영자 권한에 더해, 오른쪽 위 '권한 보기'로 모든 직위의 화면을 골라 볼 수 있습니다.</span></div></div>
       <div class="card"><h2>등록 신청 (승인 대기)</h2><div id="admReq" class="hint">불러오는 중…</div></div>
       <div class="card"><div class="card-head"><h2>허용된 사용자</h2></div>
@@ -506,6 +530,8 @@
           await F.setDoc(D('allowed', email), { name: v, ...pos }, { merge: true });
           if (email === myEmail()) { profileName = v; position = pos; refreshUi(); }
         } else if (b.dataset.a === 'dev') {
+          if (!developer) return;
+          lockSchool();
           const on = !developer;
           await F.setDoc(D('config', 'roles'), { developers: on ? F.arrayUnion(myEmail()) : F.arrayRemove(myEmail()) }, { merge: true });
           developer = on;

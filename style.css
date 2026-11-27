@@ -591,6 +591,29 @@ body { font-family: var(--f4); }
 .calendar-selection-details { margin: 12px 0 0; padding: 10px 0 0; border-top: 1px solid var(--line); list-style: none; }
 .calendar-selection-details li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; padding-block: 5px; }
 .calendar-selection-details span { overflow-wrap: anywhere; }
+.calendar-side-panel h2 { margin: 0 0 8px; }
+.calendar-side-panel .mini-summary { margin: 0 0 12px; }
+.calendar-key-dates { margin: 0 0 12px; font-size: 13px; }
+.calendar-key-dates div { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--line); }
+.calendar-key-dates dt { color: var(--muted); }
+.calendar-key-dates dd { margin: 0; text-align: right; font-family: var(--f6); font-variant-numeric: tabular-nums; }
+.calendar-side-panel details { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.calendar-side-panel summary { cursor: pointer; color: var(--nv); font-size: 14px; }
+.calendar-side-panel .date-pick { margin-top: 8px; }
+#calendarOverview { scroll-margin-top: calc(var(--hdr, 66px) + 70px); }
+.school-structure { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 12px; }
+.school-structure section { border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+.school-structure h3 { margin: 0 0 8px; }
+.school-structure small { color: var(--muted); font-weight: normal; }
+.school-structure section div { display: flex; gap: 6px; flex-wrap: wrap; }
+.school-structure section span { padding: 3px 8px; border-radius: 6px; background: var(--nv-pale); color: var(--nv); }
+.school-purchase-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 12px; margin-top: 16px; }
+.school-purchase-links a { display: grid; gap: 5px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; color: var(--nv); background: var(--nv-pale); text-decoration: none; }
+.school-purchase-links strong { font-size: 17px; }
+.school-purchase-links span { color: var(--muted); font-size: 13px; }
+.school-purchase-links a:hover strong, .school-purchase-links a:focus-visible strong { text-decoration: underline; }
+#schoolUnlockRow { margin-bottom: 14px; }
+#schoolUnlockRow[hidden] { display: none; }
 @container (max-width: 580px) { #calGrid.compact-calendar { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @container (max-width: 370px) { #calGrid.compact-calendar { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 840px) {
