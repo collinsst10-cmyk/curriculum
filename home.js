@@ -50,7 +50,9 @@
     if (!$('logView')) return;
     $('logDate').value = logDate;
     $('logDay').dateTime = logDate;
-    $('logDay').textContent = longDate(logDate);
+    const date = parse(logDate);
+    $('logDay').innerHTML = date.getFullYear() + '. ' + (date.getMonth() + 1) + '. ' +
+      date.getDate() + '. <span>' + WD[date.getDay()] + '요일</span>';
     const download = $('logHwp');
     download.disabled = true;
     if (!window.Cloud || !Cloud.ready) {
@@ -59,7 +61,7 @@
       return;
     }
     watch();
-    const has = c => c && (['text', 'notice', 'events', 'guidance', 'cover', 'preview', 'lecture']
+    const has = c => c && (['text', 'notice', 'events', 'guidance', 'cover', 'preview']
       .some(key => String(c[key] || '').trim()) || c.covers?.length ||
       Object.values(c.duty || {}).some(d => d && ['today', 'plan', 'status', 'from', 'to', 'note'].some(key => d[key])));
     if (current === undefined) $('logView').innerHTML = '<p class="hint">불러오는 중…</p>';
@@ -75,24 +77,37 @@
     ? `<div class="hl-copy">${esc(value)}</div>`
     : '<p class="hl-none">등록된 내용이 없습니다.</p>';
 
-  // 날짜나 교시로 시작하는 줄만 분리합니다. 기존 문구와 줄바꿈은 보존합니다.
+  // 예전 통합 텍스트에는 제목이 포함될 수 있습니다. 그중 외부강의 섹션만 건너뜁니다.
+  const visibleLegacy = value => (value || '').replace(/^\s*\[외부강의 확인\][ \t]*\r?\n[\s\S]*?(?=^\[[^\]\r\n]+\][ \t]*\r?$|(?![\s\S]))/gm, '');
+
+  // 명시된 날짜·교시와 부가 설명만 구분하고 나머지 문구는 그대로 표시합니다.
   function logLines(value, mode) {
     if (!(value || '').trim()) return freeText(value);
     const datePrefix = /^([ \t]*(?:\d{4}[.\/-]\s*)?\d{1,2}[.\/-]\s*\d{1,2}\.?(?:\s*\([월화수목금토일]\))?)(?=[ \t:：-]|$)/;
     const periodPrefix = /^([ \t]*(?:\d{1,2}(?:\s*[-~·]\s*\d{1,2})*교시|\d{1,2}:\d{2})(?:[ \t]+\d{1,2}:\d{2})?)(?=[ \t:：-]|$)/;
-    return `<div class="hl-copy hl-lines">${value.split('\n').map(line => {
-      if (!line.trim()) return '<div class="hl-line-space"></div>';
-      const time = (line.match(datePrefix) || (mode === 'events' ? line.match(periodPrefix) : null))?.[0];
-      if (!time) {
-        const heading = mode === 'guidance' && /^\s*\[[^\]]+\]\s*$/.test(line);
-        return `<div class="${heading ? 'hl-copy-heading' : 'hl-line'}">${esc(line)}</div>`;
-      }
-      return `<div class="hl-timed"><b>${esc(time)}</b><span>${esc(line.slice(time.length))}</span></div>`;
-    }).join('')}</div>`;
+    const lines = value.split(/\r?\n/);
+    const section = mode === 'guidance';
+    const heading = /^\s*(?:\[[^\]]+\]|(?:중점 생활지도|생활지도|안전지도)\s*[:：]?)\s*$/;
+    const items = [];
+    for (const source of lines) {
+      const bullet = /^\s*\*+[ \t]*/.test(source);
+      const entry = source.replace(/^\s*\*+[ \t]*/, '');
+      if (!entry.trim()) { if (items.length) items.at(-1).break = true; continue; }
+      const time = (entry.match(datePrefix) || (mode === 'events' ? entry.match(periodPrefix) : null))?.[0];
+      const secondary = /^(?:[ \t]{2,}|\s*(?:대상(?:자| 학년| 학급)?|장소|비고|세부 안내|참고)\s*[:：]|\s*\([^)]*\)\s*$)/.test(entry);
+      const deadline = mode === 'notice' && /^\s*(?:마감(?:일)?|제출 기한|기한)\s*[:：]/.test(entry);
+      const part = deadline ? `<div class="hl-deadline">${esc(entry)}</div>` : section && heading.test(entry) ? `<div class="hl-copy-heading">${esc(entry)}</div>`
+        : time ? `<div class="hl-timed"><b>${esc(time)}</b><span>${esc(entry.slice(time.length))}</span></div>`
+        : `<div class="${secondary ? 'hl-secondary' : 'hl-line'}">${esc(entry)}</div>`;
+      const previous = items.at(-1);
+      if (secondary && previous && !previous.break && !bullet && !time) previous.parts.push(part);
+      else items.push({ parts: [part], break: false });
+    }
+    return `<div class="hl-copy hl-lines">${items.map(item => `<div class="hl-item">${item.parts.join('')}</div>`).join('')}</div>`;
   }
 
   function logBody(c) {
-    const box = (cls, title, body) => `<section class="hl-card ${cls}"><h3>${title}</h3>${body}</section>`;
+    const box = (cls, title, body) => `<section class="hl-card ${cls}"><h3>${title}</h3><div class="hl-card-body">${body}</div></section>`;
     const extra = (title, value) => (value || '').trim()
       ? `<div class="hl-extra"><h4>${title}</h4>${logLines(value, 'events')}</div>` : '';
     const structuredText = ['notice', 'events', 'guidance', 'cover', 'preview', 'lecture'].some(key => (c[key] || '').trim());
@@ -107,23 +122,21 @@
         ${!(hours || body || entry.today || entry.plan) ? '<span class="hl-none">—</span>' : ''}</div></li>`;
     }).join('');
     const covers = Array.isArray(c.covers) ? c.covers : [];
-    const coverList = covers.length ? `<ul class="hl-cover-list">${covers.map(row => {
+    const coverList = covers.length ? `<table class="hl-cover-table" aria-label="보결 배정">
+      <thead><tr><th scope="col">학급</th><th scope="col">교시</th><th scope="col">담당 교사</th></tr></thead>
+      <tbody>${covers.map(row => {
       const periods = Array.isArray(row.periods) ? [...row.periods].sort((a, b) => a - b).join('·') : '';
-      return `<li><strong>${esc(row.cls || '학급 미지정')}</strong>
-        <b class="hl-period">${esc(periods ? periods + '교시' : '교시 미지정')}</b>
-        <span>${esc(row.teacher || '담당 미정')}</span></li>`;
-    }).join('')}</ul>` : '';
-    const coverNote = c.cover && (!covers.length || c.cover.trim() !== window.CoverText?.(covers).trim()) ? freeText(c.cover) : '';
+      return `<tr><td>${esc(row.cls || '학급 미지정')}</td>
+        <td><b class="hl-period">${esc(periods ? periods + '교시' : '교시 미지정')}</b></td>
+        <td>${esc(row.teacher || '담당 미정')}</td></tr>`;
+    }).join('')}</tbody></table>` : '';
+    const coverNote = c.cover && (!covers.length || c.cover.trim() !== window.CoverText?.(covers)?.trim()) ? freeText(c.cover) : '';
     return `<div class="hl-grid">
-      <div class="hl-column">
-        ${box('hl-notice', '전달사항', logLines(c.notice || (!structuredText && c.text) || '', 'notice'))}
-        ${box('hl-events', '주요행사 및 교육활동', logLines(c.events, 'events') + extra('교육활동 예고', c.preview) + extra('외부강의 확인', c.lecture))}
-        ${box('hl-guide', '생활지도 및 안전지도', logLines(c.guidance, 'guidance'))}
-      </div>
-      <div class="hl-column">
-        ${box('hl-cover', '보결', (coverList + coverNote) || freeText(''))}
-        ${box('hl-duty', '관리자 복무', `<ul class="hl-duty-list">${duty}</ul>`)}
-      </div>
+      ${box('hl-notice', '전달사항', logLines(c.notice || (!structuredText && visibleLegacy(c.text)) || '', 'notice'))}
+      ${box('hl-cover', '보결', (coverList + coverNote) || '<p class="hl-none">보결 없음</p>')}
+      ${box('hl-events', '주요행사 및 교육활동', (c.events || !c.preview ? logLines(c.events, 'events') : '') + extra('교육활동 예고', c.preview))}
+      ${box('hl-duty', '관리자 복무', `<ul class="hl-duty-list">${duty}</ul>`)}
+      ${box('hl-guide', '생활지도 및 안전지도', logLines(c.guidance, 'guidance'))}
     </div>`;
   }
 
@@ -137,6 +150,9 @@
   $('logPrev').addEventListener('click', () => go(stepDay(logDate, -1)));
   $('logToday').addEventListener('click', () => go(fmt(new Date())));
   $('logNext').addEventListener('click', () => go(stepDay(logDate, 1)));
+  $('logDate').addEventListener('click', e => {
+    try { e.currentTarget.showPicker?.(); } catch { /* Native date control fallback. */ }
+  });
   $('logDate').addEventListener('change', e => { if (e.target.value) go(e.target.value); });
   $('logRecent').addEventListener('click', e => { const b = e.target.closest('[data-day]'); if (b) go(b.dataset.day); });
 

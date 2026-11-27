@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=operations-brief-1">
+<link rel="stylesheet" href="style.css?v=operations-brief-2">
 <link rel="stylesheet" href="behavior.css?v=1">
 </head>
 <body>
@@ -94,13 +94,18 @@
     <!-- 학교운영일지: HOME 의 중심. 전달사항 · 주요행사 및 교육활동 · 생활지도 및 안전지도 · 관리자 복무 -->
     <section class="hl-main" id="homeLog" aria-labelledby="homeLogTitle" hidden>
       <div class="hl-top">
-        <div class="hl-title"><h2 id="homeLogTitle">학교운영일지</h2><time id="logDay" class="hl-day"></time></div>
+        <div class="hl-title">
+          <h2 id="homeLogTitle">학교운영일지</h2>
+          <label class="hl-date-picker" for="logDate">
+            <time id="logDay" class="hl-day"></time>
+            <input type="date" id="logDate" aria-label="운영일지 날짜 직접 선택">
+          </label>
+        </div>
         <div class="hl-controls">
           <div class="hl-nav" role="group" aria-label="일지 날짜 이동">
             <button type="button" class="btn small" id="logPrev">이전</button>
-            <input type="date" id="logDate" aria-label="운영일지 조회 날짜">
-            <button type="button" class="btn small" id="logNext">다음</button>
             <button type="button" class="btn small" id="logToday">오늘</button>
+            <button type="button" class="btn small" id="logNext">다음</button>
           </div>
           <button type="button" class="btn small" id="logHwp" disabled>한글 파일로 저장</button>
         </div>
@@ -925,7 +930,7 @@
 <script src="schedule.js?v=202611271457"></script>
 <script src="kclass.js?v=202611271457"></script>
 <script src="hwpx.js?v=202611271457"></script>
-<script src="home.js?v=operations-brief-1"></script>
+<script src="home.js?v=operations-brief-2"></script>
 <script src="status.js?v=202611271457"></script>
 <script src="log.js?v=operations-brief-1"></script>
 <script src="cover.js?v=202611271457"></script>
