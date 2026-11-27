@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=202611271457">
+<link rel="stylesheet" href="style.css?v=school-address-copy-1">
 <link rel="stylesheet" href="behavior.css?v=1">
 </head>
 <body>
@@ -526,8 +526,21 @@
           </div>
           <div class="form school-detail-fields">
             <label>우편번호 <input data-school-detail="postalCode" inputmode="numeric" maxlength="5" pattern="[0-9]{5}"></label>
-            <label class="school-detail-wide">도로명 주소 <input data-school-detail="address" maxlength="250"></label>
-            <label class="school-detail-wide">영문 주소 <input data-school-detail="englishAddress" maxlength="250"></label>
+            <div class="school-detail-wide">
+              <label for="school-address">도로명 주소</label>
+              <div class="school-address-copy-row">
+                <input id="school-address" data-school-detail="address" maxlength="250">
+                <button type="button" class="btn small ro-ok" data-copy-school-address="address" aria-label="도로명 주소 복사">복사</button>
+              </div>
+            </div>
+            <div class="school-detail-wide">
+              <label for="school-englishAddress">영문 주소</label>
+              <div class="school-address-copy-row">
+                <input id="school-englishAddress" data-school-detail="englishAddress" maxlength="250">
+                <button type="button" class="btn small ro-ok" data-copy-school-address="englishAddress" aria-label="영문 주소 복사">복사</button>
+              </div>
+              <p class="hint school-address-copy-status" id="schoolAddressCopyStatus" role="status"></p>
+            </div>
           </div>
           <p id="schoolAddressMessage" class="hint" role="status" hidden></p>
         </section>
@@ -898,7 +911,7 @@
 </dialog>
 
 <script src="data.js?v=202611271457"></script>
-<script src="app.js?v=202611271457"></script>
+<script src="app.js?v=school-address-copy-1"></script>
 <script src="features.js?v=202611271457"></script>
 <script src="cloud-config.js?v=202611271457"></script>
 <script src="cloud.js?v=202611271457"></script>

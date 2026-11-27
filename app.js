@@ -1325,3 +1325,23 @@ bind();
 save();
 // 모든 스크립트(features.js, cloud.js)가 등록된 뒤 첫 화면 표시
 document.addEventListener('DOMContentLoaded', () => showTab(location.hash.slice(1) || 'home'));
+
+
+$('tab-school').addEventListener('click', async event => {
+  const button = event.target.closest('[data-copy-school-address]');
+  if (!button) return;
+  const field = $('school-' + button.dataset.copySchoolAddress);
+  const status = $('schoolAddressCopyStatus');
+  const value = field.value.trim();
+  const label = button.dataset.copySchoolAddress === 'address' ? '도로명 주소' : '영문 주소';
+  if (!value) {
+    status.textContent = label + '가 비어 있습니다.';
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(value);
+    status.textContent = label + '를 복사했습니다.';
+  } catch {
+    status.textContent = '자동 복사가 안 됩니다. ' + label + '를 선택해 직접 복사해 주세요.';
+  }
+});
