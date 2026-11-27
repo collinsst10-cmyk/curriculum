@@ -17,7 +17,7 @@
     days: {}, sem: null, eventPlans: {}, operatingPeriod: null,
     canEdit: () => !!(window.Cloud && Cloud.ready && Cloud.isAdmin()),
     canCreate: () => H.loaded && !H.active && H.canEdit(),
-    writeDays, writeSem, createFromLocal, setOperatingYear, writeNeis,
+    writeDays, writeSem, createFromLocal, setOperatingYear, writeNeis, writeWebsite,
     get neis() { return schoolNeis; },
     get operatingYear() { return operatingYear; },
   };
@@ -124,6 +124,20 @@
     ...(state.school.details ? { details: { ...state.school.details } } : {}) });
   const encodeSchool = data => JSON.stringify({ name: data.name, year: data.year,
     ...annualFields(data), ...(data.details ? { details: data.details } : {}) });
+
+  async function writeWebsite(website) {
+    if (!H.canEdit() || !App.canEditSchool() || !schoolLoaded) throw new Error('학교 정보 편집 권한이 필요합니다.');
+    const { F, db } = Cloud.fb;
+    await F.runTransaction(db, async tx => {
+      const ref = infoRef();
+      const shared = await tx.get(ref);
+      if (shared.exists()) tx.update(ref, { 'details.website': website, ...stamp() });
+      else {
+        const info = schoolInfo();
+        tx.set(ref, { ...info, details: { ...info.details, website }, ...stamp() });
+      }
+    });
+  }
 
   async function writeSchool(force) {
     if (!H.canEdit() || !schoolLoaded || (operatingYear && operatingYear !== state.school.year)) return;

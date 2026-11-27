@@ -143,6 +143,7 @@
     button.type = 'button';
     button.className = 'btn small';
     button.textContent = label + ' 복사';
+    button.prepend(outlineIcon('copy'));
     button.disabled = !value;
     button.addEventListener('click', async () => {
       if (!canReadPurchase()) return;
@@ -150,10 +151,29 @@
       try {
         await navigator.clipboard.writeText(value);
         status.textContent = label + '를 복사했습니다.';
+        button.classList.add('is-copied');
+        setTimeout(() => button.classList.remove('is-copied'), 1200);
       } catch { status.textContent = '복사하지 못했습니다. 값을 선택해 직접 복사해 주세요.'; }
     });
     row.append(title, code, button);
     return row;
+  }
+
+  function outlineIcon(kind) {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '1.75');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.setAttribute('aria-hidden', 'true');
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', kind === 'copy' ? 'M9 9h11v11H9z M5 15H4V4h11v1'
+      : 'M4 9h16l-1 11H5L4 9z M9 10V6a3 3 0 0 1 6 0v4');
+    svg.append(path);
+    return svg;
   }
 
   function renderPurchaseLinks() {
@@ -162,14 +182,21 @@
       card.className = 'purchase-card';
       const title = document.createElement('h3');
       title.textContent = site.name;
-      card.append(title);
+      const header = document.createElement('header');
+      const details = document.createElement('div');
+      details.append(title);
+      header.append(outlineIcon('store'), details);
+      card.append(header);
       if (site.purpose) {
         const purpose = document.createElement('p');
         purpose.className = 'hint';
         purpose.textContent = site.purpose;
-        card.append(purpose);
+        details.append(purpose);
       }
-      card.append(credentialRow('ID', site.loginId), credentialRow('PW', site.password));
+      const credentials = document.createElement('div');
+      credentials.className = 'purchase-credentials';
+      credentials.append(credentialRow('ID', site.loginId), credentialRow('PW', site.password));
+      card.append(credentials);
       if (site.notes) {
         const notes = document.createElement('p');
         notes.className = 'purchase-notes';
@@ -177,11 +204,11 @@
         card.append(notes);
       }
       const link = document.createElement('a');
-      link.className = 'btn small';
+      link.className = 'btn primary small';
       link.href = safeLink(site.url).href;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
-      link.textContent = '사이트 바로가기';
+      link.textContent = '사이트 바로가기 ↗';
       card.append(link);
       return card;
     });

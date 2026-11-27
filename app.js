@@ -615,12 +615,26 @@ function schoolWebsiteUrl(value) {
 
 function renderSchoolWebsite(editable) {
   const url = schoolWebsiteUrl(state.school.details?.website || '');
-  const link = $('schoolWebsiteLink');
+  setSchoolWebsiteLink('schoolWebsiteLink', url);
+  $('schoolWebsiteDescription').hidden = !url;
+  $('schoolWebsiteEmpty').hidden = !!url;
+  const editor = $('schoolWebsiteEdit');
+  editor.hidden = !editable;
+  if (!editable) {
+    editor.open = false;
+    $('schoolWebsiteAddress').value = '';
+    setSchoolWebsiteLink('schoolWebsitePreview', '');
+  } else if (!editor.open) {
+    $('schoolWebsiteAddress').value = state.school.details?.website || '';
+    setSchoolWebsiteLink('schoolWebsitePreview', url);
+  }
+}
+
+function setSchoolWebsiteLink(id, url) {
+  const link = $(id);
   link.hidden = !url;
   if (url) link.href = url;
   else link.removeAttribute('href');
-  $('schoolWebsiteEmpty').hidden = !!url || editable;
-  $('schoolWebsiteEdit').hidden = !editable;
 }
 
 const canEditSchool = () => !isTeacherView() && (window.App.canEditSchool?.() ?? !window.FIREBASE_CONFIG);
@@ -630,6 +644,13 @@ function updateSchoolEditControls() {
   $('schoolAddressSearch').hidden = !editable;
   $('tab-school').querySelectorAll('input, select').forEach(input => { input.disabled = !editable; });
   $('inYear').disabled = !canEditOperatingYear();
+  const facts = [['anniversary', 'schoolHistoryAnniversary'], ['foundation', 'schoolHistoryFoundation']];
+  for (const [key, id] of facts) {
+    $('tab-school').querySelector(`[data-school-detail="${key}"]`).hidden = !editable;
+    const value = $(id);
+    value.hidden = editable;
+    value.textContent = state.school.details?.[key] || '미등록';
+  }
   renderSchoolWebsite(editable);
 }
 
@@ -1302,6 +1323,37 @@ function bind() {
     catch (error) { alert('NEIS 학교코드를 저장하지 못했습니다. ' + error.message); }
     finally { renderSchoolNeis(); }
   });
+  const websiteAddress = $('schoolWebsiteAddress');
+  websiteAddress.addEventListener('input', () => {
+    websiteAddress.setCustomValidity('');
+    $('schoolWebsiteStatus').textContent = '';
+    setSchoolWebsiteLink('schoolWebsitePreview', canEditSchool() ? schoolWebsiteUrl(websiteAddress.value) : '');
+  });
+  $('schoolWebsiteEdit').addEventListener('toggle', e => {
+    if (!e.target.open) renderSchoolWebsite(canEditSchool());
+  });
+  $('schoolWebsiteForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!canEditSchool()) return;
+    const url = schoolWebsiteUrl(websiteAddress.value);
+    websiteAddress.setCustomValidity(!url && websiteAddress.value.trim() ? 'https:// 또는 http://로 시작하는 주소를 입력해 주세요.' : '');
+    if (!websiteAddress.reportValidity()) return;
+    const button = e.currentTarget.querySelector('button');
+    const status = $('schoolWebsiteStatus');
+    if (button.disabled) return;
+    button.disabled = true;
+    try {
+      if (window.FIREBASE_CONFIG) await Haksa.writeWebsite(url);
+      state.school.details ||= {};
+      state.school.details.website = url;
+      if (!window.FIREBASE_CONFIG) saveNow();
+      websiteAddress.value = url;
+      renderSchoolWebsite(canEditSchool());
+      status.textContent = '홈페이지 주소를 저장했습니다.';
+    } catch {
+      status.textContent = '홈페이지 주소를 저장하지 못했습니다. 편집 권한과 연결 상태를 확인해 주세요.';
+    } finally { button.disabled = false; }
+  });
   $('tab-school').addEventListener('change', e => {
     const field = e.target, key = field.dataset.schoolDetail;
     if (!key || !canEditSchool()) return;
@@ -1313,13 +1365,8 @@ function bind() {
       field.setCustomValidity(valid ? '' : '실제 날짜를 연도-월-일 형식으로 입력해 주세요.');
     }
     if (!field.reportValidity()) return;
-    if (key === 'website' && field.value.trim() && !schoolWebsiteUrl(field.value)) {
-      alert('홈페이지 주소를 https:// 또는 http://로 시작해 입력해 주세요.');
-      return;
-    }
     state.school.details ||= {};
     state.school.details[key] = field.value.trim();
-    if (key === 'website') renderSchoolWebsite(true);
     save();
   });
   $('inYear').addEventListener('change', async e => {

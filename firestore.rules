@@ -245,6 +245,21 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
     // 홈페이지 설정(사진 바뀌는 간격 등). 관리자만 수정
+    match /schoolHistory/{event} {
+      allow read: if isApproved();
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasAll(['date', 'title', 'description', 'order'])
+        && request.resource.data.keys().hasOnly(['date', 'title', 'description', 'order'])
+        && request.resource.data.date is string
+        && request.resource.data.date.matches('^[1-9][0-9]{3}(-[0-9]{2}-[0-9]{2})?$')
+        && request.resource.data.title is string && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 100
+        && request.resource.data.description is string && request.resource.data.description.size() <= 1000
+        && request.resource.data.order is int && request.resource.data.order >= 1
+        && request.resource.data.order <= 999;
+      allow delete: if isAdmin();
+    }
+
     match /shoppingSites/{view} {
       allow get: if (view == 'catalog' && isAdmin()) || (view == 'active' && isStaff());
       allow create, update: if view in ['catalog', 'active'] && isAdmin()

@@ -622,12 +622,12 @@ body { font-family: var(--f4); }
 .school-structure small { color: var(--muted); font-weight: normal; }
 .school-structure section div { display: flex; gap: 6px; flex-wrap: wrap; }
 .school-structure section span { padding: 3px 8px; border-radius: 6px; background: var(--nv-pale); color: var(--nv); }
-.school-purchase-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 12px; margin-top: 16px; }
-.purchase-card { display: grid; align-content: start; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--nv-pale); }
+.school-purchase-links { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+.purchase-card { display: flex; flex-direction: column; gap: 11px; min-width: 0; padding: 15px; border: 1px solid var(--line); border-radius: 12px; background: #fff; transition: border-color .15s; }
 .purchase-card h3, .purchase-card p { margin: 0; }
 .purchase-card h3 { color: var(--nv); }
-.purchase-card a { justify-self: start; text-decoration: none; }
-.purchase-credential { display: grid; grid-template-columns: 2em minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.purchase-card a { align-self: flex-start; margin-top: auto; text-decoration: none; }
+.purchase-credential { display: grid; grid-template-columns: 2em minmax(0, 1fr) auto; align-items: center; gap: 8px; min-width: 0; padding: 6px 8px; }
 .purchase-credential code { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--nv-d); }
 .purchase-notes { padding-top: 8px; border-top: 1px solid var(--line); white-space: pre-wrap; overflow-wrap: anywhere; }
 .calendar-view-heading { margin-bottom: 10px; }
@@ -658,6 +658,21 @@ body { font-family: var(--f4); }
 .school-detail-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .school-detail-fields input, .school-detail-fields select { width: 100%; min-width: 0; }
 .school-detail-location, .school-detail-wide { grid-column: 1 / -1; }
+.school-website-card { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 18px; padding: 16px; background: #fff; border: 1px solid var(--line); border-radius: 12px; transition: border-color .15s; }
+.school-website-card:hover, .school-website-card:focus-within { border-color: var(--primary); }
+.school-website-copy { flex: 1 1 220px; min-width: 0; }
+.school-website-card h4 { margin: 3px 0 5px; font-size: 17px; line-height: 1.35; color: var(--nv-d); }
+.school-website-card p { margin: 0; color: var(--muted); font-size: 13px; }
+.school-website-card .school-website-label { font-size: 12px; font-weight: 700; }
+.school-website a.btn { text-decoration: none; }
+.school-website-card .btn { white-space: nowrap; }
+.school-website-editor { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.school-website-editor summary { cursor: pointer; font-size: 13px; font-weight: 650; color: var(--nv); }
+.school-website-editor form { display: grid; gap: 8px; margin-top: 10px; }
+.school-website-editor p { margin: 0; }
+@media (max-width: 520px) {
+  .school-website-card .btn { width: 100%; text-align: center; }
+}
 .school-detail-location .school-detail-fields { grid-template-columns: minmax(90px, 135px) minmax(0, 1fr); }
 .school-detail-location .school-detail-wide:nth-child(2) { grid-column: auto; }
 #schoolAddressDialog { width: min(540px, calc(100% - 24px)); max-height: calc(100% - 24px); padding: 16px; border: 1px solid var(--line); border-radius: 14px; }
@@ -2021,3 +2036,29 @@ th.kc-col { color: #5b21b6; }
 #staffAdmin section { margin-top: 16px; }
 #staffAdmin select[multiple] { min-height: 85px; }
 #staffAdmin textarea { width: 100%; }
+
+.purchase-card:hover, .purchase-card:focus-within { border-color: var(--primary); }
+.purchase-card header { display: flex; align-items: flex-start; gap: 10px; }
+.purchase-card header > svg { width: 34px; height: 34px; padding: 7px; flex: none; color: var(--nv); background: var(--nv-pale); border-radius: 8px; }
+.purchase-card header > div { min-width: 0; overflow-wrap: anywhere; }
+.purchase-card header p { margin-top: 2px; }
+.purchase-credentials { background: #f7f9fc; border: 1px solid var(--line); border-radius: 8px; }
+.purchase-credential + .purchase-credential { border-top: 1px solid var(--line); }
+.purchase-credential button { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; white-space: nowrap; }
+.purchase-credential button svg { width: 14px; height: 14px; }
+.purchase-credential button.is-copied { color: var(--nv); background: var(--nv-pale); }
+.school-history-panel { background: #fff; }
+.school-history-facts > label { min-width: 0; padding: 8px 10px; background: #f7f9fc; border-radius: 8px; }
+.school-history-facts strong { color: var(--nv-d); font-size: 14px; overflow-wrap: anywhere; }
+.school-history-timeline { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.school-history-timeline h4 { margin: 0 0 8px; color: var(--nv-d); }
+.school-history-timeline > p { margin: 0; }
+.school-history-list { margin: 5px 0 0 5px; padding: 0 0 0 15px; border-left: 1px solid var(--line); list-style: none; }
+.school-history-list li { position: relative; display: grid; gap: 2px; padding-bottom: 12px; overflow-wrap: anywhere; }
+.school-history-list li:last-child { padding-bottom: 0; }
+.school-history-list li::before { content: ''; position: absolute; top: 6px; left: -20px; width: 8px; height: 8px; border-radius: 50%; background: var(--nv); }
+.school-history-list time { color: var(--nv); font-size: 13px; font-weight: 700; }
+.school-history-list strong { color: var(--nv-d); font-size: 14px; }
+.school-history-list p { margin: 0; font-size: 13px; color: var(--muted); white-space: pre-wrap; }
+@media (max-width: 1040px) { .school-purchase-links { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .school-purchase-links { grid-template-columns: minmax(0, 1fr); } }

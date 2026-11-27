@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=purchase-staff-1">
+<link rel="stylesheet" href="style.css?v=school-history-1">
 <link rel="stylesheet" href="behavior.css?v=20261127224336">
 </head>
 <body>
@@ -338,6 +338,21 @@
       <p id="purchaseSiteStatus" class="hint" role="status"></p>
       <ul id="purchaseSiteList" class="purchase-site-list"></ul>
     </details>
+    <details class="card school-management" id="schoolHistoryAdmin">
+      <summary>학교 연혁 관리</summary>
+      <form id="schoolHistoryForm" class="form school-form">
+        <label>연혁 날짜 <input name="date" type="text" inputmode="numeric" maxlength="10" placeholder="연도 또는 연도-월-일" required></label>
+        <label>연혁 제목 <input name="title" maxlength="100" required></label>
+        <label>상세 설명 <textarea name="description" maxlength="1000" rows="2"></textarea></label>
+        <label>같은 날짜의 표시 순서 <input name="order" type="number" min="1" max="999" value="1" required></label>
+        <div class="row">
+          <button type="submit" class="btn primary" id="schoolHistorySave">연혁 추가</button>
+          <button type="reset" class="btn small" id="schoolHistoryCancel" hidden>편집 취소</button>
+        </div>
+      </form>
+      <p id="schoolHistoryStatus" class="hint" role="status"></p>
+      <ul id="schoolHistoryManageList" class="purchase-site-list"></ul>
+    </details>
 
   </section>
 
@@ -592,18 +607,41 @@
           <div class="form school-detail-fields">
             <label>전화번호 <input data-school-detail="phone" type="tel" maxlength="30"></label>
             <label>팩스번호 <input data-school-detail="fax" type="tel" maxlength="30"></label>
-            <div class="school-detail-wide">
-              <a id="schoolWebsiteLink" href="#" target="_blank" rel="noopener noreferrer" hidden>용원초등학교 홈페이지</a>
-              <span id="schoolWebsiteEmpty" class="hint" hidden>등록된 학교 홈페이지가 없습니다.</span>
-              <label id="schoolWebsiteEdit" hidden>홈페이지 주소 <input data-school-detail="website" type="url" maxlength="350" placeholder="https://"></label>
+            <div class="school-detail-wide school-website">
+              <article class="school-website-card">
+                <div class="school-website-copy">
+                  <p class="school-website-label">학교 홈페이지</p>
+                  <h4>용원초등학교 공식 홈페이지</h4>
+                  <p id="schoolWebsiteDescription">학교 공지, 가정통신문, 학사 안내 등을 확인할 수 있습니다.</p>
+                  <p id="schoolWebsiteEmpty" hidden>등록된 홈페이지가 없습니다.</p>
+                </div>
+                <a id="schoolWebsiteLink" class="btn primary" target="_blank" rel="noopener noreferrer" hidden>홈페이지 바로가기 ↗</a>
+              </article>
+              <details id="schoolWebsiteEdit" class="school-website-editor" hidden>
+                <summary>홈페이지 주소 편집</summary>
+                <form id="schoolWebsiteForm">
+                  <label for="schoolWebsiteAddress">홈페이지 주소</label>
+                  <input id="schoolWebsiteAddress" type="url" maxlength="350" placeholder="https://">
+                  <div class="row">
+                    <button class="btn primary small" type="submit">저장</button>
+                    <a id="schoolWebsitePreview" class="btn small" target="_blank" rel="noopener noreferrer" hidden>미리보기 ↗</a>
+                  </div>
+                  <p id="schoolWebsiteStatus" class="hint" role="status"></p>
+                </form>
+              </details>
             </div>
           </div>
         </section>
-        <section class="school-detail-panel">
+        <section class="school-detail-panel school-history-panel">
           <h3>학교 연혁</h3>
-          <div class="form school-detail-fields">
-            <label>개교기념일 <input data-school-detail="anniversary" type="text" maxlength="10" pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}" placeholder="예: 1990-05-10" title="연도-월-일 형식으로 입력"></label>
-            <label>설립구분 <select data-school-detail="foundation"><option value="">선택</option><option value="국립">국립</option><option value="공립">공립</option><option value="사립">사립</option></select></label>
+          <div class="form school-detail-fields school-history-facts">
+            <label>개교기념일 <strong id="schoolHistoryAnniversary" hidden></strong><input data-school-detail="anniversary" type="text" maxlength="10" pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}" placeholder="예: 1990-05-10" title="연도-월-일 형식으로 입력"></label>
+            <label>설립구분 <strong id="schoolHistoryFoundation" hidden></strong><select data-school-detail="foundation"><option value="">선택</option><option value="국립">국립</option><option value="공립">공립</option><option value="사립">사립</option></select></label>
+          </div>
+          <div class="school-history-timeline">
+            <h4>주요 학교 연혁</h4>
+            <p id="schoolHistoryEmpty" class="hint">등록된 학교 연혁이 없습니다.</p>
+            <ol id="schoolHistoryTimeline" class="school-history-list" hidden></ol>
           </div>
         </section>
       </div>
@@ -960,13 +998,13 @@
 </dialog>
 
 <script src="data.js?v=20261127224336"></script>
-<script src="app.js?v=purchase-staff-1"></script>
+<script src="app.js?v=school-history-1"></script>
 <script src="features.js?v=20261127224336"></script>
 <script src="cloud-config.js?v=20261127224336"></script>
 <script src="cloud.js?v=school-roles-2"></script>
 <script src="activities.js?v=20261127224336"></script>
 <script src="operating-calendar.js?v=20261127224336"></script>
-<script src="haksa.js?v=school-access-1"></script>
+<script src="haksa.js?v=website-card-1"></script>
 <script src="menus.js?v=20261127224336"></script>
 <script src="staff-model.js?v=20261127224336"></script>
 <script src="staff-sync-model.js?v=20261127224336"></script>
@@ -989,7 +1027,8 @@
 <script src="roster.js?v=20261127224336"></script>
 <script src="roster-workbook.js?v=20261127224336"></script>
 <script src="roster-years.js?v=20261127224336"></script>
-<script src="site.js?v=purchase-staff-1"></script>
+<script src="site.js?v=school-history-1"></script>
+<script src="school-history.js?v=1"></script>
 <script src="env.js?v=20261127224336"></script>
 <script src="pyeonje.js?v=20261127224336"></script>
 <script src="pyeonje-grade.js?v=20261127224336"></script>
