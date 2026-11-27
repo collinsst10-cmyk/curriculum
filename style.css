@@ -1710,8 +1710,8 @@ th.kc-col { color: #5b21b6; }
 .class-dash-teacher { grid-template-columns: minmax(56px, 1fr) minmax(0, 2fr) auto; }
 .class-dash-teacher > div { min-width: 0; overflow-wrap: anywhere; }
 .class-dash-teacher small { display: block; font-size: 12px; color: var(--dash-muted); }
-.class-dash-badges { display: flex; flex-wrap: wrap; gap: 4px; }
-.class-dash-subject { padding: 2px 6px; border-radius: 6px; font-size: 12px; background: var(--bg); color: var(--dash-text); border-inline-start: 2px solid var(--c); }
+.class-dash-badges { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.class-dash-subject { padding: 6px 12px; border-radius: 6px; font-size: 20px; font-family: var(--f7); font-weight: 700; line-height: 1.2; background: var(--bg); color: var(--dash-text); border-inline-start: 2px solid var(--c); }
 .class-dash-hours { text-align: right; font-variant-numeric: tabular-nums; }
 .class-dash-staff footer { margin-top: auto; padding-top: 8px; }
 .class-dash-special { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 4px 8px; padding: 7px 0; }
@@ -1878,56 +1878,68 @@ th.kc-col { color: #5b21b6; }
 #homeMoves, #homeWork { display: none !important; }
 
 /* HOME: 학교운영일지가 중심 */
-/* 학교운영일지: 일일 브리핑 */
+/* 학교운영일지 */
 .hl-main {
   --hl-heading: #152e53;
-  --hl-line: #dce3ec;
+  --hl-line: #dce3ed;
   max-width: 1440px;
   margin: 24px auto 12px;
   padding: clamp(14px, 2.2vw, 28px);
   box-sizing: border-box;
-  background: #f3f5f8;
+  background: #f2f4f7;
   border-radius: 10px;
-  font-family: Pretendard, var(--f4), sans-serif;
-  color: #24334a;
+  font-family: var(--f4), sans-serif;
+  color: #192d49;
 }
 .hl-main[hidden] { display: none; }
-.hl-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 18px; }
-.hl-title { display: grid; gap: 4px; }
-.hl-title h2 { margin: 0; color: var(--hl-heading); font-family: Pretendard, var(--f8), sans-serif; font-size: 32px; font-weight: 800; line-height: 1.25; }
-.hl-day, .hl-secondary, .hl-none, .hl-main .hint { color: #526177; font-size: 14px; line-height: 1.55; }
+.hl-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 16px; }
+.hl-title { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 15px; }
+.hl-title h2 { margin: 0; color: var(--hl-heading); font-family: var(--f8), sans-serif; font-size: 32px; font-weight: 800; line-height: 1.25; }
+.hl-date-picker { position: relative; border-inline-start: 1px solid #bdc9d9; padding-inline-start: 15px; }
+.hl-date-picker:focus-within { outline: 2px solid #254e89; outline-offset: 4px; }
+.hl-day { display: block; color: var(--hl-heading); font-family: var(--f7), sans-serif; font-size: 26px; font-weight: 700; line-height: 1.25; }
+.hl-day span { font-family: var(--f5), sans-serif; font-size: 18px; font-weight: 500; white-space: nowrap; }
+#homeLog #logDate { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+#homeLog #logDate::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: auto; height: auto; cursor: pointer; }
+.hl-secondary, .hl-none, .hl-main .hint { color: #64748b; font-size: 15px; line-height: 1.65; }
 .hl-controls, .hl-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.hl-controls .btn, .hl-nav input { min-height: 36px; font: inherit; font-size: 14px; }
+.hl-controls .btn { display: inline-flex; align-items: center; min-height: 36px; font: inherit; font-size: 14px; }
 .hl-controls #logHwp { border-color: #152e53; color: #152e53; font-weight: 700; }
 .hl-controls #logHwp:disabled { opacity: .48; }
-.hl-grid { display: grid; grid-template-columns: minmax(0, 65fr) minmax(0, 35fr); align-items: start; gap: 18px; }
-.hl-column { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-content: start; min-width: 0; }
-.hl-card { min-width: 0; background: #fff; border: 1px solid var(--hl-line); border-radius: 10px; padding: 24px; }
-.hl-card h3 { margin: 0 0 14px; padding-bottom: 11px; border-bottom: 1px solid var(--hl-line); color: var(--hl-heading); font: 700 22px/1.35 Pretendard, var(--f7), sans-serif; }
+.hl-grid { display: grid; grid-template-columns: minmax(0, 62fr) minmax(0, 38fr); align-items: start; gap: 16px; }
+.hl-guide { grid-column: 1 / -1; }
+.hl-card { min-width: 0; background: #fff; border: 1px solid var(--hl-line); border-radius: 11px; }
+.hl-card h3 { margin: 0; padding: 14px 20px; border-radius: 10px 10px 0 0; background: #e8edf5; color: var(--hl-heading); font: 700 22px/1.35 var(--f7), sans-serif; }
+.hl-card-body { padding: 20px; }
 .hl-card .hl-none { margin: 0; }
-.hl-copy, .hl-cover-list, .hl-duty-list { font-size: 16px; line-height: 1.7; overflow-wrap: anywhere; }
+.hl-copy, .hl-duty-list { font-size: 17px; line-height: 1.7; overflow-wrap: anywhere; }
 .hl-copy, .hl-secondary { white-space: pre-wrap; }
-.hl-lines { display: grid; }
-.hl-notice .hl-line, .hl-notice .hl-timed { padding-block: 6px; }
-.hl-notice .hl-line + .hl-line, .hl-notice .hl-timed + .hl-timed,
-.hl-notice .hl-timed + .hl-line, .hl-notice .hl-line + .hl-timed { border-top: 1px solid #edf0f4; }
+.hl-copy .hl-secondary { font-family: var(--f4), sans-serif; font-weight: 400; }
+.hl-notice .hl-copy, .hl-events .hl-copy { font-family: var(--f5), sans-serif; font-weight: 500; }
+.hl-item + .hl-item { margin-top: 8px; }
+.hl-notice .hl-item + .hl-item, .hl-events .hl-item + .hl-item { border-top: 1px solid #edf0f4; padding-top: 8px; }
 .hl-timed { display: grid; grid-template-columns: minmax(5rem, max-content) minmax(0, 1fr); gap: 10px; }
 .hl-timed b, .hl-duty-time { color: #152e53; font-variant-numeric: tabular-nums; }
-.hl-line-space { min-height: 0.65em; }
-.hl-copy-heading, .hl-extra h4 { color: var(--hl-heading); font-weight: 700; }
+.hl-copy-heading, .hl-extra h4 { color: var(--hl-heading); font-family: var(--f7), sans-serif; font-weight: 700; }
 .hl-extra { margin-top: 14px; padding-top: 12px; border-top: 1px solid #edf0f4; }
+.hl-extra:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
 .hl-extra h4 { margin: 0 0 4px; font-size: 16px; }
-.hl-cover-list, .hl-duty-list { list-style: none; margin: 0; padding: 0; }
-.hl-cover-list li, .hl-duty-list li { display: grid; align-items: baseline; gap: 8px; border-bottom: 1px solid #edf0f4; padding: 7px 0; }
-.hl-cover-list li:last-child, .hl-duty-list li:last-child { border-bottom: 0; }
-.hl-cover-list li { grid-template-columns: minmax(2.5rem, max-content) minmax(4.5rem, max-content) minmax(0, 1fr); }
-.hl-cover-list + .hl-copy { margin-top: 8px; }
-.hl-duty-list li { grid-template-columns: 5.5rem minmax(0, 1fr); }
-.hl-period { color: #784910; }
+.hl-cover-table { width: 100%; table-layout: fixed; border-collapse: collapse; text-align: center; }
+.hl-cover-table th { padding: 0 4px 8px; color: #64748b; font: 500 14px/1.4 var(--f5), sans-serif; }
+.hl-cover-table td { padding: 9px 4px; border-top: 1px solid #edf0f4; overflow-wrap: anywhere; font: 600 20px/1.45 var(--f6), sans-serif; }
+.hl-cover-table + .hl-copy { margin-top: 8px; }
+.hl-period { display: inline-block; padding: 3px 7px; border-radius: 6px; background: #edf2fa; color: #254e89; font-family: var(--f7), sans-serif; font-weight: 700; }
+.hl-duty-list { list-style: none; margin: 0; padding: 0; }
+.hl-duty-list li { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); align-items: baseline; gap: 8px; border-bottom: 1px solid #edf0f4; padding: 7px 0; }
+.hl-duty-list li:first-child { padding-top: 0; }
+.hl-duty-list li:last-child { border-bottom: 0; padding-bottom: 0; }
+.hl-duty-list strong { font-family: var(--f6), sans-serif; font-size: 16px; font-weight: 600; }
 @media (max-width: 920px) { .hl-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 480px) {
-  .hl-card { padding: 18px; }
+  .hl-card h3 { padding-inline: 16px; }
+  .hl-card-body { padding: 16px; }
   .hl-timed { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .hl-cover-table td { font-size: 18px; }
 }
 #homePanel { grid-template-columns: 1fr; }
 
@@ -1998,3 +2010,5 @@ th.kc-col { color: #5b21b6; }
 .jd-course select { min-width: 0; max-width: 100%; }
 
 .jd-grade-note { grid-column: 2 / -1; margin: 0; color: var(--err); }
+
+.hl-deadline { color: #254e89; font-family: var(--f7), sans-serif; }
