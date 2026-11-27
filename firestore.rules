@@ -241,6 +241,25 @@ service cloud.firestore {
         && (isAdmin() || (isHomeroomOf(resource.data.grade, resource.data.cls)
           && request.resource.data.grade == resource.data.grade && request.resource.data.cls == resource.data.cls));
     }
+    // 행동특성은 학생 명단보다 좁은 범위로 보호합니다. 직접 선택한 학급은 권한이 아닙니다.
+    function canAccessBehavior(studentId) {
+      let path = /databases/$(database)/documents/students/$(studentId);
+      return isApproved() && exists(path) && (isAdmin() ||
+        (hasAllowed() && myAllowed().get('posType', '') == 'homeroom' &&
+          myAllowed().get('posCls', '') == string(get(path).data.grade) + '-' + string(get(path).data.cls)));
+    }
+    match /students/{studentId}/privateRecords/behavior {
+      allow get: if canAccessBehavior(studentId);
+      allow create, update: if canAccessBehavior(studentId)
+        && request.resource.data.keys().hasOnly(['traits', 'opinion', 'target'])
+        && request.resource.data.get('traits', {}) is map
+        && request.resource.data.get('traits', {}).size() <= 100
+        && request.resource.data.get('opinion', '') is string
+        && request.resource.data.get('opinion', '').size() <= 4000
+        && request.resource.data.get('target', 300) is int
+        && request.resource.data.get('target', 300) >= 1
+        && request.resource.data.get('target', 300) <= 2000;
+    }
     // 이주배경학생 명단(학생 이름 = 개인정보). 그 반 담임, 관리자, 한국어학급 담당만
     match /migrantStudents/{id} {
       allow read, delete: if isAdmin() || isHomeroomOf(resource.data.grade, resource.data.cls) || isKclassStaff();

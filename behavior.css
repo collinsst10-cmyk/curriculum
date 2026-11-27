@@ -1,0 +1,29 @@
+.behavior-panel { margin-top: 16px; }
+.behavior-panel[hidden], .behavior-trait select[hidden] { display: none; }
+.behavior-layout { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 14px; }
+#behaviorList { display: grid; align-content: start; gap: 5px; max-height: 75vh; overflow: auto; }
+#behaviorList button { display: flex; justify-content: space-between; gap: 6px; text-align: left; }
+#behaviorList button[aria-pressed="true"] { border-color: var(--green); background: var(--green-pale); }
+#behaviorList small, .behavior-group summary span { color: var(--muted); }
+.behavior-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.behavior-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 8px; }
+.behavior-group { --tone: #eef4ff; background: var(--tone); border: 1px solid var(--line); border-radius: 9px; padding: 8px; }
+.behavior-group[data-tone="1"] { --tone: #edf7eb; }
+.behavior-group[data-tone="2"] { --tone: #fff5e4; }
+.behavior-group[data-tone="3"] { --tone: #f5effa; }
+.behavior-group[data-tone="4"] { --tone: #e9f7f6; }
+.behavior-group[data-tone="5"] { --tone: #fbf0ef; }
+.behavior-group[data-tone="6"] { --tone: #f4f1ff; }
+.behavior-group[data-tone="7"] { --tone: #f2f5e8; }
+.behavior-group summary { cursor: pointer; font-weight: 700; }
+.behavior-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.behavior-trait { display: inline-flex; flex-wrap: wrap; gap: 3px; align-items: center; }
+.behavior-chip { border: 1px solid #afbcc5; background: #fff; border-radius: 999px; color: #263746; padding: 4px 8px; font-size: 12px; cursor: pointer; }
+.behavior-chip[aria-pressed="true"] { background: #2d5940; color: #fff; border-color: #2d5940; }
+.behavior-chip[aria-pressed="true"]::before { content: "✓ "; }
+.behavior-trait select { font-size: 12px; max-width: 160px; }
+.behavior-result { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.behavior-result .row { gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+.behavior-result textarea { display: block; width: 100%; box-sizing: border-box; font: inherit; padding: 10px; border: 1px solid #afbcc5; border-radius: 8px; resize: vertical; }
+#behaviorTarget { width: 6em; }
+@media (max-width: 850px) { .behavior-layout, .behavior-groups { grid-template-columns: minmax(0, 1fr); } #behaviorList { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); max-height: 160px; } }

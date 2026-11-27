@@ -26,6 +26,7 @@
   }
   function subscribe() {
     if (unsubRoom) unsubRoom(); unsubRoom = null; stop(); myRoom = undefined; sel = null;
+    window.BehaviorUI?.sync([]);
     if (!ready()) { if (curTab === 'roster') render(); return; }
     unsubRoom = F().onSnapshot(F().doc(db(), 'homerooms', Cloud.email), d => {
       myRoom = roomFromPosition() || (d.exists() ? { g: d.data().grade, c: d.data().cls } : null);
@@ -58,6 +59,7 @@
   const seg = (attr, cur, opts) => `<span class="rs-seg">${opts.map(([v, l]) => `<button type="button" class="${v === cur ? 'on' : ''} ${v || 'none'}" ${attr}="${v}">${l}</button>`).join('')}</span>`;
   function render() {
     const box = $('rsMain'); if (!box) return;
+    window.BehaviorUI?.sync(ready() && sel ? sorted() : []);
     if (!ready()) { box.innerHTML = '<p class="hint">승인된 계정으로 로그인해 주세요.</p>'; return; }
     if (myRoom === undefined) { box.innerHTML = '<p class="hint">불러오는 중…</p>'; return; }
     const picker = isAdm()
