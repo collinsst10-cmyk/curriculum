@@ -41,6 +41,8 @@
       // 입력 중인 칸의 내용을 먼저 확정(바뀜 이벤트가 저장을 부름)
       if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
       await new Promise(r => setTimeout(r, 250));
+      // 학교 일지 화면에서는 일지를 저장
+      if (curTab === 'log' && window.LogSave) { const m = await LogSave(); if (m) { toast(m, 'err'); return; } $('saveHint').textContent = `모두 저장됨 · ${hhmm()}`; toast(`저장되었습니다 (${hhmm()})`); return; }
       if (typeof saveNow === 'function' && !isTeacherView()) saveNow();
       const r = window.Cloud && Cloud.flush ? await Cloud.flush() : { cloud: false };
       if (r.error) { toast('저장에 실패했습니다: ' + r.error, 'err'); return; }

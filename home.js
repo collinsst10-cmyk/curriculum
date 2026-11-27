@@ -54,12 +54,28 @@
     const head = `<div class="log-date">${longDate(logDate)}${logDate === fmt(new Date()) ? ' <span class="pill ok">오늘</span>' : ''}</div>`;
     if (current === undefined) $('logView').innerHTML = head + '<p class="hint">불러오는 중…</p>';
     else if (!current || !current.text) $('logView').innerHTML = head + '<p class="log-empty">이 날 등록된 운영일지가 없습니다.</p>';
-    else $('logView').innerHTML = head + `<div class="log-text">${esc(current.text)}</div>
-      <div class="hint">작성: ${esc(current.byName || '')}${current.updatedAt ? ' · ' + fmtTs(current.updatedAt) : ''}</div>`;
+    else $('logView').innerHTML = head + logBody(current) + `<div class="log-foot"><span class="hint">작성: ${esc(current.byName || '')}${current.updatedAt ? ' · ' + fmtTs(current.updatedAt) : ''}</span>
+      <button type="button" class="btn small" id="logHwp">한글 파일로 저장</button></div>`;
     renderRecent();
   }
 
+  /** 일지 본문: 항목(전달사항·주요행사·생활지도) + 근무상황 표. 예전 글만 있으면 그대로 */
+  function logBody(c) {
+    if (!['notice', 'events', 'guidance', 'cover', 'preview', 'lecture'].some(k => c[k]) && !c.duty) return `<div class="log-text">${esc(c.text)}</div>`;
+    const secs = [['notice', '전달사항'], ['events', '주요행사 및 교육활동'], ['guidance', '생활지도 및 안전지도'], ['cover', '결보강'], ['preview', '교육활동 예고'], ['lecture', '외부강의 확인']]
+      .filter(([k]) => (c[k] || '').trim()).map(([k, n]) => `<section><h4>${n}</h4><p>${esc(c[k])}</p></section>`).join('');
+    const d = c.duty || {}, rows = [['p', '교장'], ['v', '교감'], ['a', '행정실장']].filter(([k]) => d[k] && (d[k].today || d[k].plan));
+    const duty = rows.length ? `<section><h4>근무상황</h4><table class="log-duty"><thead><tr><th>구분</th><th>오늘 복무</th><th>예정</th></tr></thead><tbody>
+      ${rows.map(([k, n]) => `<tr><th>${n}</th><td>${esc(d[k].today || '-')}</td><td>${esc(d[k].plan || '')}</td></tr>`).join('')}</tbody></table></section>` : '';
+    return `<div class="log-secs">${secs}${duty}</div>`;
+  }
+
   function go(ds) { logDate = ds; render(); }
+  $('logView').addEventListener('click', async e => {
+    if (!e.target.closest('#logHwp') || !current || !window.LogExport) return;
+    try { await LogExport.exportHwp(LogExport.fieldsOf(current), logDate, current.byName || ''); }
+    catch (err) { alert('한글 파일 만들기 실패: ' + err.message); }
+  });
 
   $('logPrev').addEventListener('click', () => go(stepDay(logDate, -1)));
   $('logNext').addEventListener('click', () => go(stepDay(logDate, 1)));

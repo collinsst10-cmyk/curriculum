@@ -1765,3 +1765,34 @@ th.kc-col { color: #5b21b6; }
 .jd-subj-h b { color: var(--nv-d); font-family: var(--f7); font-weight: normal; }
 .jd-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .jd-chips .tg { font-size: 14px; padding: 5px 12px; border-radius: 999px; }
+
+/* 학교 일지: 항목별 입력 + 근무상황 표 */
+.lg-form { display: grid; gap: 12px; margin-bottom: 10px; }
+.lg-sec { display: grid; gap: 6px; }
+.lg-sec > span { font-family: var(--f7); color: var(--nv-d); font-size: 15px; }
+.log-page .lg-sec textarea { margin: 0; font-size: 14px; line-height: 1.6; padding: 9px 12px; }
+.lg-duty { width: 100%; border: 1px solid #dfe4ee; border-radius: 12px; border-collapse: separate; border-spacing: 0; overflow: hidden; table-layout: fixed; }
+.lg-duty col.w { width: 88px; }
+.lg-duty th, .lg-duty td { border-bottom: 1px solid #edf0f5; padding: 6px 8px; vertical-align: middle; }
+.lg-duty thead th { background: #f4f6fa; color: #5b6478; font-size: 13px; font-family: var(--f6); }
+.lg-duty tbody th { background: #f8fafd; color: var(--nv-d); font-family: var(--f7); font-size: 14px; text-align: center; }
+.lg-duty tbody tr:last-child > * { border-bottom: 0; }
+.log-page .lg-duty textarea { margin: 0; min-height: 0; font-size: 13.5px; line-height: 1.5; padding: 6px 9px; border-radius: 8px; }
+.lg-actions { flex-wrap: wrap; gap: 6px; }
+.lg-actions label.btn { cursor: pointer; }
+/* HOME: 일지 보기 */
+.log-secs { display: grid; gap: 10px; background: #f7f9fd; border-radius: 14px; padding: 14px 16px; max-height: 420px; overflow-y: auto; margin-bottom: 6px; }
+.log-secs h4 { margin: 0 0 3px; font-size: 13px; color: var(--nv); font-family: var(--f7); font-weight: normal; }
+.log-secs p { margin: 0; white-space: pre-wrap; line-height: 1.65; font-size: 14.5px; color: #1f2740; }
+.log-duty { width: 100%; border-collapse: collapse; font-size: 13.5px; background: #fff; border-radius: 10px; overflow: hidden; }
+.log-duty th, .log-duty td { border-bottom: 1px solid #edf0f5; padding: 5px 8px; text-align: left; vertical-align: top; white-space: pre-wrap; }
+.log-duty thead th { background: #eef2f8; color: #5b6478; font-size: 12px; font-family: var(--f6); }
+.log-duty tbody th { width: 72px; color: var(--nv-d); font-family: var(--f7); }
+.log-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.lg-row3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 900px) { .lg-row3 { grid-template-columns: 1fr; } }
+.lg-drop { display: grid; gap: 2px; justify-items: center; text-align: center; border: 2px dashed #c9d3e6; border-radius: 14px; padding: 14px 12px; margin: 0 0 12px; background: #f8fafd; color: #4a5368; cursor: pointer; transition: background .15s, border-color .15s; }
+.lg-drop b { font-family: var(--f7); font-weight: normal; color: var(--nv-d); font-size: 15px; }
+.lg-drop span { font-size: 13px; color: #6b7488; }
+.lg-drop:hover, .lg-drop:focus-visible { border-color: var(--nv); background: #f1f5fc; outline: none; }
+.lg-drop.over { border-color: var(--nv); background: #e7eef9; }

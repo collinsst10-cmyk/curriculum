@@ -315,6 +315,7 @@
   document.addEventListener('roles-change', refreshNav);
   if (window.Cloud && Cloud.ready) subscribe();
   window.SchoolStatus = {
+    get stats() { return stats || null; },   // 학교 일지 한글 파일의 학적현황에 씀
     renderHome,
     countries: Object.keys(ISO),
     flagUrl: name => ISO[name] ? `https://flagcdn.com/w40/${ISO[name]}.png` : '',

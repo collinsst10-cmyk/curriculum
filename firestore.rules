@@ -269,10 +269,13 @@ service cloud.firestore {
       allow read, write: if isApproved();
     }
 
-    // 학교운영일지(날짜별 1문서). 승인된 선생님은 읽기, 관리자·교무부장이 작성
+    // 학교운영일지(날짜별 1문서). 승인된 선생님은 읽기, 직위가 교무부장인 선생님(과 개발자)만 작성
+    function isHeadAffairs() {
+      return isApproved() && hasAllowed() && myAllowed().get('head', '') == '교무부장';
+    }
     match /dailyLogs/{day} {
       allow read: if isApproved();
-      allow write: if (isAdmin() || isLogWriter()) && day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+      allow write: if (isHeadAffairs() || isDeveloper()) && day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
     }
 
     // 그 밖의 모든 경로는 차단
