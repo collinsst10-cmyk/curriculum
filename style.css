@@ -1798,36 +1798,65 @@ th.kc-col { color: #5b21b6; }
 .lg-drop.over { border-color: var(--nv); background: #e7eef9; }
 
 /* 가입(등록 신청) 화면 */
-#homeGate:has(.signup-card) { max-width: 640px; }
-.signup-card { background: #fff; border: 1px solid #e3e7f0; border-radius: 18px; padding: 22px 26px; box-shadow: 0 10px 30px rgba(21, 48, 107, .06); }
-.signup-card h2 { margin: 6px 0 4px; font-size: 22px; color: var(--nv-d); font-family: var(--f8); font-weight: normal; }
-.signup-card .su-lead { margin: 0 0 14px; color: #4a5368; font-size: 14px; line-height: 1.6; }
-.signup-card.demo { border: 2px dashed #b9a6f0; }
-.su-demo { background: #f3efff; color: #5b3fc4; border-radius: 10px; padding: 8px 12px; font-size: 13px; margin-bottom: 12px; }
-.su-steps { display: flex; gap: 6px; list-style: none; padding: 0; margin: 0 0 8px; counter-reset: su; }
-.su-steps li { counter-increment: su; flex: 1; display: flex; align-items: center; gap: 6px; font-size: 13px; color: #8a93a6; padding: 6px 8px; border-radius: 10px; background: #f5f7fb; }
-.su-steps li::before { content: counter(su); display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #dfe4ee; color: #fff; font-size: 12px; font-family: var(--f7); }
-.su-steps li.done { color: #2f7a4f; background: #eef8f1; } .su-steps li.done::before { content: '✓'; background: #3aa66a; }
-.su-steps li.on { color: var(--nv-d); background: #e7eef9; font-family: var(--f7); } .su-steps li.on::before { background: var(--nv); }
-.su-form { display: grid; gap: 12px; margin-bottom: 10px; }
-.su-f { display: grid; gap: 5px; }
-.su-f[hidden] { display: none; }
-.su-f > span { font-size: 14px; color: #2a3247; font-family: var(--f6); }
-.su-f > span em { color: #c0392b; font-style: normal; }
-.su-f > span small { color: #8a93a6; font-family: var(--f4); }
-.su-f input, .su-f select { font: inherit; font-size: 15px; padding: 9px 12px; border: 1px solid #d7dce8; border-radius: 10px; background: #fff; }
-.su-kinds { display: flex; flex-wrap: wrap; gap: 6px; }
+#homeGate:has(.signup-card) { max-width: 520px; margin-top: 36px; }
+.signup-card { position: relative; background: #fff; border: 1px solid #e6eaf2; border-radius: 22px; padding: 30px 32px 22px; box-shadow: 0 1px 2px rgba(16, 32, 72, .04), 0 18px 40px -18px rgba(16, 32, 72, .18); }
+.su-demo { position: absolute; top: 14px; right: 16px; font-size: 11px; letter-spacing: .02em; color: #6a4fd6; background: #f1edff; border-radius: 999px; padding: 3px 9px; }
+
+/* 흐름: 로그인 → 정보 입력 → 승인 (지나온 길은 채워진 선) */
+.su-flow { --p: 0; position: relative; display: grid; grid-template-columns: repeat(3, 1fr); list-style: none; margin: 0 0 28px; padding: 0; }
+.su-flow::before, .su-flow::after { content: ''; position: absolute; top: 15px; left: calc(100% / 6); height: 2px; border-radius: 2px; }
+.su-flow::before { right: calc(100% / 6); background: #e6eaf2; }
+.su-flow::after { width: calc((100% - 100% / 3) * var(--p)); background: linear-gradient(90deg, #3aa66a, var(--nv)); transition: width .6s cubic-bezier(.2, .8, .2, 1); }
+.su-flow li { position: relative; z-index: 1; display: grid; justify-items: center; gap: 3px; text-align: center; }
+.su-flow i { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; font-style: normal; font-size: 13px; font-family: var(--f7);
+  background: #fff; color: #a3abbd; border: 2px solid #e6eaf2; margin-bottom: 6px; transition: all .3s; }
+.su-flow i svg { width: 15px; height: 15px; fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.su-flow b { font-size: 14px; color: #a3abbd; font-family: var(--f6); font-weight: normal; }
+.su-flow small { font-size: 11.5px; color: #b8bfcd; }
+.su-flow .done i { background: #3aa66a; border-color: #3aa66a; }
+.su-flow .done b { color: #4a5368; } .su-flow .done small { color: #3aa66a; }
+.su-flow .now i, .su-flow .wait i { background: var(--nv); border-color: var(--nv); color: #fff; box-shadow: 0 0 0 6px rgba(21, 48, 107, .1); }
+.su-flow .now b, .su-flow .wait b { color: var(--nv-d); font-family: var(--f8); }
+.su-flow .now small, .su-flow .wait small { color: var(--nv); font-family: var(--f6); }
+.su-flow .wait i { animation: su-pulse 1.8s ease-out infinite; }
+@keyframes su-pulse { 0% { box-shadow: 0 0 0 0 rgba(21, 48, 107, .35); } 70% { box-shadow: 0 0 0 12px rgba(21, 48, 107, 0); } 100% { box-shadow: 0 0 0 0 rgba(21, 48, 107, 0); } }
+
+.su-head { display: grid; gap: 4px; margin-bottom: 22px; }
+.su-head h2 { margin: 0; font-size: 26px; letter-spacing: -.02em; color: #101a33; font-family: var(--f8); font-weight: normal; }
+.su-mail { font-size: 13px; color: #8a93a6; }
+
+.su-field { display: grid; gap: 8px; margin-bottom: 18px; }
+.su-field > span { font-size: 13px; color: #6b7488; font-family: var(--f6); letter-spacing: .02em; }
+.su-field input[type="text"] { font: inherit; font-size: 18px; padding: 14px 16px; border: 1.5px solid #dfe4ee; border-radius: 14px; background: #fafbfd; transition: border-color .15s, background .15s, box-shadow .15s; }
+.su-field input[type="text"]:focus { outline: none; border-color: var(--nv); background: #fff; box-shadow: 0 0 0 4px rgba(21, 48, 107, .08); }
+.su-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .su-kind { cursor: pointer; }
 .su-kind input { position: absolute; opacity: 0; pointer-events: none; }
-.su-kind span { display: inline-block; padding: 7px 12px; border: 1px solid #d7dce8; border-radius: 999px; font-size: 13.5px; background: #fff; }
-.su-kind input:checked + span { background: var(--nv); border-color: var(--nv); color: #fff; font-family: var(--f7); }
-.su-kind input:focus-visible + span { outline: 2px solid var(--primary-weak); }
-.su-actions { margin-top: 12px; flex-wrap: wrap; gap: 6px; }
-.su-sum { display: grid; gap: 0; margin: 0 0 6px; border: 1px solid #e3e7f0; border-radius: 12px; overflow: hidden; }
-.su-sum div { display: grid; grid-template-columns: 90px 1fr; border-bottom: 1px solid #eef1f6; }
-.su-sum div:last-child { border-bottom: 0; }
-.su-sum dt { background: #f5f7fb; color: #6b7488; font-size: 13px; padding: 8px 12px; }
-.su-sum dd { margin: 0; padding: 8px 12px; font-size: 14px; }
+.su-kind span { display: grid; place-items: center; height: 58px; border: 1.5px solid #dfe4ee; border-radius: 14px; background: #fafbfd; font-size: 16px; color: #2a3247; font-family: var(--f6); transition: all .15s; }
+.su-kind:hover span { border-color: #b9c4da; background: #fff; }
+.su-kind input:checked + span { border-color: var(--nv); background: #eef3fb; color: var(--nv-d); font-family: var(--f8); box-shadow: inset 0 0 0 1px var(--nv); }
+.su-kind input:focus-visible + span { box-shadow: 0 0 0 4px rgba(21, 48, 107, .15); }
+
+.su-submit { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 58px; margin-top: 8px; border: 0; border-radius: 14px;
+  background: var(--nv); color: #fff; font: inherit; font-size: 17px; font-family: var(--f8); letter-spacing: .02em; cursor: pointer; transition: transform .12s, box-shadow .2s, background .2s, opacity .2s;
+  box-shadow: 0 10px 22px -10px rgba(21, 48, 107, .6); }
+.su-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 14px 26px -10px rgba(21, 48, 107, .7); }
+.su-submit:active:not(:disabled) { transform: translateY(0); }
+.su-submit:disabled { background: #c9d1e0; box-shadow: none; cursor: not-allowed; }
+.su-submit.ghost { background: #fff; color: var(--nv-d); border: 1.5px solid #dfe4ee; box-shadow: none; }
+.su-submit.google { background: #fff; color: #1f2740; border: 1.5px solid #dfe4ee; box-shadow: 0 6px 16px -10px rgba(16, 32, 72, .3); font-family: var(--f7); }
+.su-submit.google svg { width: 22px; height: 22px; }
+.su-foot { display: flex; justify-content: center; gap: 4px 18px; flex-wrap: wrap; margin-top: 14px; }
+.su-foot:empty { display: none; }
+.su-link { border: 0; background: none; padding: 4px 2px; font: inherit; font-size: 13px; color: #8a93a6; cursor: pointer; }
+.su-link:hover { color: var(--nv-d); text-decoration: underline; text-underline-offset: 3px; }
+
+.su-sum { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 0 6px; }
+.su-sum div { border: 1.5px solid #e6eaf2; border-radius: 14px; padding: 12px 16px; background: #fafbfd; }
+.su-sum dt { font-size: 12px; color: #8a93a6; margin-bottom: 2px; }
+.su-sum dd { margin: 0; font-size: 17px; color: #101a33; font-family: var(--f7); }
+@media (max-width: 520px) { .signup-card { padding: 24px 20px 18px; border-radius: 18px; } .su-head h2 { font-size: 22px; } }
+
 /* 관리자: 등록 신청 승인 */
 .nav-count { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #e5484d; color: #fff; font-size: 11px; font-family: var(--f7); margin-left: 3px; vertical-align: 2px; }
 .adm-reqs { display: grid; gap: 10px; }
@@ -1840,3 +1869,73 @@ th.kc-col { color: #5b21b6; }
 .adm-req-set .adm-pos { display: inline-flex; flex-wrap: wrap; gap: 4px; }
 .adm-req-btns { display: flex; gap: 6px; }
 @media (max-width: 1000px) { .adm-req { grid-template-columns: 1fr; } }
+
+/* 일반 사용자: 공개 정보(HOME·학사일정)만 */
+.general-user #mainNav [data-go]:not([data-go="home"]):not([data-go="haksa"]) { display: none !important; }
+.general-user #tabs [data-group="haksa"]:not([data-tab="hview"]) { display: none !important; }
+.general-user #homeLog, .general-user #homeStatus, .general-user #homeMenu .menu-card:not([data-go="haksa"]) { display: none !important; }
+.su-head.center { justify-items: center; text-align: center; }
+#homeMoves, #homeWork { display: none !important; }
+
+/* HOME: 학교운영일지가 중심 */
+.hl-main { max-width: 1400px; margin: 30px auto 8px; padding: 0 clamp(16px, 3vw, 40px); box-sizing: border-box; }
+.hl-main[hidden] { display: none; }
+.hl-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.hl-title { display: grid; gap: 2px; }
+.hl-title h2 { margin: 0; font-size: 24px; letter-spacing: -.02em; color: #101a33; font-family: var(--f8); font-weight: normal; }
+.hl-day { font-size: 14px; color: #6b7488; }
+.hl-nav { display: flex; gap: 6px; align-items: center; }
+.hl-nav input[type="date"] { font: inherit; font-size: 14px; padding: 5px 8px; border: 1px solid #d7dce8; border-radius: 9px; }
+.hl-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.hl-card { background: #fff; border: 1px solid #e6eaf2; border-radius: 18px; padding: 18px 20px; min-height: 150px; box-shadow: 0 1px 2px rgba(16, 32, 72, .03); position: relative; overflow: hidden; }
+.hl-card::before { content: ''; position: absolute; left: 0; top: 0; right: 0; height: 4px; background: var(--c, var(--nv)); }
+.hl-card h3 { margin: 0 0 10px; font-size: 15px; color: var(--c, var(--nv-d)); font-family: var(--f8); font-weight: normal; letter-spacing: .01em; }
+.hl-card p { margin: 0; white-space: pre-wrap; line-height: 1.75; font-size: 14.5px; color: #1f2740; }
+.hl-card .hl-none { color: #b8bfcd; }
+.hl-notice { grid-column: 1 / -1; --c: #15306b; background: linear-gradient(180deg, #f6f9ff, #fff 60%); }
+.hl-notice p { font-size: 15.5px; }
+.hl-events { --c: #2f7a4f; }
+.hl-guide { --c: #b26a00; }
+.hl-duty { --c: #5b3fc4; }
+.hl-cover { grid-column: 1 / -1; --c: #c0392b; min-height: 0; }
+.hl-duty-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.hl-duty-list li { display: grid; grid-template-columns: 72px 1fr; align-items: center; gap: 2px 8px; padding: 8px 0; border-bottom: 1px solid #f0f2f7; font-size: 14px; }
+.hl-duty-list li:last-child { border-bottom: 0; }
+.hl-duty-list b { color: #2a3247; font-family: var(--f7); font-weight: normal; }
+.hl-st { justify-self: start; font-size: 12.5px; padding: 2px 9px; border-radius: 999px; background: #eef1f6; color: #4a5368; font-family: var(--f6); }
+.hl-st.ok { background: #eaf7ef; color: #2f7a4f; } .hl-st.out { background: #e9f0fd; color: #1d4fa8; } .hl-st.off { background: #fdecec; color: #b42323; } .hl-st.part { background: #fff4e0; color: #9a5b00; }
+.hl-tm { font-variant-numeric: tabular-nums; color: #1f2740; font-family: var(--f6); }
+.hl-nt { grid-column: 2 / -1; color: #6b7488; font-size: 13px; }
+.hl-nt:empty { display: none; }
+.hl-plan { grid-column: 2; color: #8a93a6; }
+@media (max-width: 1000px) { .hl-grid { grid-template-columns: 1fr; } }
+#homePanel { grid-template-columns: 1fr; }
+
+/* 학교 일지 작성: 복무(상태·시간·장소) */
+.lg-duty col.t { width: 46%; }
+.dt-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 5px; }
+.dt-row select, .dt-time input, .dt-note { font: inherit; font-size: 13.5px; padding: 5px 7px; border: 1px solid #d7dce8; border-radius: 8px; background: #fff; }
+.dt-time { display: inline-flex; align-items: center; gap: 4px; }
+.dt-time i { font-style: normal; color: #8a93a6; }
+.dt-note { width: 100%; box-sizing: border-box; }
+.lg-sec textarea.from-cover { background: #f6f8fc; color: #2a3247; cursor: default; }
+
+/* 학교 일지 › 보결 관리 */
+.cv-card { max-width: 760px; }
+.cv-table { width: 100%; border: 1px solid #dfe4ee; border-radius: 14px; border-collapse: separate; border-spacing: 0; overflow: hidden; margin: 6px 0 12px; }
+.cv-table col.c1 { width: 120px; } .cv-table col.c4 { width: 70px; }
+.cv-table th { background: #f4f6fa; color: #5b6478; font-size: 13px; font-family: var(--f6); padding: 8px 10px; text-align: left; border-bottom: 1px solid #dfe4ee; }
+.cv-table td { padding: 8px 10px; border-bottom: 1px solid #edf0f5; vertical-align: middle; }
+.cv-table tbody tr:last-child td { border-bottom: 0; }
+.cv-table select, .cv-table input[data-f] { font: inherit; font-size: 14px; padding: 6px 8px; border: 1px solid #d7dce8; border-radius: 8px; width: 100%; box-sizing: border-box; background: #fff; }
+.cv-empty td { text-align: center; color: #a3abbd; padding: 22px; }
+.cv-periods { display: flex; gap: 4px; }
+.cv-periods label { cursor: pointer; }
+.cv-periods input { position: absolute; opacity: 0; pointer-events: none; }
+.cv-periods span { display: grid; place-items: center; width: 32px; height: 32px; border: 1.5px solid #dfe4ee; border-radius: 9px; font-size: 14px; font-family: var(--f7); color: #4a5368; background: #fafbfd; }
+.cv-periods input:checked + span { background: var(--nv); border-color: var(--nv); color: #fff; }
+.cv-periods input:focus-visible + span { box-shadow: 0 0 0 3px rgba(21, 48, 107, .2); }
+.cv-actions { gap: 6px; }
+.cv-preview { margin-top: 14px; border-radius: 12px; background: #fdf3f2; border: 1px solid #f3d3cf; padding: 10px 14px; }
+.cv-preview span { font-size: 12px; color: #c0392b; font-family: var(--f6); }
+.cv-preview pre { margin: 4px 0 0; font: inherit; font-size: 14px; white-space: pre-wrap; color: #2a3247; }

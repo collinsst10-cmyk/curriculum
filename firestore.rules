@@ -25,6 +25,12 @@ service cloud.firestore {
     function isApproved() {
       return signedIn() && (isAdmin() || exists(/databases/$(database)/documents/allowed/$(myEmail())));
     }
+    // 교내 교직원(승인 때 '일반 사용자'로 정하지 않은 사람). 일반 사용자는 공개 정보(학사일정·학교 정보·사진)만
+    function isStaff() {
+      return isAdmin() || (signedIn()
+        && exists(/databases/$(database)/documents/allowed/$(myEmail()))
+        && get(/databases/$(database)/documents/allowed/$(myEmail())).data.get('userType', 'staff') != 'general');
+    }
     function isOwner(d) {
       return d.ownerUid == request.auth.uid;
     }
@@ -64,14 +70,14 @@ service cloud.firestore {
     }
 
     match /plans/{planId} {
-      allow read: if isApproved() && (isOwner(resource.data) || isEditor(resource.data));
+      allow read: if isStaff() && (isOwner(resource.data) || isEditor(resource.data));
 
-      allow create: if isApproved()
+      allow create: if isStaff()
         && request.resource.data.ownerUid == request.auth.uid
         && request.resource.data.ownerEmail == myEmail()
         && validPlan(request.resource.data);
 
-      allow update: if isApproved() && validPlan(request.resource.data) && (
+      allow update: if isStaff() && validPlan(request.resource.data) && (
         isOwner(resource.data) && request.resource.data.ownerUid == resource.data.ownerUid
         || isEditor(resource.data)
            && request.resource.data.ownerUid == resource.data.ownerUid
@@ -79,13 +85,13 @@ service cloud.firestore {
            && request.resource.data.editors == resource.data.editors
       );
 
-      allow delete: if isApproved() && isOwner(resource.data);
+      allow delete: if isStaff() && isOwner(resource.data);
     }
 
     // 교육활동 일정(날짜별 1문서). 승인된 교직원 공용. 겹침 검사는 앱의 트랜잭션이 담당
     match /activityDays/{day} {
       allow read: if isApproved();
-      allow create, update: if isApproved() && day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+      allow create, update: if isStaff() && day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
         && request.resource.data.items is list && request.resource.data.items.size() <= 40;
       allow delete: if isAdmin();
     }
@@ -114,7 +120,7 @@ service cloud.firestore {
 
     // 한국어학급 담임 지정(학급 1~3). 관리자만 지정·해제(빈 값이면 해제)
     match /kclassOwners/{classId} {
-      allow get: if isApproved() && classId.matches('^[1-3]$');
+      allow get: if isStaff() && classId.matches('^[1-3]$');
       allow create, update: if isAdmin() && classId.matches('^[1-3]$')
         && request.resource.data.keys().hasOnly(['email'])
         && request.resource.data.email is string
@@ -124,8 +130,8 @@ service cloud.firestore {
 
     // 한국어학급 주간 시간표(담임교사·강사 이름 포함). 지정된 담임 또는 관리자가 수정
     match /kclassTimetables/{classId} {
-      allow get: if isApproved() && classId.matches('^[1-3]$');
-      allow create, update: if isApproved() && classId.matches('^[1-3]$')
+      allow get: if isStaff() && classId.matches('^[1-3]$');
+      allow create, update: if isStaff() && classId.matches('^[1-3]$')
         && (isAdmin() || get(/databases/$(database)/documents/kclassOwners/$(classId)).data.email == myEmail())
         && request.resource.data.keys().hasOnly(['slots', 'teacherName', 'instructorName'])
         && (!('teacherName' in request.resource.data) || (request.resource.data.teacherName is string && request.resource.data.teacherName.size() <= 30))
@@ -139,7 +145,7 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/kclassOwners/$(n)).data.email == myEmail();
     }
     function isKclassStaff() {
-      return isApproved() && (ownsKclass('1') || ownsKclass('2') || ownsKclass('3')
+      return isStaff() && (ownsKclass('1') || ownsKclass('2') || ownsKclass('3')
         || (exists(/databases/$(database)/documents/config/ksl)
             && myEmail() in get(/databases/$(database)/documents/config/ksl).data.get('teachers', [])));
     }
@@ -152,7 +158,7 @@ service cloud.firestore {
     }
     // 학교 일지 작성자: 지정된 작성자 또는 직위가 교무부장인 선생님
     function isLogWriter() {
-      return isApproved() && (
+      return isStaff() && (
         (exists(/databases/$(database)/documents/config/roles)
           && myEmail() in get(/databases/$(database)/documents/config/roles).data.get('logWriters', []))
         || (hasAllowed() && myAllowed().get('head', '') == '교무부장'));
@@ -160,19 +166,19 @@ service cloud.firestore {
 
     // 학교 현황(학생·교직원). 승인된 선생님은 읽기(HOME), 관리자 수정 (교무부장은 전입·전출 반영 때 수정)
     match /config/stats {
-      allow read: if isApproved();
+      allow read: if isStaff();
       allow write: if isAdmin() || isLogWriter();
     }
     // 이주배경학생 현황. 관리자와 한국어학급 담당이 수정
     match /config/migrant {
-      allow read: if isApproved();
+      allow read: if isStaff();
       allow write: if (isAdmin() || isKclassStaff())
         && request.resource.data.keys().hasOnly(['asOf', 'foreign', 'domestic', 'midEntry', 'nonMigrant', 'countries', 'note', 'updatedBy', 'updatedAt'])
         && request.resource.data.countries is string && request.resource.data.countries.size() <= 600;
     }
     // 역할 지정(교무부장 = 일지 작성자). 관리자만
     match /config/roles {
-      allow read: if isApproved();
+      allow read: if isStaff();
       allow create: if isAdmin() && !('developers' in request.resource.data);
       allow update: if isAdmin() && (
         isDeveloper() || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['developers'])
@@ -182,7 +188,7 @@ service cloud.firestore {
 
     // 학생 전입·전출(학생 이름 없음). 승인된 선생님은 읽기(HOME 알림), 관리자·교무부장이 등록·삭제
     match /transfers/{id} {
-      allow read: if isApproved();
+      allow read: if isStaff();
       allow create: if (isAdmin() || isLogWriter())
         && request.resource.data.keys().hasOnly(['date', 'type', 'grade', 'cls', 'sex', 'note', 'applied', 'by', 'byName', 'createdAt'])
         && request.resource.data.date is string && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
@@ -196,7 +202,7 @@ service cloud.firestore {
 
     // 그 반 담임: 본인이 고른 학급(homerooms) 또는 관리자가 정한 직위(담임 학급)
     function isHomeroomOf(g, c) {
-      return isApproved() && (
+      return isStaff() && (
         (exists(/databases/$(database)/documents/homerooms/$(myEmail()))
           && get(/databases/$(database)/documents/homerooms/$(myEmail())).data.grade == g
           && get(/databases/$(database)/documents/homerooms/$(myEmail())).data.cls == c)
@@ -205,7 +211,7 @@ service cloud.firestore {
     }
     match /homerooms/{email} {
       allow read: if signedIn() && (myEmail() == email || isAdmin());
-      allow write: if isApproved() && myEmail() == email
+      allow write: if isStaff() && myEmail() == email
         && request.resource.data.keys().hasOnly(['grade', 'cls', 'name', 'updatedAt'])
         && request.resource.data.grade is int && request.resource.data.grade >= 1 && request.resource.data.grade <= 6
         && request.resource.data.cls is int && request.resource.data.cls >= 1 && request.resource.data.cls <= 20;
@@ -265,7 +271,7 @@ service cloud.firestore {
     }
     // 반별 이주배경학생 합계(이름 없음) → HOME·학교 현황. 승인된 선생님 읽기, 그 반 담임·관리자·한국어학급 담당 쓰기
     match /migrantClassSum/{key} {
-      allow read: if isApproved();
+      allow read: if isStaff();
       allow delete: if isAdmin() || isHomeroomOf(resource.data.grade, resource.data.cls) || isKclassStaff();
       allow create, update: if (isAdmin() || isHomeroomOf(request.resource.data.grade, request.resource.data.cls) || isKclassStaff())
         && key == string(request.resource.data.grade) + '-' + string(request.resource.data.cls)
@@ -289,15 +295,15 @@ service cloud.firestore {
 
     // 한국어학급 연계(담당 교사·조정 기록)
     match /config/ksl {
-      allow read, write: if isApproved();
+      allow read, write: if isStaff();
     }
 
     // 학교운영일지(날짜별 1문서). 승인된 선생님은 읽기, 직위가 교무부장인 선생님(과 개발자)만 작성
     function isHeadAffairs() {
-      return isApproved() && hasAllowed() && myAllowed().get('head', '') == '교무부장';
+      return isStaff() && hasAllowed() && myAllowed().get('head', '') == '교무부장';
     }
     match /dailyLogs/{day} {
-      allow read: if isApproved();
+      allow read: if isStaff();
       allow write: if (isHeadAffairs() || isDeveloper()) && day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
     }
 

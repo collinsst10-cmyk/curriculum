@@ -8,7 +8,7 @@
   'use strict';
   // 입력이 있는 화면 (관리자용 / 선생님도 쓰는 화면)
   const ADMIN_TABS = ['school', 'env', 'cal', 'event', 'hours', 'schedule', 'review', 'tt', 'run', 'jd', 'stats1', 'stats2', 'site'];
-  const SHARED_TABS = ['act', 'roster', 'kclass', 'log', 'stats3', 'stats4'];
+  const SHARED_TABS = ['act', 'roster', 'kclass', 'log', 'cover', 'stats3', 'stats4'];
   const hhmm = () => new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
 
   const bar = document.createElement('div');
@@ -42,7 +42,7 @@
       if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
       await new Promise(r => setTimeout(r, 250));
       // 학교 일지 화면에서는 일지를 저장
-      if (curTab === 'log' && window.LogSave) { const m = await LogSave(); if (m) { toast(m, 'err'); return; } $('saveHint').textContent = `모두 저장됨 · ${hhmm()}`; toast(`저장되었습니다 (${hhmm()})`); return; }
+      if ((curTab === 'log' && window.LogSave) || (curTab === 'cover' && window.CoverSave)) { const m = await (curTab === 'log' ? LogSave() : CoverSave()); if (m) { toast(m, 'err'); return; } $('saveHint').textContent = `모두 저장됨 · ${hhmm()}`; toast(`저장되었습니다 (${hhmm()})`); return; }
       if (typeof saveNow === 'function' && !isTeacherView()) saveNow();
       const r = window.Cloud && Cloud.flush ? await Cloud.flush() : { cloud: false };
       if (r.error) { toast('저장에 실패했습니다: ' + r.error, 'err'); return; }

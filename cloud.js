@@ -24,6 +24,7 @@
   let profileName = '';     // 가입 때 등록한 이름
   let position = {};       // 직위 { posType:'homeroom'|'subject'|'', posCls:'1-2', posSubj:'영어', head:'교무부장'|'연구부장'|'' } (allowed 문서)
   let developer = false;   // 개발자(관리자 중 config/roles.developers 에 든 계정)
+  let userType = 'staff';  // 'staff' 교내 교직원 | 'general' 일반 사용자(공개 정보만)
   let schoolEditUntil = 0;
   let schoolEditTimer;
   let cur = null;           // { id, meta, unsub }
@@ -36,9 +37,10 @@
   /* ---------- 관리자: '선생님 화면으로 보기' (이 탭에서만, 새로고침해도 유지) ---------- */
   let preview = sessionStorage.getItem('viewAsTeacher') === '1';
   /* 개발자: 어떤 권한으로 볼지 고름 (개발자·운영자 = 관리자 권한, 나머지 = 선생님 화면 + 그 직위) */
-  const VIEW_ROLES = [['dev', '개발자 (모든 권한)'], ['operator', '운영자'], ['applicant', '가입 신청자 (등록 화면)'], ['교무부장', '교무부장'], ['연구부장', '연구부장'], ['homeroom', '담임교사'], ['subject', '전담교사'], ['teacher', '일반 선생님']];
+  const VIEW_ROLES = [['dev', '개발자 (모든 권한)'], ['operator', '운영자'], ['applicant', '가입 신청자 (등록 화면)'], ['general', '일반 사용자'], ['교무부장', '교무부장'], ['연구부장', '연구부장'], ['homeroom', '담임교사'], ['subject', '전담교사'], ['teacher', '일반 선생님']];
   let viewRole = sessionStorage.getItem('viewRole') || 'dev';
   const effAdmin = () => admin && !preview;   // 화면에서 쓰는 관리자 여부
+  const isGeneral = () => (developer && preview && viewRole === 'general') || (!admin && userType === 'general');
   /** 화면에서 쓰는 직위: 개발자가 다른 권한으로 볼 때는 그 직위로 흉내 냄 */
   function effPosition() {
     if (!(developer && preview)) return position;
@@ -120,6 +122,8 @@
     },
     get position() { return effPosition(); },          // 직위(개발자가 다른 권한으로 보면 그 직위)
     get developer() { return developer; },
+    /** 일반 사용자(외부에 공개해도 되는 정보만 조회). 개발자가 '일반 사용자'로 볼 때도 */
+    get isGeneral() { return isGeneral(); },
     get viewRole() { return developer && preview ? viewRole : ''; },
     get previewing() { return admin && preview; },
   };
@@ -143,6 +147,7 @@
     $('previewRole').textContent = roleName;
     $('previewBar').hidden = !(admin && preview);
     document.body.classList.toggle('previewing', !!(admin && preview));
+    document.body.classList.toggle('general-user', isGeneral());
     document.dispatchEvent(new Event('cloud-change'));
     applyRoleView();
     const pending = window.App.pendingTab;
@@ -210,6 +215,7 @@
     myReq = isReq ? rq.data() : null;
     const ad = isAllowed ? al.data() : {};
     position = { posType: ad.posType || '', posCls: ad.posCls || '', posSubj: ad.posSubj || '', head: ad.head || '' };
+    userType = !isAdm && ad.userType === 'general' ? 'general' : 'staff';
     developer = false;
     if (isAdm) { const r = await safe(F.getDoc(D('config', 'roles'))); developer = !!(r && r.exists() && (r.data().developers || []).includes(e)); }
     access = isAdm || isAllowed ? 'approved' : isReq ? 'pending' : 'none';
@@ -354,27 +360,26 @@
   }
 
   /* =========================================================
-   * 가입(등록 신청): 구글 로그인 → 기본 정보 입력 → 운영자 승인(학급·직위는 운영자가 정함)
-   *  requests/{email} { email, name, kind, grade, subj, memo, role(요약), requestedAt }
+   * 가입(등록 신청): 구글 로그인 → 이름·구분 → 운영자 승인(학급·직위는 운영자가 정함)
+   *  requests/{email} { email, name, kind('staff' 교내 교직원 | 'other' 일반 사용자), role, requestedAt }
    * ========================================================= */
-  const KINDS = [['homeroom', '담임교사'], ['subject', '교과전담교사'], ['special', '비교과 교사 (보건·영양·상담·사서 등)'], ['staff', '행정·교육공무직'], ['other', '강사·기타']];
-  const kindName = k => (KINDS.find(x => x[0] === k) || [, ''])[1];
+  const KINDS = [['staff', '교내 교직원'], ['other', '일반 사용자']];
+  const OLD_KINDS = { homeroom: '담임교사', subject: '교과전담교사', special: '비교과 교사' };
+  const kindName = k => (KINDS.find(x => x[0] === k) || [, OLD_KINDS[k] || ''])[1];
   let myReq = null;               // 내 신청 내용 (승인 대기 화면에 보여 줌)
-  let gateEdit = false;           // 승인 대기 중 '신청 내용 고치기'
+  let gateEdit = false;           // 승인 대기 중 '정보 수정'
   let previewStep = 'form';       // 개발자 미리보기: 'form' | 'pending'
   const isApplicantPreview = () => developer && preview && viewRole === 'applicant';
 
   function readSignup(el) {
-    const v = n => (el.querySelector(`[name="${n}"]`) || {}).value || '';
-    const kind = v('suKind'), grade = v('suGrade'), subj = v('suSubj').trim().slice(0, 20);
-    const name = v('suName').trim().slice(0, 30), memo = v('suMemo').trim().slice(0, 100);
-    const role = [kindName(kind).split(' (')[0], kind === 'homeroom' && grade ? `${grade}학년 희망` : '', kind === 'subject' && subj ? subj : ''].filter(Boolean).join(' · ');
-    return { name, kind, grade: kind === 'homeroom' ? grade : '', subj: kind === 'subject' ? subj : '', memo, role: role.slice(0, 40) };
+    const name = ((el.querySelector('[name="suName"]') || {}).value || '').trim().slice(0, 30);
+    const kind = (el.querySelector('[name="suKind"]:checked') || {}).value || '';
+    return { name, kind, role: kindName(kind) };
   }
   async function requestAccess(el) {
     const d = readSignup(el);
-    if (!d.name) { alert('이름(실명)을 입력하세요. 이 사이트에서 계속 쓰이는 이름입니다.'); el.querySelector('[name="suName"]').focus(); return; }
-    if (!d.kind) { alert('구분을 고르세요.'); return; }
+    if (!d.name) { el.querySelector('[name="suName"]').focus(); return; }
+    if (!d.kind) return;
     if (isApplicantPreview()) { myReq = { email: myEmail(), ...d }; previewStep = 'pending'; refreshUi(); return; }   // 미리보기: 보내지 않음
     const data = { email: myEmail(), ...d, requestedAt: fb.F.serverTimestamp() };
     if (access === 'pending') await fb.F.deleteDoc(D('requests', myEmail())).catch(() => {});   // 고쳐서 다시 신청
@@ -388,43 +393,37 @@
     myReq = null; profileName = ''; access = 'none'; setStatus('☁ 승인 필요'); refreshUi();
   }
 
-  /** 가입 양식 (신청 / 고쳐서 다시 신청 / 개발자 미리보기) */
+  /** 가입 흐름: 로그인 → 정보 입력 → 승인. at = 지금 단계(0~2), wait = 승인 검토 중 */
+  function flow(at, wait) {
+    const steps = [['로그인', 'Google'], ['정보 입력', '이름 · 구분'], ['승인', '운영자']];
+    const st = i => i < at ? 'done' : i === at ? (wait ? 'wait' : 'now') : 'next';
+    const tag = { done: '완료', now: '지금', wait: '검토 중' };
+    return `<ol class="su-flow" style="--p:${at / 2}">${steps.map(([t, s], i) => `<li class="${st(i)}">
+      <i>${st(i) === 'done' ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg>' : i + 1}</i>
+      <b>${t}</b><small>${tag[st(i)] || s}</small></li>`).join('')}</ol>`;
+  }
+  const demoTag = demo => demo ? '<span class="su-demo">미리보기</span>' : '';
+  const GOOGLE = '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>';
+
+  /** 가입 양식 (신청 / 정보 수정 / 개발자 미리보기) */
   function signupForm(prev, demo) {
-    const p = prev || {};
-    const kindOpts = KINDS.map(([k, n]) => `<label class="su-kind"><input type="radio" name="suKind" value="${k}" ${p.kind === k ? 'checked' : ''}><span>${n}</span></label>`).join('');
-    const nCls = g => Number(state.school.classes[g]) || 0;
-    return `<div class="signup-card${demo ? ' demo' : ''}">
-      ${demo ? '<div class="su-demo">개발자 미리보기 · 새로 가입하는 선생님에게 보이는 화면입니다. 신청은 실제로 보내지지 않습니다.</div>' : ''}
-      <ol class="su-steps"><li class="done">구글 로그인</li><li class="on">기본 정보 입력</li><li>운영자 승인</li></ol>
-      <h2>선생님 등록</h2>
-      <p class="su-lead"><b>${esc(myEmail())}</b> 계정으로 처음 오셨습니다. 아래 기본 정보를 보내 주시면 운영자가 확인하고 담당 학급·직위를 정해 승인합니다.</p>
-      <div class="su-form">
-        <label class="su-f"><span>이름(실명) <em>*</em></span><input name="suName" type="text" maxlength="30" placeholder="예: 홍길동" value="${esc(p.name || '')}" autocomplete="name"></label>
-        <div class="su-f"><span>구분 <em>*</em></span><div class="su-kinds">${kindOpts}</div></div>
-        <label class="su-f su-grade" ${p.kind === 'homeroom' ? '' : 'hidden'}><span>담임 학년 <small>(알고 있으면)</small></span>
-          <select name="suGrade"><option value="">아직 모름</option>${GRADES.filter(g => nCls(g)).map(g => `<option value="${g}" ${String(p.grade) === String(g) ? 'selected' : ''}>${g}학년</option>`).join('')}</select>
-          <small class="hint">반은 운영자가 정합니다.</small></label>
-        <label class="su-f su-subj" ${p.kind === 'subject' ? '' : 'hidden'}><span>전담 과목 <small>(알고 있으면)</small></span><input name="suSubj" type="text" maxlength="20" placeholder="예: 영어" value="${esc(p.subj || '')}"></label>
-        <label class="su-f"><span>운영자에게 남길 말 <small>(선택)</small></span><input name="suMemo" type="text" maxlength="100" placeholder="예: 3월 전입, 한국어학급 강사" value="${esc(p.memo || '')}"></label>
-      </div>
-      <p class="hint">이름은 이 사이트에서 일정 기록자 등으로 계속 쓰입니다. 승인 후 바꿔야 하면 운영자에게 요청하세요.</p>
-      <div class="row su-actions"><button class="btn primary" data-act="request">${gateEdit ? '고친 내용으로 다시 신청' : '등록 신청'}</button>
-        ${gateEdit ? '<button class="btn" data-act="editCancel">취소</button>' : ''}
-        ${demo ? '' : '<button class="btn small" data-act="logout">다른 계정으로 로그인</button>'}</div></div>`;
+    const p = prev || {}, ok = p.name && KINDS.some(([k]) => k === p.kind);
+    return `<div class="signup-card">${demoTag(demo)}${flow(1)}
+      <div class="su-head"><h2>선생님 등록</h2><span class="su-mail">${esc(myEmail())}</span></div>
+      <label class="su-field"><span>이름</span><input name="suName" type="text" maxlength="30" placeholder="실명" value="${esc(p.name || '')}" autocomplete="name"></label>
+      <div class="su-field"><span>구분</span><div class="su-kinds" role="radiogroup">${KINDS.map(([k, n]) =>
+        `<label class="su-kind"><input type="radio" name="suKind" value="${k}" ${p.kind === k ? 'checked' : ''}><span>${n}</span></label>`).join('')}</div></div>
+      <button class="su-submit" data-act="request" ${ok ? '' : 'disabled'}>${gateEdit ? '수정해서 다시 신청' : '등록 신청'}</button>
+      <div class="su-foot">${gateEdit ? '<button class="su-link" data-act="editCancel">취소</button>' : ''}${demo ? '' : '<button class="su-link" data-act="logout">다른 계정으로 로그인</button>'}</div></div>`;
   }
   function pendingCard(r, demo) {
     r = r || {};
-    return `<div class="signup-card pending${demo ? ' demo' : ''}">
-      ${demo ? '<div class="su-demo">개발자 미리보기 · 신청을 보낸 뒤 선생님에게 보이는 화면입니다.</div>' : ''}
-      <ol class="su-steps"><li class="done">구글 로그인</li><li class="done">기본 정보 입력</li><li class="on">운영자 승인</li></ol>
-      <h2>승인을 기다리고 있습니다</h2>
-      <p class="su-lead">운영자가 담당 학급·직위를 정해 승인하면 바로 사용할 수 있습니다. 승인 후에는 이 페이지를 새로고침하거나 '승인 여부 다시 확인'을 누르세요.</p>
-      <dl class="su-sum"><div><dt>계정</dt><dd>${esc(myEmail())}</dd></div><div><dt>이름</dt><dd>${esc(r.name || profileName || '')}</dd></div>
-        <div><dt>구분</dt><dd>${esc(r.kind ? kindName(r.kind) : (r.role || '-'))}${r.grade ? ` · ${esc(r.grade)}학년 희망` : ''}${r.subj ? ` · ${esc(r.subj)}` : ''}</dd></div>
-        ${r.memo ? `<div><dt>남긴 말</dt><dd>${esc(r.memo)}</dd></div>` : ''}</dl>
-      <div class="row su-actions">${demo ? '<button class="btn" data-act="demoBack">입력 화면 다시 보기</button>'
-        : `<button class="btn primary" data-act="recheck">승인 여부 다시 확인</button><button class="btn" data-act="edit">신청 내용 고치기</button>
-           <button class="btn small" data-act="cancelReq">신청 취소</button><button class="btn small" data-act="logout">로그아웃</button>`}</div></div>`;
+    return `<div class="signup-card">${demoTag(demo)}${flow(2, true)}
+      <div class="su-head"><h2>승인 대기 중</h2><span class="su-mail">${esc(myEmail())}</span></div>
+      <dl class="su-sum"><div><dt>이름</dt><dd>${esc(r.name || profileName || '')}</dd></div><div><dt>구분</dt><dd>${esc(kindName(r.kind) || r.role || '-')}</dd></div></dl>
+      ${demo ? '<button class="su-submit ghost" data-act="demoBack">입력 화면 보기</button>'
+        : `<button class="su-submit" data-act="recheck">승인 확인</button>
+           <div class="su-foot"><button class="su-link" data-act="edit">정보 수정</button><button class="su-link" data-act="cancelReq">신청 취소</button><button class="su-link" data-act="logout">로그아웃</button></div>`}</div>`;
   }
 
   /* =========================================================
@@ -435,11 +434,10 @@
     if (fbFailed) { el.innerHTML = `<div class="gate warn">클라우드에 연결하지 못해 <b>이 PC 저장 모드</b>로 동작합니다.</div>`; return; }
     if (!fb || access === 'unknown') { el.innerHTML = `<div class="gate">연결 중…</div>`; return; }
     if (isApplicantPreview()) {
-      el.innerHTML = previewStep === 'pending' ? pendingCard(myReq || { name: profileName, kind: 'homeroom', grade: '3' }, true) : signupForm(myReq, true);
+      el.innerHTML = previewStep === 'pending' ? pendingCard(myReq || { name: '홍길동', kind: 'staff' }, true) : signupForm(myReq, true);
     } else if (access === 'signedout') {
-      el.innerHTML = `<div class="signup-card"><ol class="su-steps"><li class="on">구글 로그인</li><li>기본 정보 입력</li><li>운영자 승인</li></ol>
-        <h2>로그인이 필요합니다</h2><p class="su-lead">학교 구글 계정으로 로그인하세요. 처음이면 로그인 뒤 간단한 등록 신청을 하고, 운영자가 승인하면 사용할 수 있습니다.</p>
-        <button class="btn primary" data-act="login">Google 계정으로 로그인</button></div>`;
+      el.innerHTML = `<div class="signup-card">${flow(0)}<div class="su-head center"><h2>로그인</h2></div>
+        <button class="su-submit google" data-act="login">${GOOGLE}Google 계정으로 로그인</button></div>`;
     } else if (access === 'none' || (access === 'pending' && gateEdit)) {
       el.innerHTML = signupForm(gateEdit ? myReq : null, false);
     } else if (access === 'pending') {
@@ -450,12 +448,15 @@
         <p>${cur ? `열린 문서: <b>${esc(cur.meta.title)}</b>` : '열린 클라우드 문서가 없습니다. <a href="#data">자료 관리</a>에서 문서를 만들거나 여세요.'}</p></div>`;
     }
     el.onclick = gateAction;
-    // 구분에 따라 학년·과목 칸 보이기
-    el.onchange = e => {
-      if (e.target.name !== 'suKind') return;
-      const card = e.target.closest('.signup-card');
-      card.querySelector('.su-grade').hidden = e.target.value !== 'homeroom';
-      card.querySelector('.su-subj').hidden = e.target.value !== 'subject';
+    // 이름·구분을 모두 채우면 신청 단추가 켜짐
+    const sync = () => {
+      const card = el.querySelector('.signup-card'), btn = card && card.querySelector('[data-act="request"]'); if (!btn) return;
+      const d = readSignup(card); btn.disabled = !(d.name && d.kind);
+    };
+    el.oninput = sync; el.onchange = sync;
+    el.onkeydown = e => {
+      if (e.key !== 'Enter' || e.target.name !== 'suName') return;
+      e.preventDefault(); const b = el.querySelector('[data-act="request"]'); if (b && !b.disabled) b.click();
     };
   }
 
@@ -545,13 +546,6 @@
     const el = $('adminBody');
     if (!admin) { el.innerHTML = '<div class="card">관리자만 볼 수 있습니다.</div>'; return; }
     el.innerHTML = `
-      <div class="card"><h2>관리자 내 이름</h2>
-        <div class="row"><input id="admMyName" type="text" maxlength="30" value="${esc(profileName)}" placeholder="이름(실명)" style="width:160px">
-        <button class="btn small primary" data-a="myname">저장</button>
-        <span class="hint">관리자 계정의 사이트 표시 이름(일정 기록자 등)입니다.</span></div>
-        <div class="row adm-dev"><span>이 계정의 구분: <b class="who-tag ${developer ? 'dev' : 'op'}">${developer ? '개발자' : '운영자'}</b></span>
-          ${developer ? '<button class="btn small" data-a="dev">운영자로 바꾸기</button>' : ''}
-          <span class="hint">운영자는 사이트 전체를 관리하고 등록 신청을 승인합니다. 개발자는 언제나 운영자 권한을 함께 가지며, 오른쪽 위 '권한 보기'로 모든 직위의 화면과 '가입 신청자(등록 화면)'을 골라 볼 수 있습니다.</span></div></div>
       <div class="card adm-req-card"><h2>등록 신청 (승인 대기)</h2><div id="admReq" class="hint">불러오는 중…</div></div>
       <div class="card"><div class="card-head"><h2>허용된 사용자</h2></div>
         <div class="row" style="margin-bottom:10px">
@@ -560,7 +554,14 @@
           <button class="btn primary small" data-a="add">직접 추가</button>
         </div>
         <div id="admAllowed" class="hint">불러오는 중…</div>
-        <p class="hint">관리자 계정 추가·변경은 Firebase 콘솔의 <code>admins</code> 컬렉션에서 합니다.</p></div>`;
+        <p class="hint">관리자 계정 추가·변경은 Firebase 콘솔의 <code>admins</code> 컬렉션에서 합니다.</p></div>
+      <div class="card"><h2>내 계정</h2>
+        <div class="row"><input id="admMyName" type="text" maxlength="30" value="${esc(profileName)}" placeholder="이름(실명)" style="width:160px">
+        <button class="btn small primary" data-a="myname">저장</button>
+        <span class="hint">관리자 계정의 사이트 표시 이름(일정 기록자 등)입니다.</span></div>
+        <div class="row adm-dev"><span>이 계정의 구분: <b class="who-tag ${developer ? 'dev' : 'op'}">${developer ? '개발자' : '운영자'}</b></span>
+          ${developer ? '<button class="btn small" data-a="dev">운영자로 바꾸기</button>' : ''}
+          <span class="hint">운영자는 사이트 전체를 관리하고 등록 신청을 승인합니다. 개발자는 언제나 운영자 권한을 함께 가지며, 오른쪽 위 '권한 보기'로 모든 직위의 화면과 '가입 신청자(등록 화면)'을 골라 볼 수 있습니다.</span></div></div>`;
     const F = fb.F;
     const taken = {};   // 학급 → 지금 담임 { name, email }
     try {
@@ -575,6 +576,7 @@
       const SUBJ = ['영어', '과학', '체육', '음악', '미술', '실과', '도덕', '사회', '수학', '국어', '정보'];
       const subjOpts = cur => '<option value="">과목</option>' + SUBJ.map(s => `<option ${s === cur ? 'selected' : ''}>${s}</option>`).join('');
       const posCell = (a, grade) => `<div class="adm-pos" data-e="${esc(a.id)}">
+          <select class="adm-ut"><option value="staff">교내 교직원</option><option value="general" ${a.userType === 'general' ? 'selected' : ''}>일반 사용자</option></select>
           <select class="adm-pt"><option value="">직위 없음</option><option value="homeroom" ${a.posType === 'homeroom' ? 'selected' : ''}>담임교사</option><option value="subject" ${a.posType === 'subject' ? 'selected' : ''}>전담교사</option></select>
           <select class="adm-pc" ${a.posType === 'homeroom' ? '' : 'hidden'}>${clsOpts(a.posCls, grade)}</select>
           <select class="adm-ps" ${a.posType === 'subject' ? '' : 'hidden'}>${subjOpts(a.posSubj)}</select>
@@ -582,7 +584,7 @@
       // 등록 신청: 신청 내용을 보고 운영자가 이름·학급·직위를 정해 승인
       $('admReq').classList.remove('hint');
       $('admReq').innerHTML = reqs.length ? `<div class="adm-reqs">${reqs.map(r => {
-        const pre = { id: r.id, posType: r.kind === 'homeroom' || r.kind === 'subject' ? r.kind : '', posCls: '', posSubj: SUBJ.includes(r.subj) ? r.subj : '', head: '' };
+        const pre = { id: r.id, userType: r.kind === 'other' ? 'general' : 'staff', posType: r.kind === 'homeroom' || r.kind === 'subject' ? r.kind : '', posCls: '', posSubj: SUBJ.includes(r.subj) ? r.subj : '', head: '' };
         return `<div class="adm-req">
           <div class="adm-req-info"><b>${esc(r.name)}</b> <span class="hint">${esc(r.id)}</span>
             <div class="adm-req-meta"><span class="pill">${esc(r.kind ? kindName(r.kind).split(' (')[0] : (r.role || '구분 없음'))}</span>
@@ -591,10 +593,10 @@
           <div class="adm-req-set"><label>이름 <input class="adm-rname" data-e="${esc(r.id)}" value="${esc(r.name || '')}" maxlength="30"></label>${posCell(pre, r.grade)}</div>
           <div class="adm-req-btns"><button class="btn small primary" data-a="approve" data-e="${esc(r.id)}" data-r="${esc(r.role || '')}">승인</button>
             <button class="btn small danger" data-a="reject" data-e="${esc(r.id)}">거절</button></div></div>`; }).join('')}</div>
-          <p class="hint">담임교사는 학급을, 전담교사는 과목을 골라야 승인됩니다. 승인하면 그 선생님 화면에 직위(예: '3-1 담임')가 바로 적용됩니다.</p>`
+          `
         : '대기 중인 신청이 없습니다.';
       $('admAllowed').classList.remove('hint');
-      $('admAllowed').innerHTML = allowed.length ? `<table class="tbl compact adm-users"><tr><th class="l">이메일</th><th>이름 (사이트 표시)</th><th>직위 · 부장</th><th>담당(신청 때)</th><th>승인자</th><th>승인 시각</th><th></th></tr>` +
+      $('admAllowed').innerHTML = allowed.length ? `<table class="tbl compact adm-users"><tr><th class="l">이메일</th><th>이름 (사이트 표시)</th><th>구분 · 직위 · 부장</th><th>담당(신청 때)</th><th>승인자</th><th>승인 시각</th><th></th></tr>` +
         allowed.map(a => `<tr><td class="l">${esc(a.id)}</td>
           <td><input class="adm-name" data-e="${esc(a.id)}" value="${esc(a.name || '')}" style="width:110px"></td>
           <td>${posCell(a)}<button class="btn small primary" data-a="rename" data-e="${esc(a.id)}">저장</button></td>
@@ -605,14 +607,23 @@
     } catch (e) { el.insertAdjacentHTML('afterbegin', `<div class="notice">불러오기 실패: ${esc(e.message)}</div>`); }
 
     // 직위를 바꾸면 학급·과목 칸 보이기
-    el.onchange = e => { if (!e.target.classList.contains('adm-pt')) return; const box = e.target.closest('.adm-pos'); box.querySelector('.adm-pc').hidden = e.target.value !== 'homeroom'; box.querySelector('.adm-ps').hidden = e.target.value !== 'subject'; };
+    // 구분·직위에 따라 칸 보이기 (일반 사용자는 직위 없음)
+    const syncPos = box => {
+      const gen = box.querySelector('.adm-ut').value === 'general', pt = box.querySelector('.adm-pt').value;
+      box.querySelector('.adm-pt').hidden = gen; box.querySelector('.adm-hd').hidden = gen;
+      box.querySelector('.adm-pc').hidden = gen || pt !== 'homeroom'; box.querySelector('.adm-ps').hidden = gen || pt !== 'subject';
+    };
+    el.querySelectorAll('.adm-pos').forEach(syncPos);
+    el.onchange = e => { const box = e.target.closest('.adm-pos'); if (box) syncPos(box); };
     /** 직위 칸 읽기 + 확인(학급·과목 빠짐, 같은 반 담임 겹침) → 직위 또는 null */
     const readPos = email => {
       const box = el.querySelector(`.adm-pos[data-e="${CSS.escape(email)}"]`);
       const posType = box.querySelector('.adm-pt').value;
       const pos = { posType, posCls: posType === 'homeroom' ? box.querySelector('.adm-pc').value : '', posSubj: posType === 'subject' ? box.querySelector('.adm-ps').value : '', head: box.querySelector('.adm-hd').value };
-      if (posType === 'homeroom' && !pos.posCls) { alert('담임 학급을 고르세요.'); return null; }
-      if (posType === 'subject' && !pos.posSubj) { alert('전담 과목을 고르세요.'); return null; }
+      pos.userType = box.querySelector('.adm-ut').value;
+      if (pos.userType === 'general') Object.assign(pos, { posType: '', posCls: '', posSubj: '', head: '' });   // 일반 사용자는 직위 없음
+      if (pos.posType === 'homeroom' && !pos.posCls) { alert('담임 학급을 고르세요.'); return null; }
+      if (pos.posType === 'subject' && !pos.posSubj) { alert('전담 과목을 고르세요.'); return null; }
       const t = pos.posCls && taken[pos.posCls];
       if (t && t.email !== email && !confirm(`${pos.posCls}반 담임은 지금 ${t.name} 선생님입니다. 이 선생님으로 바꿀까요?\n(${t.name} 선생님의 직위는 '직위 없음'이 됩니다)`)) return null;
       return pos;

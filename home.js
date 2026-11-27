@@ -49,25 +49,36 @@
   function render() {
     if (!$('logView')) return;
     $('logDate').value = logDate;
+    $('logDay').innerHTML = longDate(logDate) + (logDate === fmt(new Date()) ? ' <span class="pill ok">오늘</span>' : '');
     if (!window.Cloud || !Cloud.ready) { $('logView').innerHTML = '<p class="hint">로그인하면 학교운영일지를 볼 수 있습니다.</p>'; return; }
     watch();
-    const head = `<div class="log-date">${longDate(logDate)}${logDate === fmt(new Date()) ? ' <span class="pill ok">오늘</span>' : ''}</div>`;
-    if (current === undefined) $('logView').innerHTML = head + '<p class="hint">불러오는 중…</p>';
-    else if (!current || !current.text) $('logView').innerHTML = head + '<p class="log-empty">이 날 등록된 운영일지가 없습니다.</p>';
-    else $('logView').innerHTML = head + logBody(current) + `<div class="log-foot"><span class="hint">작성: ${esc(current.byName || '')}${current.updatedAt ? ' · ' + fmtTs(current.updatedAt) : ''}</span>
+    const has = c => c && (c.text || ['notice', 'events', 'guidance', 'cover'].some(k => c[k]) || (c.covers || []).length);
+    if (current === undefined) $('logView').innerHTML = '<p class="hint">불러오는 중…</p>';
+    else if (!has(current)) $('logView').innerHTML = '<p class="log-empty">이 날 등록된 운영일지가 없습니다.</p>';
+    else $('logView').innerHTML = logBody(current) + `<div class="log-foot"><span class="hint">${esc(current.byName || '')}${current.updatedAt ? ' · ' + fmtTs(current.updatedAt) : ''}</span>
       <button type="button" class="btn small" id="logHwp">한글 파일로 저장</button></div>`;
     renderRecent();
   }
 
-  /** 일지 본문: 항목(전달사항·주요행사·생활지도) + 근무상황 표. 예전 글만 있으면 그대로 */
+  /** 일지 본문: 전달사항 · 주요행사 및 교육활동 · 생활지도 및 안전지도 · 관리자 복무 (+ 보결이 있으면) */
   function logBody(c) {
-    if (!['notice', 'events', 'guidance', 'cover', 'preview', 'lecture'].some(k => c[k]) && !c.duty) return `<div class="log-text">${esc(c.text)}</div>`;
-    const secs = [['notice', '전달사항'], ['events', '주요행사 및 교육활동'], ['guidance', '생활지도 및 안전지도'], ['cover', '결보강'], ['preview', '교육활동 예고'], ['lecture', '외부강의 확인']]
-      .filter(([k]) => (c[k] || '').trim()).map(([k, n]) => `<section><h4>${n}</h4><p>${esc(c[k])}</p></section>`).join('');
-    const d = c.duty || {}, rows = [['p', '교장'], ['v', '교감'], ['a', '행정실장']].filter(([k]) => d[k] && (d[k].today || d[k].plan));
-    const duty = rows.length ? `<section><h4>근무상황</h4><table class="log-duty"><thead><tr><th>구분</th><th>오늘 복무</th><th>예정</th></tr></thead><tbody>
-      ${rows.map(([k, n]) => `<tr><th>${n}</th><td>${esc(d[k].today || '-')}</td><td>${esc(d[k].plan || '')}</td></tr>`).join('')}</tbody></table></section>` : '';
-    return `<div class="log-secs">${secs}${duty}</div>`;
+    const f = window.LogExport ? LogExport.fieldsOf(c) : c;
+    if (!['notice', 'events', 'guidance', 'cover'].some(k => f[k]) && !c.duty && c.text) return `<div class="log-text">${esc(c.text)}</div>`;
+    const box = (cls, title, body) => `<section class="hl-card ${cls}"><h3>${title}</h3>${body}</section>`;
+    const txt = t => (t || '').trim() ? `<p>${esc(t)}</p>` : '<p class="hl-none">-</p>';
+    const D = window.Duty;
+    const duty = [['p', '교장'], ['v', '교감'], ['a', '행정실장']].map(([k, n]) => {
+      const d = D ? D.of((c.duty || {})[k]) : { status: '', today: '' };
+      return `<li><b>${n}</b><span class="hl-tm">${d.from || d.to ? `${esc(d.from)} ~ ${esc(d.to)}` : '<span class="hl-none">-</span>'}</span>
+        ${d.plan ? `<small class="hl-plan">예정 · ${esc(d.plan)}</small>` : ''}</li>`;
+    }).join('');
+    return `<div class="hl-grid">
+      ${box('hl-notice', '전달사항', txt(f.notice))}
+      ${box('hl-events', '주요행사 및 교육활동', txt(f.events))}
+      ${box('hl-guide', '생활지도 및 안전지도', txt(f.guidance))}
+      ${box('hl-duty', '관리자 복무', `<ul class="hl-duty-list">${duty}</ul>`)}
+      ${(f.cover || '').trim() ? box('hl-cover', '보결', txt(f.cover)) : ''}
+    </div>`;
   }
 
   function go(ds) { logDate = ds; render(); }
@@ -78,6 +89,7 @@
   });
 
   $('logPrev').addEventListener('click', () => go(stepDay(logDate, -1)));
+  $('logToday').addEventListener('click', () => go(fmt(new Date())));
   $('logNext').addEventListener('click', () => go(stepDay(logDate, 1)));
   $('logDate').addEventListener('change', e => { if (e.target.value) go(e.target.value); });
   $('logRecent').addEventListener('click', e => { const b = e.target.closest('[data-day]'); if (b) go(b.dataset.day); });
