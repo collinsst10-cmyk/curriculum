@@ -507,7 +507,71 @@ const canEditSchool = () => !isTeacherView() && (window.App.canEditSchool?.() ??
 function updateSchoolEditControls() {
   const editable = canEditSchool();
   $('schoolUnlockRow').hidden = editable || !window.Cloud?.isAdmin();
+  $('schoolAddressSearch').hidden = !editable;
   $('tab-school').querySelectorAll('input, select').forEach(input => { input.disabled = !editable; });
+}
+
+let schoolPostcodeLoader;
+function loadSchoolPostcode() {
+  schoolPostcodeLoader ||= new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
+    script.onload = () => window.kakao?.Postcode ? resolve(window.kakao.Postcode) : reject();
+    script.onerror = () => { script.remove(); reject(); };
+    document.head.append(script);
+  }).catch(error => { schoolPostcodeLoader = undefined; throw error; });
+  return schoolPostcodeLoader;
+}
+
+async function searchSchoolAddress() {
+  if (!canEditSchool()) return;
+  const dialog = $('schoolAddressDialog');
+  const results = $('schoolAddressResults');
+  const loading = $('schoolAddressLoading');
+  const message = $('schoolAddressMessage');
+  results.replaceChildren();
+  results.hidden = true;
+  loading.hidden = false;
+  loading.textContent = '주소 검색을 불러오는 중입니다.';
+  message.hidden = true;
+  dialog.showModal();
+  try {
+    const Postcode = await loadSchoolPostcode();
+    if (!dialog.open || results.childElementCount) return;
+    const postcode = new Postcode({
+      width: '100%',
+      height: '100%',
+      oncomplete(data) {
+        if (!dialog.open || !canEditSchool()) return;
+        const address = data.roadAddress || data.autoRoadAddress;
+        if (!address) {
+          loading.textContent = '도로명 주소가 있는 검색 결과를 선택해 주세요.';
+          loading.hidden = false;
+          return;
+        }
+        const details = {
+          postalCode: data.zonecode || '',
+          address,
+          englishAddress: data.roadAddressEnglish || data.autoRoadAddressEnglish || ''
+        };
+        Object.assign(state.school.details ||= {}, details);
+        for (const [key, value] of Object.entries(details)) {
+          dialog.closest('#tab-school').querySelector(`[data-school-detail="${key}"]`).value = value;
+        }
+        save();
+        dialog.close();
+        message.textContent = '선택한 주소를 적용했습니다.';
+        message.hidden = false;
+      },
+      autoClose: false
+    });
+    loading.hidden = true;
+    results.hidden = false;
+    postcode.embed(results, { autoClose: false });
+  } catch {
+    loading.textContent = '주소 검색을 불러오지 못했습니다. 다시 시도하거나 주소를 직접 입력해 주세요.';
+    loading.hidden = false;
+  }
 }
 
 /* =========================================================
@@ -1087,6 +1151,7 @@ function bind() {
   window.addEventListener('hashchange', () => { if (location.hash.slice(1) !== curTab) showTab(location.hash.slice(1) || 'home'); });
 
   // ① 기본 정보
+  $('schoolAddressSearch').addEventListener('click', searchSchoolAddress);
   $('schoolUnlock').addEventListener('click', async () => {
     const button = $('schoolUnlock');
     button.disabled = true;
@@ -1101,7 +1166,15 @@ function bind() {
   $('inNeis').addEventListener('input', e => { if (canEditSchool()) { state.school.neis = e.target.value.replace(/[^0-9A-Za-z]/g, '').slice(0, 10); save(); } });
   $('tab-school').addEventListener('change', e => {
     const field = e.target, key = field.dataset.schoolDetail;
-    if (!key || !canEditSchool() || !field.reportValidity()) return;
+    if (!key || !canEditSchool()) return;
+    if (key === 'anniversary') {
+      const value = field.value.trim();
+      field.value = value;
+      const date = new Date(value + 'T00:00:00Z');
+      const valid = !value || (!Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value);
+      field.setCustomValidity(valid ? '' : '실제 날짜를 연도-월-일 형식으로 입력해 주세요.');
+    }
+    if (!field.reportValidity()) return;
     if (key === 'website' && field.value && !/^https?:\/\//i.test(field.value)) {
       alert('홈페이지 주소를 https:// 또는 http://로 시작해 입력해 주세요.');
       return;

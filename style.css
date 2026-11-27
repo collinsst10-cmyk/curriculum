@@ -634,10 +634,21 @@ body { font-family: var(--f4); }
 .purchase-site-list li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding: 8px 0; }
 .purchase-site-list small { flex: 1 1 180px; color: var(--muted); overflow-wrap: anywhere; }
 .school-account-box { margin-top: 16px; border-top: 1px solid var(--line); }
-.school-contact .school-address { grid-column: span 2; }
+.school-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 18px 0 22px; }
+.school-detail-panel { padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: #f8fafc; }
+.school-detail-panel h3, #schoolAddressTitle { margin: 0; color: var(--nv-d); }
+.school-detail-panel > h3 { margin-bottom: 12px; }
+.school-detail-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.school-detail-fields input, .school-detail-fields select { width: 100%; min-width: 0; }
+.school-detail-location, .school-detail-wide { grid-column: 1 / -1; }
+.school-detail-location .school-detail-fields { grid-template-columns: minmax(90px, 135px) minmax(0, 1fr); }
+.school-detail-location .school-detail-wide:nth-child(2) { grid-column: auto; }
+#schoolAddressDialog { width: min(540px, calc(100% - 24px)); max-height: calc(100% - 24px); padding: 16px; border: 1px solid var(--line); border-radius: 14px; }
+#schoolAddressDialog::backdrop { background: rgb(15 23 42 / 48%); }
+#schoolAddressResults { height: min(460px, 65dvh); }
 @media (max-width: 900px) { #hvGrid.teacher-calendar { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 590px) {
-  .school-contact .school-address { grid-column: auto; }
+  .school-details, .school-detail-fields, .school-detail-location .school-detail-fields { grid-template-columns: minmax(0, 1fr); }
 }
 #schoolUnlockRow { margin-bottom: 14px; }
 #schoolUnlockRow[hidden] { display: none; }
@@ -1429,12 +1440,30 @@ main:has(#tab-home.active) { max-width: none; padding: 0 0 24px; }
  * ③ 학사일정 편성 — 핵심 날짜 표시 · 끌어 옮기기 · 현황판
  * ========================================================= */
 .day.kd { cursor: grab; position: relative; }
-.day.kd-in, .lg.kd-in { box-shadow: inset 0 0 0 3px #7ac943; }
-.day.kd-end, .lg.kd-end { box-shadow: inset 0 0 0 3px #13b5c8; }
-.day.kd-s2, .lg.kd-s2 { box-shadow: inset 0 0 0 3px #e83ed1; }
-.day.kd-s1 { box-shadow: inset 0 0 0 3px #15306b; }
-.day.kd-vac, .lg.kd-vac { box-shadow: inset 0 0 0 3px #6b6f78; }
-.lg.kd-in, .lg.kd-end, .lg.kd-s2, .lg.kd-vac { background: #fff; }
+.kd-in { --key-date-color: #7ac943; }
+.kd-end { --key-date-color: #13b5c8; }
+.kd-s2 { --key-date-color: #e83ed1; }
+.kd-s1 { --key-date-color: #15306b; }
+.kd-vac { --key-date-color: #6b6f78; }
+.day:is(.kd-in, .kd-end, .kd-s2, .kd-s1, .kd-vac) {
+  box-shadow: inset 0 0 0 3px var(--key-date-color);
+}
+.plan-legend {
+  margin-bottom: 16px;
+  padding: 4px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fafc;
+}
+.plan-legend-row { margin: 0; padding: 9px 0; gap: 7px 14px; color: var(--muted); }
+.plan-legend-row + .plan-legend-row { border-top: 1px solid var(--line); }
+.plan-legend-row strong { color: var(--nv-d); }
+.plan-legend-row > span { display: inline-flex; align-items: center; gap: 5px; }
+.plan-legend-row .lg::before { box-sizing: border-box; margin: 0; }
+.plan-legend-row .lg:is(.kd-in, .kd-end, .kd-s2, .kd-s1, .kd-vac)::before {
+  border: 2px solid var(--key-date-color);
+  background: #fff;
+}
 .day.drop { outline: 3px dashed var(--nv); outline-offset: -2px; background: #eef3fb !important; }
 body.kd-dragging, body.kd-dragging * { cursor: grabbing !important; user-select: none; }
 .hb { padding: 16px 18px; }

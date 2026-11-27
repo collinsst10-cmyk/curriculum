@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=202611271245">
+<link rel="stylesheet" href="style.css?v=202611271252">
 </head>
 <body>
 <header class="topbar">
@@ -484,16 +484,43 @@
         <label>학년도 <select id="inYear"></select></label>
       </div>
       <p class="hint" id="neisHint">NEIS 학교코드는 나이스·학교알리미 등에서 학교를 구분하는 7자리 번호입니다.</p>
-      <div class="form school-form school-contact">
-        <label>도로명 우편번호 <input data-school-detail="postalCode" inputmode="numeric" maxlength="5" pattern="[0-9]{5}"></label>
-        <label class="school-address">도로명 주소 <input data-school-detail="address" maxlength="250"></label>
-        <label class="school-address">영문 주소 <input data-school-detail="englishAddress" maxlength="250"></label>
-        <label>전화번호 <input data-school-detail="phone" type="tel" maxlength="30"></label>
-        <label>팩스번호 <input data-school-detail="fax" type="tel" maxlength="30"></label>
-        <label>홈페이지 주소 <input data-school-detail="website" type="url" maxlength="350" placeholder="https://"></label>
-        <label>개교기념일자 <input data-school-detail="anniversary" type="date"></label>
-        <label>설립구분 <select data-school-detail="foundation"><option value="">선택</option><option value="국립">국립</option><option value="공립">공립</option><option value="사립">사립</option></select></label>
+      <div class="school-details">
+        <section class="school-detail-panel school-detail-location">
+          <div class="card-head">
+            <h3>학교 주소</h3>
+            <button type="button" id="schoolAddressSearch" class="btn primary small" hidden>도로명주소 검색</button>
+          </div>
+          <div class="form school-detail-fields">
+            <label>우편번호 <input data-school-detail="postalCode" inputmode="numeric" maxlength="5" pattern="[0-9]{5}"></label>
+            <label class="school-detail-wide">도로명 주소 <input data-school-detail="address" maxlength="250"></label>
+            <label class="school-detail-wide">영문 주소 <input data-school-detail="englishAddress" maxlength="250"></label>
+          </div>
+          <p id="schoolAddressMessage" class="hint" role="status" hidden></p>
+        </section>
+        <section class="school-detail-panel">
+          <h3>연락처</h3>
+          <div class="form school-detail-fields">
+            <label>전화번호 <input data-school-detail="phone" type="tel" maxlength="30"></label>
+            <label>팩스번호 <input data-school-detail="fax" type="tel" maxlength="30"></label>
+            <label class="school-detail-wide">홈페이지 주소 <input data-school-detail="website" type="url" maxlength="350" placeholder="https://"></label>
+          </div>
+        </section>
+        <section class="school-detail-panel">
+          <h3>학교 연혁</h3>
+          <div class="form school-detail-fields">
+            <label>개교기념일 <input data-school-detail="anniversary" type="text" maxlength="10" pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}" placeholder="예: 1990-05-10" title="연도-월-일 형식으로 입력"></label>
+            <label>설립구분 <select data-school-detail="foundation"><option value="">선택</option><option value="국립">국립</option><option value="공립">공립</option><option value="사립">사립</option></select></label>
+          </div>
+        </section>
       </div>
+      <dialog id="schoolAddressDialog" aria-labelledby="schoolAddressTitle">
+        <div class="card-head">
+          <h3 id="schoolAddressTitle">도로명주소 검색</h3>
+          <form method="dialog"><button class="btn small" autofocus>닫기</button></form>
+        </div>
+        <p id="schoolAddressLoading" class="hint" role="status">주소 검색을 불러오는 중입니다.</p>
+        <div id="schoolAddressResults" hidden></div>
+      </dialog>
       <h3>학년별 학급 수</h3>
       <table class="tbl" id="tblClasses"></table>
     </div>
@@ -520,18 +547,25 @@
     <div class="cal-layout calendar-plan">
       <section class="card calendar-year">
         <div class="card-head"><h2>연간 달력</h2><button id="btnExportCal" class="btn small">엑셀 저장</button></div>
-        <div class="legend">
-          <span class="lg school">수업일</span>
-          <span class="lg event">교내행사</span>
-          <span class="lg holiday">공휴일</span>
-          <span class="lg closure">재량휴업일</span>
-          <span class="lg vacation">방학</span>
-          <span class="lg weekend">주말</span>
-          <span><span class="calendar-activity-dot"></span> 교육활동</span>
-          <span class="lg kd-in">입학일·졸업일</span>
-          <span class="lg kd-end">종업일</span>
-          <span class="lg kd-s2">2학기 시작일</span>
-          <span class="lg kd-vac">방학 첫날·끝날</span>
+        <div class="plan-legend" aria-label="달력 범례">
+          <div class="legend plan-legend-row">
+            <strong>날짜 구분</strong>
+            <span class="lg school">수업일</span>
+            <span class="lg event">교내행사</span>
+            <span class="lg holiday">공휴일</span>
+            <span class="lg closure">재량휴업일</span>
+            <span class="lg vacation">방학</span>
+            <span class="lg weekend">주말</span>
+            <span><span class="calendar-activity-dot"></span> 교육활동</span>
+          </div>
+          <div class="legend plan-legend-row">
+            <strong>주요 일정</strong>
+            <span class="lg kd-s1">1학기 시작일</span>
+            <span class="lg kd-s2">2학기 시작일</span>
+            <span class="lg kd-in">입학일·졸업일</span>
+            <span class="lg kd-end">종업일</span>
+            <span class="lg kd-vac">방학 첫날·마지막 날</span>
+          </div>
         </div>
         <div id="calGrid" class="cal-grid compact-calendar"></div>
       </section>
@@ -823,28 +857,28 @@
   <div id="cloudBody"></div>
 </dialog>
 
-<script src="data.js?v=202611271245"></script>
-<script src="app.js?v=202611271245"></script>
-<script src="features.js?v=202611271245"></script>
-<script src="cloud-config.js?v=202611271245"></script>
-<script src="cloud.js?v=202611271245"></script>
-<script src="shopping-accounts.js?v=202611271245"></script>
-<script src="activities.js?v=202611271245"></script>
-<script src="haksa.js?v=202611271245"></script>
-<script src="menus.js?v=202611271245"></script>
-<script src="schedule.js?v=202611271245"></script>
-<script src="kclass.js?v=202611271245"></script>
-<script src="home.js?v=202611271245"></script>
-<script src="status.js?v=202611271245"></script>
-<script src="log.js?v=202611271245"></script>
-<script src="transfer.js?v=202611271245"></script>
-<script src="migrant.js?v=202611271245"></script>
-<script src="roster.js?v=202611271245"></script>
-<script src="site.js?v=202611271245"></script>
-<script src="env.js?v=202611271245"></script>
-<script src="pyeonje.js?v=202611271245"></script>
-<script src="pyeonje-grade.js?v=202611271245"></script>
-<script src="calextra.js?v=202611271245"></script>
-<script src="savebar.js?v=202611271245"></script>
+<script src="data.js?v=202611271252"></script>
+<script src="app.js?v=202611271252"></script>
+<script src="features.js?v=202611271252"></script>
+<script src="cloud-config.js?v=202611271252"></script>
+<script src="cloud.js?v=202611271252"></script>
+<script src="shopping-accounts.js?v=202611271252"></script>
+<script src="activities.js?v=202611271252"></script>
+<script src="haksa.js?v=202611271252"></script>
+<script src="menus.js?v=202611271252"></script>
+<script src="schedule.js?v=202611271252"></script>
+<script src="kclass.js?v=202611271252"></script>
+<script src="home.js?v=202611271252"></script>
+<script src="status.js?v=202611271252"></script>
+<script src="log.js?v=202611271252"></script>
+<script src="transfer.js?v=202611271252"></script>
+<script src="migrant.js?v=202611271252"></script>
+<script src="roster.js?v=202611271252"></script>
+<script src="site.js?v=202611271252"></script>
+<script src="env.js?v=202611271252"></script>
+<script src="pyeonje.js?v=202611271252"></script>
+<script src="pyeonje-grade.js?v=202611271252"></script>
+<script src="calextra.js?v=202611271252"></script>
+<script src="savebar.js?v=202611271252"></script>
 </body>
 </html>
