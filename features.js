@@ -166,27 +166,15 @@ function runWeeksHtml(g, forExport) {
  * ========================================================= */
 function renderJd() {
   const rows = state.jundam;
-  $('tblJd').innerHTML = `<tr><th>전담교사</th><th>학년</th><th>과목</th><th>주당 시수<br>(학급당)</th><th>학급 수</th><th>주당 계</th><th>연간(×${STD_WEEKS}주)</th><th>학년 배정 대비</th><th></th></tr>` +
-    (rows.length ? '' : '<tr><td colspan="9" class="hint">“+ 배정 추가”를 눌러 전담 과목을 입력하세요.</td></tr>') +
-    rows.map((r, i) => {
-      const cls = Number(state.school.classes[r.grade]) || 0, wk = (Number(r.hrs) || 0) * cls;
-      const perWeekAsg = ann(r.grade, r.subj) / STD_WEEKS;
-      const ok = (Number(r.hrs) || 0) <= Math.ceil(perWeekAsg);
-      return `<tr><td><input class="wide" data-jd="${i}" data-f="teacher" value="${esc(r.teacher)}" placeholder="예: 영어전담"></td>
-        <td><select data-jd="${i}" data-f="grade">${GRADES.map(g => `<option value="${g}" ${g === r.grade ? 'selected' : ''}>${g}학년</option>`).join('')}</select></td>
-        <td><select data-jd="${i}" data-f="subj">${subjectsOf(r.grade).map(x => `<option value="${x.key}" ${x.key === r.subj ? 'selected' : ''}>${x.name}</option>`).join('')}</select></td>
-        <td><input data-jd="${i}" data-f="hrs" inputmode="numeric" value="${r.hrs}"></td>
-        <td class="num">${cls}</td><td class="num"><b>${wk}</b></td><td class="num">${wk * STD_WEEKS}</td>
-        <td>${ok ? `<span class="hint">배정 주당 ${perWeekAsg.toFixed(1)}</span>` : `<span class="pill err">배정(${perWeekAsg.toFixed(1)}) 초과</span>`}</td>
-        <td><button class="x" data-jddel="${i}">✕</button></td></tr>`;
-    }).join('');
-
-  const by = {};
+  const assignments = window.SubjectAssignments;
+  $('jdCards').innerHTML = assignments.assignmentCards();
+  const by = Object.create(null);
   rows.forEach(r => {
     const t = r.teacher || '(미지정)';
     by[t] = by[t] || { list: [], sum: 0 };
-    const wk = (Number(r.hrs) || 0) * (Number(state.school.classes[r.grade]) || 0);
-    by[t].list.push(`${r.grade}학년 ${(subjectsOf(r.grade).find(x => x.key === r.subj) || {}).name || ''} ${r.hrs}×${state.school.classes[r.grade]}`);
+    const classes = assignments.activeClasses(r);
+    const wk = assignments.rowHours(r);
+    by[t].list.push(`${r.grade}학년 ${(subjectsOf(r.grade).find(x => x.key === r.subj) || {}).name || ''} ${r.hrs}×${classes.length}`);
     by[t].sum += wk;
   });
   $('tblJdTeacher').innerHTML = `<tr><th>전담교사</th><th class="l">담당</th><th>주당 시수</th></tr>` +
@@ -197,8 +185,14 @@ function renderJd() {
     GRADES.map(g => {
       const useTt = ttFilled(g);
       const total = useTt ? Object.values(weeklyCount(g, 1)).reduce((a, b) => a + b, 0) : Math.round(gradeTotal(g) / STD_WEEKS);
-      const jd = rows.filter(r => r.grade === g).reduce((t, r) => t + (Number(r.hrs) || 0), 0);
-      return `<tr><td>${g}학년</td><td class="num">${total}</td><td class="num">${jd}</td><td class="num"><b>${total - jd}</b></td>
+      const classCount = Number(state.school.classes[g]) || 0;
+      const coverage = Array.from({ length: classCount }, (_, i) => rows.filter(r =>
+        Number(r.grade) === g && assignments.activeClasses(r).includes(i + 1))
+        .reduce((sum, row) => sum + (Number(row.hrs) || 0), 0));
+      const range = values => !values.length ? '—' : Math.min(...values) === Math.max(...values)
+        ? String(values[0]) : Math.min(...values) + '–' + Math.max(...values);
+      const jd = range(coverage);
+      return `<tr><td>${g}학년</td><td class="num">${total}</td><td class="num">${jd}</td><td class="num"><b>${range(coverage.map(hours => total - hours))}</b></td>
         <td class="l hint">${useTt ? '1학기 기초 시간표' : '연간 배정 ÷ 34주'}</td></tr>`;
     }).join('');
 }
@@ -251,22 +245,4 @@ $('btnRunApply').addEventListener('click', () => {
 $('btnExportRun').addEventListener('click', () => {
   const html = GRADES.map(g => `<h3>${g}학년 주차별 시수</h3>${runWeeksHtml(g, true)}<br>`).join('');
   downloadXls(`${fileBase()}_연간시수표.xls`, `<h2>${esc(state.school.name)} ${state.school.year}학년도 연간 시수표</h2>${html}`);
-});
-
-$('btnJdAdd').addEventListener('click', () => {
-  const g = state.jundam.length ? state.jundam[state.jundam.length - 1].grade : 3;
-  state.jundam.push({ teacher: '', grade: g, subj: subjectsOf(g)[0].key, hrs: 2 }); save(); renderJd();
-});
-$('tblJd').addEventListener('input', e => {
-  const t = e.target; if (t.dataset.jd === undefined) return;
-  const r = state.jundam[t.dataset.jd];
-  if (t.dataset.f === 'hrs') r.hrs = toNum(t.value);
-  else if (t.dataset.f === 'teacher') r.teacher = t.value;
-  else if (t.dataset.f === 'grade') { r.grade = Number(t.value); if (!subjectsOf(r.grade).some(x => x.key === r.subj)) r.subj = subjectsOf(r.grade)[0].key; }
-  else if (t.dataset.f === 'subj') r.subj = t.value;
-  save(); rerenderKeepFocus(renderJd);
-});
-$('tblJd').addEventListener('click', e => {
-  const b = e.target.closest('[data-jddel]'); if (!b) return;
-  state.jundam.splice(Number(b.dataset.jddel), 1); save(); renderJd();
 });

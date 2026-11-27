@@ -170,7 +170,136 @@
   /* 특별실-전담: 왼쪽 두 목록(스쿨마스터와 같은 구성) + 아래 배정표 */
   let selRoom = -1, selT = -1, modeRoom = '', modeT = '';
   /** 배정 한 줄의 주당 시수 = 시수 × 담당 반 수(비면 그 학년 전체 반) */
-  const rowHours = r => (Number(r.hrs) || 0) * ((r.classes && r.classes.length) || Number(state.school.classes[r.grade]) || 0);
+  const classNumbers = grade => Array.from({ length: Math.max(0, Math.min(20, Number(state.school.classes[grade]) || 0)) }, (_, i) => i + 1);
+  const activeClasses = r => classNumbers(r.grade).filter(n => !r.classes?.length || r.classes.includes(n) || r.classes.includes(String(n)));
+  const rowHours = r => (Number(r.hrs) || 0) * activeClasses(r).length;
+  const assignmentPrefs = () => (env().jdCards ||= { rooms: {}, grades: {} });
+  const gradeKey = (teacher, subject, grade) => JSON.stringify([teacher, subject, grade]);
+  const subjectRows = key => state.jundam.filter(row => subjGroup(row.subj) === key);
+  const paintTone = { eng: ['Aa', 'blue'], sci: ['⚗', 'green'], pe: ['◉', 'amber'], mus: ['♪', 'violet'], art: ['◈', 'rose'], cha: ['✦', 'teal'] };
+
+  function teacherSubjects(teacher) {
+    if (teacher.subject) return [teacher.subject];
+    const label = String(teacher.name || '');
+    return [...new Set([
+      ...allSubj().filter(subject => label.includes(subject.name)).map(subject => subject.key),
+      ...state.jundam.filter(row => row.teacher === teacher.name).map(row => subjGroup(row.subj)),
+    ])];
+  }
+
+  function roomOptions(subject, selected, inherit = false) {
+    const names = [...new Set([...roomsFor(subject).map(room => room.name), selected].filter(Boolean))];
+    return (inherit ? `<option value="__inherit" ${selected === '__inherit' ? 'selected' : ''}>교과 기본값</option>` : '') +
+      `<option value="" ${selected === '' ? 'selected' : ''}>일반 교실</option>` +
+      names.filter(name => name !== '__inherit').map(name => `<option value="${esc(name)}" ${name === selected ? 'selected' : ''}>${esc(name)}</option>`).join('');
+  }
+
+  function gradeAssignment(key, teacher, grade, subject) {
+    const group = subjectRows(key).filter(row => row.teacher === teacher && Number(row.grade) === grade);
+    const prefs = assignmentPrefs();
+    const saved = prefs.grades[gradeKey(teacher, key, grade)] || {};
+    const explicit = group.find(row => !row.useSubjectRoom && row.room);
+    const override = saved.room ?? (explicit ? explicit.room : '__inherit');
+    const fallback = prefs.rooms[key] ?? (roomsFor(subject).length === 1 && roomSubj(roomsFor(subject)[0]) === key ? roomsFor(subject)[0].name : '');
+    return { group, saved, override, room: override === '__inherit' ? fallback : override, hours: saved.hours ?? group[0]?.hrs ?? 2 };
+  }
+
+  function assignmentCards() {
+    const e = env(), prefs = assignmentPrefs(), locked = ro() ? 'disabled' : '';
+    const keys = [...new Set([...e.jdSubjects, ...state.jundam.map(row => subjGroup(row.subj))])].filter(Boolean);
+    if (!keys.length) return '<p class="hint">학교사용환경설정에서 전담 교과를 먼저 선택하세요.</p>';
+    return `<div class="jd-card-grid">${keys.map(key => {
+      const rows = subjectRows(key);
+      const teachers = [...new Set([...e.teachers.filter(t => teacherSubjects(t).includes(key)).map(t => t.name), ...rows.map(r => r.teacher || '')])];
+      const [icon, tone] = paintTone[key] || ['✦', 'blue'];
+      const classCount = new Set(rows.flatMap(r => activeClasses(r).map(n => r.grade + '-' + n))).size;
+      const defaultRoom = prefs.rooms[key] ?? (roomsFor(key).length === 1 && roomSubj(roomsFor(key)[0]) === key ? roomsFor(key)[0].name : '');
+      return `<article class="jd-course" data-tone="${tone}" data-course="${esc(key)}">
+        <header><div class="jd-course-title"><span aria-hidden="true">${icon}</span><div><h3>${esc(subjName(key))}</h3><p>${esc(teachers.map(name => e.teachers.find(t => t.name === name)?.teacher || name || '담당 미지정').join(' · ') || '담당 미지정')}</p></div></div>
+          <div class="jd-metrics"><b>${rows.reduce((sum, row) => sum + rowHours(row), 0)}<small>시수 / 주</small></b><b>${classCount}<small>학급</small></b></div></header>
+        ${teachers.length ? teachers.map(name => `<section class="jd-teacher" data-teacher="${esc(name)}">
+          ${teachers.length > 1 ? `<h4>${esc(e.teachers.find(t => t.name === name)?.teacher || name || '담당 미지정')}</h4>` : ''}
+          ${GRADES.map(grade => {
+            const legacy = rows.find(r => Number(r.grade) === grade && r.teacher === name);
+            const subject = legacy?.subj || subjectsOf(grade).find(item => subjGroup(item.key) === key)?.key;
+            const numbers = classNumbers(grade);
+            if (!subject || !numbers.length) return '';
+            const model = gradeAssignment(key, name, grade, subject);
+            const mine = new Set(model.group.flatMap(activeClasses));
+            const other = new Set(rows.filter(r => Number(r.grade) === grade && r.teacher !== name).flatMap(activeClasses));
+            const duplicate = [...mine].some(n => other.has(n) ||
+              model.group.filter(row => activeClasses(row).includes(n)).length > 1);
+            const mixedHours = new Set(model.group.map(row => Number(row.hrs))).size > 1;
+            const over = model.group.some(row => Number(row.hrs) > Math.ceil(ann(grade, row.subj) / STD_WEEKS));
+            return `<div class="jd-grade" data-grade="${grade}" data-subject="${esc(subject)}">
+              <b>${grade}학년</b><div class="jd-class-buttons">${numbers.map(n =>
+                `<button type="button" data-assign-class="${n}" aria-label="${grade}학년 ${n}반${other.has(n) ? ' (다른 교사 배정)' : ''}" aria-pressed="${mine.has(n)}" ${locked || (other.has(n) && !mine.has(n) ? 'disabled' : '')}>${n}반</button>`).join('')}</div>
+              <label>반당 <input type="number" min="0" max="20" step="1" data-assignment="hours" value="${esc(model.hours)}" ${locked}>시간</label>
+              <details class="jd-room-override" ${model.override !== '__inherit' ? 'open' : ''}><summary>학년별 특별실</summary><select data-assignment="grade-room" aria-label="${grade}학년 특별실" ${locked}>${roomOptions(subject, model.override, true)}</select></details>
+              ${duplicate || mixedHours || over ? `<p class="hint jd-grade-note">${[duplicate && '기존 중복 배정을 확인하세요.', mixedHours && '기존 반별 시수가 다릅니다. 시수를 바꾸면 이 학년의 담당 반에 함께 적용됩니다.', over && '교과 배정 시수 초과'].filter(Boolean).join(' ')}</p>` : ''}
+            </div>`;
+          }).join('')}
+        </section>`).join('') : '<p class="hint">위 전담 설정에서 이 교과의 담당 교사를 지정하세요.</p>'}
+        <footer><label>교과 기본 특별실 <select data-assignment="default-room" ${locked}>${roomOptions(key, defaultRoom)}</select></label></footer>
+      </article>`;
+    }).join('')}</div>`;
+  }
+
+  function assignmentChange(event, refresh) {
+    if (ro()) return;
+    const target = event.target, card = target.closest('[data-course]');
+    if (!card) return;
+    const key = card.dataset.course, field = target.dataset.assignment, prefs = assignmentPrefs();
+    if (field === 'default-room') {
+      prefs.rooms[key] = target.value;
+      subjectRows(key).filter(row => row.useSubjectRoom).forEach(row => { row.room = target.value; });
+    } else {
+      const button = target.closest('[data-assign-class]');
+      if (!button && !['hours', 'grade-room'].includes(field)) return;
+      const line = target.closest('.jd-grade');
+      const { subject } = line.dataset, grade = Number(line.dataset.grade);
+      const teacher = target.closest('[data-teacher]').dataset.teacher;
+      const model = gradeAssignment(key, teacher, grade, subject);
+      const tag = gradeKey(teacher, key, grade);
+      const saved = prefs.grades[tag] ||= {};
+      if (button) {
+        const n = Number(button.dataset.assignClass);
+        const mine = model.group.filter(row => activeClasses(row).includes(n));
+        if (mine.length) {
+          saved.hours ??= model.hours;
+          saved.room ??= model.override;
+          for (const row of mine) {
+            row.classes = (row.classes?.length ? row.classes.map(Number) : activeClasses(row)).filter(c => c !== n);
+            if (!row.classes.length) state.jundam.splice(state.jundam.indexOf(row), 1);
+          }
+        } else {
+          if (subjectRows(key).some(row => Number(row.grade) === grade && activeClasses(row).includes(n))) return;
+          state.jundam.push({ teacher, grade, subj: subject, hrs: Number(model.hours), classes: [n], room: model.room, useSubjectRoom: model.override === '__inherit' });
+        }
+      } else if (field === 'hours') {
+        if (target.value === '' || !target.checkValidity()) { target.value = model.hours; return; }
+        saved.hours = Number(target.value);
+        model.group.forEach(row => { row.hrs = saved.hours; });
+      } else {
+        saved.room = target.value;
+        const current = gradeAssignment(key, teacher, grade, subject);
+        model.group.forEach(row => { row.room = current.room; row.useSubjectRoom = current.override === '__inherit'; });
+      }
+    }
+    const focusSelector = target.dataset.assignClass ? '[data-assign-class="' + target.dataset.assignClass + '"]' :
+      '[data-assignment="' + field + '"]';
+    const grade = target.closest('[data-grade]')?.dataset.grade;
+    const teacher = target.closest('[data-teacher]')?.dataset.teacher;
+    const host = card.closest('#tab-jd, #tab-env');
+    changed();
+    refresh();
+    let scope = [...host.querySelectorAll('[data-course]')].find(el => el.dataset.course === key);
+    if (grade && scope) {
+      scope = [...scope.querySelectorAll('[data-teacher]')].find(el => el.dataset.teacher === teacher);
+      scope = scope?.querySelector('[data-grade="' + grade + '"]');
+    }
+    scope?.querySelector(focusSelector)?.focus({ preventScroll: true });
+  }
   const roomHours = name => state.jundam.filter(r => r.room === name).reduce((t, r) => t + rowHours(r), 0);
   const teacherHours = name => state.jundam.filter(r => r.teacher === name).reduce((t, r) => t + rowHours(r), 0);
 
@@ -185,10 +314,12 @@
       <div class="sm-btns"><button type="button" class="btn${mode === 'set' ? ' on' : ''}" data-mode="${kind}:set">${L.set}</button>
         <button type="button" class="btn${mode === 'rename' ? ' on' : ''}" data-mode="${kind}:rename">${L.ren}</button></div>
       <table class="sm-list sm-grid"><colgroup><col>${isRoom ? '<col class="c-s">' : '<col class="c-t">'}<col class="c-h"><col class="c-d"></colgroup>
-      <thead><tr><th>${L.col}</th><th class="c">${isRoom ? '연결 교과' : '교사'}</th><th class="c">시수</th><th class="c">관리</th></tr></thead><tbody>
+      <thead><tr><th>${L.col}</th><th class="c">${isRoom ? '연결 교과' : '담당 교과'}</th><th class="c">시수</th><th class="c">관리</th></tr></thead><tbody>
       ${items.map((n, i) => `<tr class="${i === sel ? 'sel' : ''}" data-pick="${kind}:${i}">
         <td class="nm">${mode === 'rename' && i === sel ? `<input class="sm-in" data-rename="${kind}:${i}" maxlength="20" value="${esc(n)}">` : esc(n || '(이름 없음)')}</td>
-        <td class="c">${isRoom ? roomSubjSel(i) : (e.teachers[i].teacher ? esc(e.teachers[i].teacher) : '<span class="hint">-</span>')}</td>
+        <td class="c">${isRoom ? roomSubjSel(i) : (`<select data-teacher-subject="${i}" aria-label="${esc(n)} 담당 교과" ${ro() ? 'disabled' : ''}>
+          <option value="">자동 연결</option>${allSubj().filter(subject => e.jdSubjects.includes(subject.key) || subject.key === e.teachers[i].subject).map(subject =>
+            `<option value="${subject.key}" ${e.teachers[i].subject === subject.key ? 'selected' : ''}>${esc(subject.name)}</option>`).join('')}</select>`)}</td>
         <td class="c num">${hrs(n)}</td><td class="c"><button type="button" class="sm-del" data-smrow="${kind}:${i}" title="${esc(n)} 삭제" aria-label="${esc(n)} 삭제">삭제</button></td></tr>`).join('') || `<tr><td colspan="4" class="hint">${L.none}</td></tr>`}
       </tbody></table>
       ${mode === 'set' ? `<div class="sm-tool"><input class="sm-in" data-newname="${kind}" maxlength="20" placeholder="${L.ph}">
@@ -208,38 +339,22 @@
   /** 교과가 바뀌면 특별실을 그 교과의 특별실로 맞춤 (하나뿐이면 자동 선택) */
   function fitRoom(r) {
     const ok = roomsFor(r.subj);
-    if (r.room && ok.some(x => x.name === r.room)) return;
+    if (r.useSubjectRoom !== undefined || (r.room && ok.some(x => x.name === r.room))) return;
     const linked = env().rooms.filter(x => x.name && roomSubj(x) === subjGroup(r.subj));
     r.room = linked.length === 1 ? linked[0].name : '';
   }
   function paneRoom() {
-    const e = env(), rows = state.jundam;
-    const roomOpts = r => { const ok = roomsFor(r.subj), list = r.room && !ok.some(x => x.name === r.room) ? [...ok, { name: r.room }] : ok;
-      return `<option value="">(교실)</option>` + list.map(x => `<option ${x.name === r.room ? 'selected' : ''}>${esc(x.name)}</option>`).join(''); };
-    const tOpts = cur => `<option value="">(미정)</option>` + e.teachers.map(t => `<option value="${esc(t.name)}" ${t.name === cur ? 'selected' : ''}>${esc(t.name)}${t.teacher ? ` (${esc(t.teacher)})` : ''}</option>`).join('') +
-      (cur && !e.teachers.some(t => t.name === cur) ? `<option selected>${esc(cur)}</option>` : '');
-    const subOpts = r => { const ok = jdSubjOf(r.grade), list = r.subj && !ok.some(s => s.key === r.subj) ? [...ok, { key: r.subj, name: subjName(r.subj) }] : ok;
-      return list.map(s => `<option value="${s.key}" ${s.key === r.subj ? 'selected' : ''}>${esc(s.name)}</option>`).join(''); };
-    const gradeOk = g => jdSubjOf(g).length > 0;
+    const e = env();
     return `<div class="env-head"><h2>특별실-전담 배정</h2><span class="hint">전담 교과 ${e.jdSubjects.length}개 · 특별실 ${e.rooms.length}곳 · 전담 ${e.teachers.length}명</span></div>
       <section class="jd-subj${e.jdSubjects.length ? '' : ' empty'}"><div class="jd-subj-h"><b>① 우리 학교 전담 교과</b>
         <span class="hint">${e.jdSubjects.length ? '아래 배정표의 교과와 특별실 연결에는 고른 교과만 나옵니다.' : '먼저 전담 교과를 고르세요. 고르기 전에는 모든 교과가 나옵니다.'}</span></div>
         <div class="jd-chips">${allSubj().map(s => `<label class="tg${e.jdSubjects.includes(s.key) ? ' on' : ''}"><input type="checkbox" data-jdsub="${s.key}" ${e.jdSubjects.includes(s.key) ? 'checked' : ''} ${ro() ? 'disabled' : ''}>${esc(s.name)}</label>`).join('')}</div></section>
       <div class="sm-two">${listCard('room')}${listCard('teacher')}</div>
-      <p class="hint">특별실의 '연결 교과'를 정하면 배정표에서 그 교과에는 연결된 특별실만 나옵니다. '공용'은 연결된 특별실이 없는 교과에 나옵니다.</p>
-      <section class="env-sub"><div class="env-sub-h"><h3>전담 과목 배정</h3><button type="button" class="btn small" data-add="jd">+ 배정 추가</button></div>
-        <p class="hint">전담·학년·교과·담당 반·사용 특별실을 정합니다. 위 목록의 시수와 학급 현황 설정 › 교과전담에 자동으로 반영됩니다.</p>
-        <table class="tbl env-tbl fit"><thead><tr><th>전담</th><th>학년</th><th>교과</th><th>반당 시수</th><th>담당 반</th><th>특별실</th><th>주당</th><th></th></tr></thead><tbody>
-        ${rows.map((r, i) => { const n = Number(state.school.classes[r.grade]) || 0, cls = r.classes || []; return `<tr>
-          <td><select data-jdr="${i}" data-f="teacher">${tOpts(r.teacher)}</select></td>
-          <td><select data-jdr="${i}" data-f="grade">${GRADES.filter(g => gradeOk(g) || g === Number(r.grade)).map(g => `<option value="${g}" ${g === Number(r.grade) ? 'selected' : ''}>${g}학년</option>`).join('')}</select></td>
-          <td><select data-jdr="${i}" data-f="subj">${subOpts(r)}</select></td>
-          <td>${nIn(`data-jdr="${i}" data-f="hrs" max="20"`, r.hrs, 56)}</td>
-          <td class="env-cls">${Array.from({ length: n }, (_, c) => `<label class="tg"><input type="checkbox" data-jdc="${i}" value="${c + 1}" ${!cls.length || cls.includes(c + 1) ? 'checked' : ''}>${c + 1}반</label>`).join('')}</td>
-          <td><select data-jdr="${i}" data-f="room">${roomOpts(r)}</select></td>
-          <td class="num"><b>${rowHours(r)}</b></td>
-          <td class="c"><button type="button" class="sm-del" data-del="jd" data-i="${i}">삭제</button></td></tr>`; }).join('') || '<tr><td colspan="8" class="hint">배정을 추가하세요</td></tr>'}
-        </tbody></table></section>`;
+      <p class="hint">특별실의 연결 교과와 전담교사의 담당 교과를 설정하세요. 기존 교사명과 배정 정보도 자동 연결에 사용됩니다.</p>
+      <section class="env-sub"><h3>전담 과목 배정</h3>
+        <p class="hint">담당 교사 아래의 학급을 눌러 배정하거나 해제합니다.</p>
+        ${assignmentCards()}
+      </section>`;
   }
 
   /** 특별실·전담 목록 고치기 (이름이 바뀌면 배정표·시간표 배치에도 반영) */
@@ -260,8 +375,13 @@
     if (!confirm(`'${name}'을(를) 삭제할까요?${used ? `\n배정표 ${used}줄에서 ${kind === 'room' ? '특별실' : '전담'}이 비워집니다.` : ''}`)) return;
     list.splice(i, 1);
     state.jundam.forEach(r => { if (kind === 'room' && r.room === name) r.room = ''; if (kind === 'teacher' && r.teacher === name) r.teacher = ''; });
-    if (kind === 'room') selRoom = -1; else selT = -1;
+    if (kind === 'room') { renameRoomPrefs(name, ''); selRoom = -1; } else selT = -1;
     changed(); render();
+  }
+  function renameRoomPrefs(old, replacement) {
+    const prefs = assignmentPrefs();
+    for (const key of Object.keys(prefs.rooms)) if (prefs.rooms[key] === old) prefs.rooms[key] = replacement;
+    for (const grade of Object.values(prefs.grades)) if (grade.room === old) grade.room = replacement;
   }
   function smRename(kind, i, value) {
     const E = env(), list = kind === 'room' ? E.rooms : E.teachers, name = value.trim(), old = list[i] && list[i].name;
@@ -269,6 +389,16 @@
     if (list.some((x, k) => k !== i && x.name === name)) { alert('같은 이름이 이미 있습니다.'); return; }
     list[i].name = name;
     state.jundam.forEach(r => { if (kind === 'room' && r.room === old) r.room = name; if (kind === 'teacher' && r.teacher === old) r.teacher = name; });
+    if (kind === 'room') renameRoomPrefs(old, name);
+    else {
+      const prefs = assignmentPrefs();
+      for (const key of Object.keys(prefs.grades)) {
+        const [teacher, subject, grade] = JSON.parse(key);
+        if (teacher !== old) continue;
+        prefs.grades[gradeKey(name, subject, grade)] = prefs.grades[key];
+        delete prefs.grades[key];
+      }
+    }
     if (kind === 'room') state.schedule.forEach(s => { if (s.kind === old) s.kind = name; });
     if (kind === 'room') modeRoom = ''; else modeT = '';
     changed(); render();
@@ -582,24 +712,18 @@
     const sd = e.target.closest('[data-smdel]'); if (sd) { smDel(sd.dataset.smdel); return; }
     const sr = e.target.closest('[data-smrow]'); if (sr) { const [k, i] = sr.dataset.smrow.split(':'); if (k === 'room') selRoom = Number(i); else selT = Number(i); smDel(k); return; }
     const add = e.target.closest('[data-add]')?.dataset.add;
+    if (e.target.closest('[data-assign-class]')) { assignmentChange(e, render); return; }
     if (add) {
       if (add === 'special') E.special.push({ name: '', teacher: '', students: 0 });
       if (add === 'room') E.rooms.push({ name: '', note: '' });
       if (add === 'theme') E.themes.push({ name: '', keywords: '', subjects: '', hours: {} });
       if (add === 'bell') { const last = E.bell.rows[E.bell.rows.length - 1]; const s = last ? t2m(last.end) : t2m(E.bell.start); E.bell.rows.push({ label: '', start: m2t(s), end: m2t(s + 40), kind: 'etc' }); }
-      if (add === 'jd') {
-        const last = state.jundam[state.jundam.length - 1];
-        const g = [last && Number(last.grade), 3, 4, 5, 6, 1, 2].find(x => x && jdSubjOf(x).length) || 3;
-        const subj = (last && Number(last.grade) === g && jdSubjOf(g).some(s => s.key === last.subj) ? last.subj : (jdSubjOf(g)[0] || subjectsOf(g)[0]).key);
-        const row = { teacher: last ? last.teacher : '', grade: g, subj, hrs: 2, room: '' }; fitRoom(row); state.jundam.push(row);
-      }
       changed(); render(); return;
     }
     const del = e.target.closest('[data-del]');
     if (del) {
       const i = Number(del.dataset.i), k = del.dataset.del;
-      const arr = { special: E.special, room: E.rooms, theme: E.themes, bell: E.bell.rows, jd: state.jundam }[k];
-      if (k === 'jd' && !confirm('이 전담 배정을 삭제할까요? (시간표 편성 › 교과전담에서도 지워집니다)')) return;
+      const arr = { special: E.special, room: E.rooms, theme: E.themes, bell: E.bell.rows }[k];
       arr.splice(i, 1); changed(); render(); return;
     }
     if (e.target.closest('[data-act="bell-make"]')) {
@@ -622,24 +746,9 @@
     }
     if (d.rsubj !== undefined) { E.rooms[d.rsubj].subj = v; state.jundam.forEach(fitRoom); changed(); render(); return; }
     if (d.sp) { E.special[d.sp][d.f] = d.f === 'students' ? Number(v) || 0 : v.trim(); changed(); render(); return; }
-    if (d.room) { const old = E.rooms[d.room].name; E.rooms[d.room][d.f] = v.trim(); if (d.f === 'name') state.jundam.forEach(r => { if (r.room === old) r.room = v.trim(); }); changed(); return; }
-    if (d.jdr) {
-      const r = state.jundam[d.jdr];
-      if (d.f === 'grade') {
-        r.grade = Number(v); r.classes = [];
-        const ok = jdSubjOf(r.grade); if (!ok.some(s => s.key === r.subj)) r.subj = (ok[0] || subjectsOf(r.grade)[0]).key;
-        fitRoom(r);
-      }
-      else if (d.f === 'hrs') r.hrs = Number(v) || 0;
-      else { r[d.f] = v; if (d.f === 'subj') fitRoom(r); }
-      changed(); render(); return;
-    }
-    if (d.jdc) {
-      const r = state.jundam[d.jdc];
-      r.classes = [...root.querySelectorAll(`[data-jdc="${d.jdc}"]:checked`)].map(x => Number(x.value));
-      if (r.classes.length === (Number(state.school.classes[r.grade]) || 0)) r.classes = [];   // 전체 = 빈 값
-      changed(); return;
-    }
+    if (d.room) { const old = E.rooms[d.room].name; E.rooms[d.room][d.f] = v.trim(); if (d.f === 'name') { state.jundam.forEach(r => { if (r.room === old) r.room = v.trim(); }); renameRoomPrefs(old, v.trim()); } changed(); return; }
+    if (d.teacherSubject !== undefined) { E.teachers[d.teacherSubject].subject = v; changed(); render(); return; }
+    if (d.assignment) { assignmentChange(e, render); return; }
     if (d.bk) {
       const g = d.bk; E.bookSubjects[g] = [...root.querySelectorAll(`[data-bk="${g}"]:checked`)].map(x => x.value);
       changed(); render(); return;
@@ -722,5 +831,13 @@
     if (d.rename && e.target.isConnected) { const [k, i] = d.rename.split(':'); smRename(k, Number(i), e.target.value); }
   });
 
+  window.SubjectAssignments = { assignmentCards, activeClasses, rowHours };
+  const assignmentRoot = $('tab-jd');
+  assignmentRoot.addEventListener('click', e => {
+    if (e.target.closest('[data-assign-class]')) assignmentChange(e, renderJd);
+  });
+  assignmentRoot.addEventListener('change', e => {
+    if (e.target.dataset.assignment) assignmentChange(e, renderJd);
+  });
   RENDER.env = render;
 })();
