@@ -47,9 +47,10 @@
         const selected = eventDate && evPick.has(x.ds);
         const tip = `${x.ds} ${TYPE_LABEL[x.type]}${x.name ? ' · ' + x.name : ''}` + al.map(t => `\n· ${t.kind} ${t.title} (${t.status === 'confirmed' ? '확정' : '신청'})`).join('');
         const number = `<span class="d">${x.d.getDate()}</span>`;
+        const labels = [...new Set([x.name, ...al.map(t => t.title)].filter(Boolean))];
         const content = eventDate
           ? `${number}${al.length ? `<span class="acts ${al.some(t => t.status === 'confirmed') ? 'c' : ''}">${al.length}</span>` : ''}<span class="n">${calendarLabel(x.name || (al[0] ? al[0].title : ''))}</span>`
-          : number + calendarActivityDot(al);
+          : number + calendarActivityDot(al) + labels.map(label => `<span class="calendar-day-label">${e2(label)}</span>`).join('');
         html += `<${eventDate ? 'button type="button" data-event-date="' + x.ds + '" aria-pressed="' + Boolean(selected) + '"' : 'div'} class="day ${x.type}${selected ? ' sel' : ''}${x.ds === today ? ' today' : ''}" title="${e2(tip)}">${content}</${eventDate ? 'button' : 'div'}>`;
       });
       html += '</div></div>';

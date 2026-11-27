@@ -207,15 +207,9 @@ function renderJd() {
  * 검토 항목 추가
  * ========================================================= */
 const _collectIssues = collectIssues;
+// '시간표 편성' 메뉴를 없애서 기초 시간표 기반 점검은 하지 않음 (기초 시간표를 쓰지 않으므로 늘 '미편성' 경고가 남음)
 collectIssues = function () {
-  const issues = _collectIssues();
-  GRADES.forEach(g => {
-    if (!ttFilled(g)) { issues.push(['warn', `${g}학년 기초 시간표가 편성되지 않아 시수 운영을 확인할 수 없습니다.`]); return; }
-    const bad = runRows(g).filter(r => r.d !== 0);
-    if (bad.length) issues.push(['warn', `${g}학년 시간표 운영 시수가 배정과 다릅니다: ` + bad.map(r => `${r.name} ${r.d > 0 ? '+' : ''}${r.d}`).join(', ')]);
-    else issues.push(['ok', `${g}학년 시간표 운영 시수가 배정 시수와 일치합니다.`]);
-  });
-  return issues;
+  return _collectIssues();
 };
 
 /* =========================================================

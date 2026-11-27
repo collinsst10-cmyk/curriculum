@@ -896,6 +896,7 @@ function showTab(t) {
   if (t !== 'home' && window.App.locked && window.App.locked()) { window.App.pendingTab = t; t = 'home'; }
   if (t === 'admin' && !(window.App.isAdmin && window.App.isAdmin())) t = 'home';
   if (isTeacherView() && ['curr', 'tt', 'data', 'admin'].includes(groupOf(t))) t = 'home';
+  if (groupOf(t) === 'tt') t = 'home';   // '시간표 편성' 메뉴는 쓰지 않음
   if (TAB_GUARDS[t]) { const ok = TAB_GUARDS[t](); if (ok === false) t = 'home'; else if (typeof ok === 'string') t = ok; }
   if (curTab !== t) window.ShoppingAccounts?.lock();
   curTab = t;
@@ -915,7 +916,10 @@ function showTab(t) {
   if (t === 'school') updateSchoolEditControls();
   window.scrollTo(0, 0);
 }
-function goGroup(g) { showTab(g === 'schoolinfo' ? 'school' : lastInGroup[g] || GROUP_FIRST[g] || 'home'); }
+function goGroup(g) {
+  const first = GROUP_FIRST[g] || 'home';
+  showTab(['schoolinfo', 'haksa'].includes(g) ? first : lastInGroup[g] || first);
+}
 
 /* ---------- HOME ---------- */
 const ICON = {
@@ -935,8 +939,6 @@ const TODO_RULES = [
   [/총 수업시간.*부족/, '총 수업시간 미달', '#hours'],
   [/수업 가능 시수/, '수업 가능 시수 초과', '#hours'],
   [/학교자율시간/, '학교자율시간 과목명 확인', '#hours'],
-  [/기초 시간표가 편성되지/, '기초 시간표 편성', '#tt'],
-  [/운영 시수가 배정과 다릅니다/, '시간표 운영 시수 확인', '#run'],
 ];
 function homeTodos() {
   const map = new Map();
