@@ -51,10 +51,14 @@ service cloud.firestore {
     match /requests/{email} {
       allow read: if signedIn() && (myEmail() == email || isAdmin());
       allow create: if signedIn() && myEmail() == email
-        && request.resource.data.keys().hasOnly(['email', 'name', 'role', 'requestedAt'])
+        && request.resource.data.keys().hasOnly(['email', 'name', 'role', 'kind', 'grade', 'subj', 'memo', 'requestedAt'])
         && request.resource.data.email == email
         && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 30
-        && (!('role' in request.resource.data) || (request.resource.data.role is string && request.resource.data.role.size() <= 40));
+        && (!('role' in request.resource.data) || (request.resource.data.role is string && request.resource.data.role.size() <= 40))
+        && (!('kind' in request.resource.data) || request.resource.data.kind in ['homeroom', 'subject', 'special', 'staff', 'other'])
+        && (!('grade' in request.resource.data) || (request.resource.data.grade is string && request.resource.data.grade.size() <= 2))
+        && (!('subj' in request.resource.data) || (request.resource.data.subj is string && request.resource.data.subj.size() <= 20))
+        && (!('memo' in request.resource.data) || (request.resource.data.memo is string && request.resource.data.memo.size() <= 100));
       allow delete: if isAdmin() || (signedIn() && myEmail() == email);
       allow update: if false;
     }
