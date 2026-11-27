@@ -7,6 +7,7 @@
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
 <link rel="stylesheet" href="style.css?v=202611271421">
+<link rel="stylesheet" href="behavior.css?v=1">
 </head>
 <body>
 <header class="topbar">
@@ -417,6 +418,7 @@
   <!-- 학급관리 › 우리 반 학생 (담임: 자기 반 / 관리자: 모든 반) -->
   <section id="tab-roster" class="tab">
     <div id="rsMain"></div>
+    <section id="behaviorPanel" class="card behavior-panel" aria-label="행동특성 및 종합의견" hidden></section>
   </section>
 
   <!-- 이주배경학생 › 이주배경학생 현황 (담임: 우리 반 입력 / 관리자·한국어학급 담당: 전체) -->
@@ -899,7 +901,10 @@
 <script src="log.js?v=202611271421"></script>
 <script src="transfer.js?v=202611271421"></script>
 <script src="migrant.js?v=202611271421"></script>
-<script src="roster.js?v=202611271421"></script>
+<script src="behavior-data.js?v=1"></script>
+<script src="behavior-engine.js?v=1"></script>
+<script src="behavior-ui.js?v=1"></script>
+<script src="roster.js?v=student-behavior-1"></script>
 <script src="site.js?v=202611271421"></script>
 <script src="env.js?v=202611271421"></script>
 <script src="pyeonje.js?v=202611271421"></script>
