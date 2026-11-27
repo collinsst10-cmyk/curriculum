@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=subject-assignment-1">
+<link rel="stylesheet" href="style.css?v=operations-brief-1">
 <link rel="stylesheet" href="behavior.css?v=1">
 </head>
 <body>
@@ -92,10 +92,18 @@
     <div id="homeGate" class="home-gate"></div>
 
     <!-- 학교운영일지: HOME 의 중심. 전달사항 · 주요행사 및 교육활동 · 생활지도 및 안전지도 · 관리자 복무 -->
-    <section class="hl-main" id="homeLog" hidden>
+    <section class="hl-main" id="homeLog" aria-labelledby="homeLogTitle" hidden>
       <div class="hl-top">
-        <div class="hl-title"><h2>학교운영일지</h2><span id="logDay" class="hl-day"></span></div>
-        <div class="hl-nav"><button class="btn small" id="logPrev" aria-label="이전 날">◀</button><input type="date" id="logDate"><button class="btn small" id="logNext" aria-label="다음 날">▶</button><button class="btn small" id="logToday">오늘</button></div>
+        <div class="hl-title"><h2 id="homeLogTitle">학교운영일지</h2><time id="logDay" class="hl-day"></time></div>
+        <div class="hl-controls">
+          <div class="hl-nav" role="group" aria-label="일지 날짜 이동">
+            <button type="button" class="btn small" id="logPrev">이전</button>
+            <input type="date" id="logDate" aria-label="운영일지 조회 날짜">
+            <button type="button" class="btn small" id="logNext">다음</button>
+            <button type="button" class="btn small" id="logToday">오늘</button>
+          </div>
+          <button type="button" class="btn small" id="logHwp" disabled>한글 파일로 저장</button>
+        </div>
       </div>
       <div id="logView" class="log-view"></div>
       <div id="logRecent" class="log-recent"></div>
@@ -341,7 +349,7 @@
     <div class="grid2 log-page">
       <div class="card">
         <div class="hx-card-head">
-          <h2>📝 학교 일지 작성</h2>
+          <h2>학교 일지 작성</h2>
           <div class="row"><button class="btn small" id="lgPrev" aria-label="이전 날">◀</button><input type="date" id="lgDate"><button class="btn small" id="lgNext" aria-label="다음 날">▶</button><button class="btn small" id="lgToday">오늘</button></div>
         </div>
         <p class="log-date" id="lgTitle"></p>
@@ -917,9 +925,9 @@
 <script src="schedule.js?v=202611271457"></script>
 <script src="kclass.js?v=202611271457"></script>
 <script src="hwpx.js?v=202611271457"></script>
-<script src="home.js?v=202611271457"></script>
+<script src="home.js?v=operations-brief-1"></script>
 <script src="status.js?v=202611271457"></script>
-<script src="log.js?v=202611271457"></script>
+<script src="log.js?v=operations-brief-1"></script>
 <script src="cover.js?v=202611271457"></script>
 <script src="transfer.js?v=202611271457"></script>
 <script src="migrant.js?v=202611271457"></script>

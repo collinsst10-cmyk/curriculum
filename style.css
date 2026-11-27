@@ -1878,37 +1878,57 @@ th.kc-col { color: #5b21b6; }
 #homeMoves, #homeWork { display: none !important; }
 
 /* HOME: 학교운영일지가 중심 */
-.hl-main { max-width: 1400px; margin: 30px auto 8px; padding: 0 clamp(16px, 3vw, 40px); box-sizing: border-box; }
+/* 학교운영일지: 일일 브리핑 */
+.hl-main {
+  --hl-heading: #152e53;
+  --hl-line: #dce3ec;
+  max-width: 1440px;
+  margin: 24px auto 12px;
+  padding: clamp(14px, 2.2vw, 28px);
+  box-sizing: border-box;
+  background: #f3f5f8;
+  border-radius: 10px;
+  font-family: Pretendard, var(--f4), sans-serif;
+  color: #24334a;
+}
 .hl-main[hidden] { display: none; }
-.hl-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
-.hl-title { display: grid; gap: 2px; }
-.hl-title h2 { margin: 0; font-size: 24px; letter-spacing: -.02em; color: #101a33; font-family: var(--f8); font-weight: normal; }
-.hl-day { font-size: 14px; color: #6b7488; }
-.hl-nav { display: flex; gap: 6px; align-items: center; }
-.hl-nav input[type="date"] { font: inherit; font-size: 14px; padding: 5px 8px; border: 1px solid #d7dce8; border-radius: 9px; }
-.hl-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-.hl-card { background: #fff; border: 1px solid #e6eaf2; border-radius: 18px; padding: 18px 20px; min-height: 150px; box-shadow: 0 1px 2px rgba(16, 32, 72, .03); position: relative; overflow: hidden; }
-.hl-card::before { content: ''; position: absolute; left: 0; top: 0; right: 0; height: 4px; background: var(--c, var(--nv)); }
-.hl-card h3 { margin: 0 0 10px; font-size: 15px; color: var(--c, var(--nv-d)); font-family: var(--f8); font-weight: normal; letter-spacing: .01em; }
-.hl-card p { margin: 0; white-space: pre-wrap; line-height: 1.75; font-size: 14.5px; color: #1f2740; }
-.hl-card .hl-none { color: #b8bfcd; }
-.hl-notice { grid-column: 1 / -1; --c: #15306b; background: linear-gradient(180deg, #f6f9ff, #fff 60%); }
-.hl-notice p { font-size: 15.5px; }
-.hl-events { --c: #2f7a4f; }
-.hl-guide { --c: #b26a00; }
-.hl-duty { --c: #5b3fc4; }
-.hl-cover { grid-column: 1 / -1; --c: #c0392b; min-height: 0; }
-.hl-duty-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.hl-duty-list li { display: grid; grid-template-columns: 72px 1fr; align-items: center; gap: 2px 8px; padding: 8px 0; border-bottom: 1px solid #f0f2f7; font-size: 14px; }
-.hl-duty-list li:last-child { border-bottom: 0; }
-.hl-duty-list b { color: #2a3247; font-family: var(--f7); font-weight: normal; }
-.hl-st { justify-self: start; font-size: 12.5px; padding: 2px 9px; border-radius: 999px; background: #eef1f6; color: #4a5368; font-family: var(--f6); }
-.hl-st.ok { background: #eaf7ef; color: #2f7a4f; } .hl-st.out { background: #e9f0fd; color: #1d4fa8; } .hl-st.off { background: #fdecec; color: #b42323; } .hl-st.part { background: #fff4e0; color: #9a5b00; }
-.hl-tm { font-variant-numeric: tabular-nums; color: #1f2740; font-family: var(--f6); }
-.hl-nt { grid-column: 2 / -1; color: #6b7488; font-size: 13px; }
-.hl-nt:empty { display: none; }
-.hl-plan { grid-column: 2; color: #8a93a6; }
-@media (max-width: 1000px) { .hl-grid { grid-template-columns: 1fr; } }
+.hl-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 18px; }
+.hl-title { display: grid; gap: 4px; }
+.hl-title h2 { margin: 0; color: var(--hl-heading); font-family: Pretendard, var(--f8), sans-serif; font-size: 32px; font-weight: 800; line-height: 1.25; }
+.hl-day, .hl-secondary, .hl-none, .hl-main .hint { color: #526177; font-size: 14px; line-height: 1.55; }
+.hl-controls, .hl-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.hl-controls .btn, .hl-nav input { min-height: 36px; font: inherit; font-size: 14px; }
+.hl-controls #logHwp { border-color: #152e53; color: #152e53; font-weight: 700; }
+.hl-controls #logHwp:disabled { opacity: .48; }
+.hl-grid { display: grid; grid-template-columns: minmax(0, 65fr) minmax(0, 35fr); align-items: start; gap: 18px; }
+.hl-column { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-content: start; min-width: 0; }
+.hl-card { min-width: 0; background: #fff; border: 1px solid var(--hl-line); border-radius: 10px; padding: 24px; }
+.hl-card h3 { margin: 0 0 14px; padding-bottom: 11px; border-bottom: 1px solid var(--hl-line); color: var(--hl-heading); font: 700 22px/1.35 Pretendard, var(--f7), sans-serif; }
+.hl-card .hl-none { margin: 0; }
+.hl-copy, .hl-cover-list, .hl-duty-list { font-size: 16px; line-height: 1.7; overflow-wrap: anywhere; }
+.hl-copy, .hl-secondary { white-space: pre-wrap; }
+.hl-lines { display: grid; }
+.hl-notice .hl-line, .hl-notice .hl-timed { padding-block: 6px; }
+.hl-notice .hl-line + .hl-line, .hl-notice .hl-timed + .hl-timed,
+.hl-notice .hl-timed + .hl-line, .hl-notice .hl-line + .hl-timed { border-top: 1px solid #edf0f4; }
+.hl-timed { display: grid; grid-template-columns: minmax(5rem, max-content) minmax(0, 1fr); gap: 10px; }
+.hl-timed b, .hl-duty-time { color: #152e53; font-variant-numeric: tabular-nums; }
+.hl-line-space { min-height: 0.65em; }
+.hl-copy-heading, .hl-extra h4 { color: var(--hl-heading); font-weight: 700; }
+.hl-extra { margin-top: 14px; padding-top: 12px; border-top: 1px solid #edf0f4; }
+.hl-extra h4 { margin: 0 0 4px; font-size: 16px; }
+.hl-cover-list, .hl-duty-list { list-style: none; margin: 0; padding: 0; }
+.hl-cover-list li, .hl-duty-list li { display: grid; align-items: baseline; gap: 8px; border-bottom: 1px solid #edf0f4; padding: 7px 0; }
+.hl-cover-list li:last-child, .hl-duty-list li:last-child { border-bottom: 0; }
+.hl-cover-list li { grid-template-columns: minmax(2.5rem, max-content) minmax(4.5rem, max-content) minmax(0, 1fr); }
+.hl-cover-list + .hl-copy { margin-top: 8px; }
+.hl-duty-list li { grid-template-columns: 5.5rem minmax(0, 1fr); }
+.hl-period { color: #784910; }
+@media (max-width: 920px) { .hl-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 480px) {
+  .hl-card { padding: 18px; }
+  .hl-timed { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}
 #homePanel { grid-template-columns: 1fr; }
 
 /* 학교 일지 작성: 복무(상태·시간·장소) */
