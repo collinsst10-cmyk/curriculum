@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=202611271314">
+<link rel="stylesheet" href="style.css?v=202611271330">
 </head>
 <body>
 <header class="topbar">
@@ -528,11 +528,12 @@
 
   <!-- 교육과정 편성 ② 학사일정 (관리자) -->
   <section id="tab-cal" class="tab">
-    <div class="card cal-top calendar-settings">
-      <div class="card-head">
-        <div id="calWhere" class="hint" style="margin:0"></div>
+    <div class="card calendar-settings">
+      <div class="calendar-settings-head">
+        <h2>학기·방학</h2>
+        <div id="calWhere" class="hint"></div>
+        <button id="btnDefaultSem" class="btn small">기본값</button>
       </div>
-      <div class="card-head"><h2>학기·방학</h2><button id="btnDefaultSem" class="btn small">기본값</button></div>
       <div class="sem-grid six">
         <label>1학기 개학일 <input id="s1Start" type="date"></label>
         <label>여름방학 시작 <input id="summerStart" type="date"></label>
@@ -571,11 +572,6 @@
       </section>
       <aside class="cal-side">
         <div class="card sticky calendar-side-panel">
-          <h2>학사일정 현황</h2>
-          <div id="calSummary" class="mini-summary"></div>
-          <dl id="calKeyDates" class="calendar-key-dates"></dl>
-          <button type="button" id="btnCalendarOverview" class="btn small">전체 현황 보기</button>
-          <div id="holidayWarn"></div>
           <details id="calEditor">
           <summary>재량휴업일·날짜 설정</summary>
           <div id="edSel" class="date-pick"></div>
@@ -595,6 +591,16 @@
           <button id="btnApply" class="btn primary" style="width:100%">적용</button>
           <ul id="calSelectedDetails" class="calendar-selection-details" hidden></ul>
           </details>
+          <h2>학사일정 현황</h2>
+          <div id="calSummary" class="mini-summary"></div>
+          <dl id="calKeyDates" class="calendar-key-dates"></dl>
+          <button type="button" id="btnCalendarOverview" class="btn small">전체 현황 보기</button>
+          <div id="holidayWarn"></div>
+          <section class="calendar-side-events" aria-labelledby="calEventTitle">
+            <div class="card-head"><h3 id="calEventTitle">학교행사</h3><span id="calEventCount" class="pill"></span></div>
+            <p id="calEventEmpty" class="hint">등록된 학교행사가 없습니다.</p>
+            <ul id="calEventList" aria-labelledby="calEventTitle" tabindex="0" hidden></ul>
+          </section>
         </div>
       </aside>
     </div>
@@ -857,28 +863,28 @@
   <div id="cloudBody"></div>
 </dialog>
 
-<script src="data.js?v=202611271314"></script>
-<script src="app.js?v=202611271314"></script>
-<script src="features.js?v=202611271314"></script>
-<script src="cloud-config.js?v=202611271314"></script>
-<script src="cloud.js?v=202611271314"></script>
-<script src="shopping-accounts.js?v=202611271314"></script>
-<script src="activities.js?v=202611271314"></script>
-<script src="haksa.js?v=202611271314"></script>
-<script src="menus.js?v=202611271314"></script>
-<script src="schedule.js?v=202611271314"></script>
-<script src="kclass.js?v=202611271314"></script>
-<script src="home.js?v=202611271314"></script>
-<script src="status.js?v=202611271314"></script>
-<script src="log.js?v=202611271314"></script>
-<script src="transfer.js?v=202611271314"></script>
-<script src="migrant.js?v=202611271314"></script>
-<script src="roster.js?v=202611271314"></script>
-<script src="site.js?v=202611271314"></script>
-<script src="env.js?v=202611271314"></script>
-<script src="pyeonje.js?v=202611271314"></script>
-<script src="pyeonje-grade.js?v=202611271314"></script>
-<script src="calextra.js?v=202611271314"></script>
-<script src="savebar.js?v=202611271314"></script>
+<script src="data.js?v=202611271330"></script>
+<script src="app.js?v=202611271330"></script>
+<script src="features.js?v=202611271330"></script>
+<script src="cloud-config.js?v=202611271330"></script>
+<script src="cloud.js?v=202611271330"></script>
+<script src="shopping-accounts.js?v=202611271330"></script>
+<script src="activities.js?v=202611271330"></script>
+<script src="haksa.js?v=202611271330"></script>
+<script src="menus.js?v=202611271330"></script>
+<script src="schedule.js?v=202611271330"></script>
+<script src="kclass.js?v=202611271330"></script>
+<script src="home.js?v=202611271330"></script>
+<script src="status.js?v=202611271330"></script>
+<script src="log.js?v=202611271330"></script>
+<script src="transfer.js?v=202611271330"></script>
+<script src="migrant.js?v=202611271330"></script>
+<script src="roster.js?v=202611271330"></script>
+<script src="site.js?v=202611271330"></script>
+<script src="env.js?v=202611271330"></script>
+<script src="pyeonje.js?v=202611271330"></script>
+<script src="pyeonje-grade.js?v=202611271330"></script>
+<script src="calextra.js?v=202611271330"></script>
+<script src="savebar.js?v=202611271330"></script>
 </body>
 </html>

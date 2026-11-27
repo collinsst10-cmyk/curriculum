@@ -285,7 +285,7 @@
       return;
     }
     $('kcNone')?.remove();
-    showPanel(kcCur > n ? 1 : kcCur);
+    showPanel(window.tabFresh || kcCur > n ? 1 : kcCur);   // 메뉴로 새로 들어오면 1반부터
   };
   $('kcSwitch').addEventListener('click', e => { const b = e.target.closest('[data-kc]'); if (b) showPanel(Number(b.dataset.kc)); });
 

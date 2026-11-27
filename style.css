@@ -233,8 +233,6 @@ input:focus, select:focus { outline: 2px solid var(--primary-weak); border-color
 @media (max-width: 1100px) { .hv-layout { grid-template-columns: 1fr; } .sem-grid { grid-template-columns: repeat(2, 1fr); } }
 
 /* 학사일정 메뉴 */
-.cal-top { padding: 12px 16px; }
-.cal-top .card-head { margin-bottom: 8px; }
 .sem-row { gap: 12px; font-size: 13px; }
 .sem-row label { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
 .sem-row input { padding: 4px 6px; }
@@ -558,9 +556,15 @@ body { font-family: var(--f4); }
 @media (max-width: 650px) { #calGrid, #hvGrid, #evCalendar { grid-template-columns: minmax(0, 1fr); } }
 
 /* 연간 학사일정 */
-.calendar-settings .card-head h2, .calendar-year .card-head h2 { margin: 0; }
-.calendar-settings .sem-grid { gap: 12px; }
-.calendar-settings input[type="date"] { width: 100%; min-width: 0; }
+.calendar-year .card-head h2 { margin: 0; }
+.calendar-settings { padding: 10px 12px; margin-bottom: 10px; }
+.calendar-settings-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-bottom: 6px; }
+.calendar-settings-head h2 { margin: 0; font-size: 16px; }
+.calendar-settings-head #calWhere { margin: 0; flex: 1 1 240px; }
+.calendar-settings-head #btnDefaultSem { margin-left: auto; }
+.calendar-settings .sem-grid { gap: 6px 8px; margin-bottom: 4px; }
+.calendar-settings input[type="date"] { width: 100%; min-width: 0; padding: 4px 7px; min-height: 30px; }
+.calendar-settings #semSummary { margin: 0; line-height: 1.4; }
 #tab-cal .calendar-plan { grid-template-columns: minmax(0, 1fr) minmax(246px, 290px); gap: 18px; }
 .calendar-year { min-width: 0; margin: 0; container-type: inline-size; }
 #calGrid.compact-calendar, #hvGrid.compact-calendar {
@@ -597,9 +601,20 @@ body { font-family: var(--f4); }
 .calendar-key-dates div { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--line); }
 .calendar-key-dates dt { color: var(--muted); }
 .calendar-key-dates dd { margin: 0; text-align: right; font-family: var(--f6); font-variant-numeric: tabular-nums; }
-.calendar-side-panel details { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
-.calendar-side-panel summary { cursor: pointer; color: var(--nv); font-size: 14px; }
+.calendar-side-panel #calEditor { margin: 0 0 16px; border: 1px solid var(--line); border-radius: 10px; }
+.calendar-side-panel #calEditor[open] { padding: 0 10px 10px; }
+.calendar-side-panel #calEditor summary {
+  cursor: pointer; border-radius: 9px; padding: 10px 12px;
+  background: var(--nv); color: #fff; font-family: var(--f7); font-size: 14px;
+}
+.calendar-side-panel #calEditor[open] summary { margin: 0 -10px 8px; border-radius: 9px 9px 0 0; }
 .calendar-side-panel .date-pick { margin-top: 8px; }
+.calendar-side-events { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.calendar-side-events h3, .calendar-side-events .hint { margin: 0; }
+.calendar-side-events ul { margin: 0; padding: 0; list-style: none; max-height: 180px; overflow: auto; }
+.calendar-side-events li { display: grid; grid-template-columns: 4.5em minmax(0, 1fr); gap: 8px; padding: 7px 3px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.calendar-side-events time { color: var(--nv); font-variant-numeric: tabular-nums; }
+.calendar-side-events li span { overflow-wrap: anywhere; }
 #calendarOverview { scroll-margin-top: calc(var(--hdr, 66px) + 70px); }
 .school-structure { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 12px; }
 .school-structure section { border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
@@ -1665,21 +1680,50 @@ th.kc-col { color: #5b21b6; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 @media print { .save-fab, .toast { display: none !important; } }
 
-/* 학교사용환경설정: 표는 내용만큼만(불필요한 가로 여백 없애기) + 전담 교과 고르기 */
-.env-grades { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+/* 학교사용환경설정: 표는 내용만큼만, 칸 폭 고정·정렬 맞춤 + 전담 교과 고르기 */
+.env-grades { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 1350px) { .env-grades { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 780px) { .env-grades { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 440px) { .env-grades { grid-template-columns: minmax(0, 1fr); } }
+.env-grade-h { flex-wrap: wrap; gap: 4px 8px; }
+.env-weekly { display: inline-block; margin-left: 4px; padding: 2px 6px; border-radius: 8px; color: var(--nv); background: var(--nv-pale); white-space: nowrap; }
 .env-grade { padding: 10px 12px; }
-.env-tbl th, .env-tbl td { padding: 5px 8px; }
-.env-tbl.fit { width: auto; max-width: 100%; }
-.env-tbl.fit input:not([type]), .env-tbl.fit input[type="text"] { width: 130px; }
-.env-tbl.fit select { width: auto; max-width: 160px; }
-.env-tbl.fit td.l { text-align: left; }
-.env-tbl.fit .env-cls { flex-wrap: wrap; max-width: 260px; }
-.env-tbl.fit .env-cls .tg { padding: 3px 7px; font-size: 12px; }
+.env-tbl th, .env-tbl td { padding: 6px 8px; vertical-align: middle; }
 .env-tbl .env-cls-name { width: auto; }
-.sm-two { grid-template-columns: repeat(auto-fit, minmax(260px, 420px)); gap: 12px; }
-.sm-list td, .sm-list th { padding: 6px 8px; }
-.sm-list .s { width: 1%; white-space: nowrap; }
-.sm-sel { font: inherit; font-size: 13px; padding: 3px 6px; border: 1px solid #d7dce8; border-radius: 7px; background: #fff; }
+.env-tbl td.c, .env-tbl th.c { text-align: center; }
+/* 내용만큼만 차지하는 표 */
+.env-tbl.fit { width: auto; max-width: 100%; border: 1px solid #dfe4ee; border-radius: 12px; border-collapse: separate; border-spacing: 0; overflow: hidden; }
+.env-tbl.fit.env-staff { width: 100%; }
+.env-staff-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 14px; }
+@media (max-width: 900px) { .env-staff-layout { grid-template-columns: minmax(0, 1fr); gap: 0; } }
+.env-tbl.fit.env-staff input:not([type]) { width: min(100%, 160px); }
+.env-staff th:first-child { white-space: normal; }
+.env-tbl.fit th, .env-tbl.fit td { border: 0; border-bottom: 1px solid #edf0f5; height: 44px; box-sizing: border-box; }
+.env-tbl.fit thead th { background: #f4f6fa; color: #5b6478; font-size: 13px; height: 38px; border-bottom: 1px solid #dfe4ee; }
+.env-tbl.fit tbody tr:last-child > * { border-bottom: 0; }
+.env-tbl.fit tbody tr:hover > * { background: #fafbfd; }
+.env-tbl.fit tbody th { background: #fff; text-align: left; }
+.env-tbl.fit input:not([type]), .env-tbl.fit input[type="text"] { width: 130px; }
+.env-tbl.fit select { width: auto; max-width: 150px; padding: 5px 6px; }
+.env-tbl.fit input[type="number"] { width: 60px; text-align: center; }
+.env-tbl.fit td.l { text-align: left; }
+.env-tbl.fit td.num { text-align: center; font-variant-numeric: tabular-nums; }
+.env-tbl.fit td.env-cls { display: table-cell; white-space: nowrap; }
+.env-tbl.fit td.env-cls .tg + .tg { margin-left: 3px; }
+.env-tbl.fit .env-cls .tg { padding: 3px 7px; font-size: 12px; }
+/* 특별실·전담 목록: 열 폭 고정으로 줄이 딱 맞게 */
+.sm-two { grid-template-columns: repeat(auto-fit, minmax(300px, 400px)); gap: 12px; }
+.sm-grid { table-layout: fixed; width: 100%; border: 1px solid #dfe4ee; border-radius: 10px; border-collapse: separate; border-spacing: 0; overflow: hidden; }
+.sm-grid col.c-s { width: 92px; } .sm-grid col.c-t { width: 92px; } .sm-grid col.c-h { width: 52px; } .sm-grid col.c-d { width: 64px; }
+.sm-grid th, .sm-grid td { height: 42px; padding: 0 10px; box-sizing: border-box; vertical-align: middle; border-bottom: 1px solid #edf0f5; }
+.sm-grid thead th { height: 36px; background: #f4f6fa; border-bottom: 1px solid #dfe4ee; }
+.sm-grid tbody tr:last-child td { border-bottom: 0; }
+.sm-grid .c { text-align: center; padding: 0 4px; }
+.sm-grid td.nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sm-grid td.num { font-variant-numeric: tabular-nums; }
+.sm-grid .sm-in { padding: 4px 8px; }
+.sm-sel { font: inherit; font-size: 13px; width: 100%; padding: 4px 6px; border: 1px solid #d7dce8; border-radius: 7px; background: #fff; }
+.sm-del { padding: 3px 10px; }
 .jd-subj { border: 1px solid #e3e7f0; border-radius: 14px; padding: 10px 14px; background: #fbfcfe; margin: 12px 0 4px; }
 .jd-subj.empty { border-color: var(--gold); background: #fffaf0; }
 .jd-subj-h { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin-bottom: 8px; }

@@ -638,6 +638,13 @@ function renderCal() {
     html += '</div></div>';
   }
   $('calGrid').innerHTML = html;
+  const eventRows = days.flatMap(day => day.events.map(event =>
+    `<li><time datetime="${day.ds}">${fmtK(day.ds)}</time><span>${esc(event.name || '교내행사')}</span></li>`
+  ));
+  $('calEventCount').textContent = `${eventRows.length}건`;
+  $('calEventList').innerHTML = eventRows.join('');
+  $('calEventList').hidden = !eventRows.length;
+  $('calEventEmpty').hidden = !!eventRows.length;
   renderCalSide();
 }
 
@@ -962,6 +969,7 @@ function showTab(t) {
   if (isTeacherView() && ['curr', 'tt', 'data', 'admin'].includes(groupOf(t))) t = 'home';
   if (groupOf(t) === 'tt') t = 'home';   // '시간표 편성' 메뉴는 쓰지 않음
   if (TAB_GUARDS[t]) { const ok = TAB_GUARDS[t](); if (ok === false) t = 'home'; else if (typeof ok === 'string') t = ok; }
+  const fresh = curTab !== t || !!window.tabFresh;   // 다른 메뉴에서 들어옴 → 화면 안의 작은 메뉴를 처음으로
   if (curTab !== t) window.ShoppingAccounts?.lock();
   curTab = t;
   const g = groupOf(t);
@@ -974,15 +982,20 @@ function showTab(t) {
   tabs.querySelectorAll('button').forEach(b => { b.hidden = b.dataset.group !== g || (b.classList.contains('admin-tab') && !adminNow) || !tabOk(b.dataset.tab); b.classList.toggle('active', b.dataset.tab === t); });
   document.querySelectorAll('.tab').forEach(s => s.classList.toggle('active', s.id === 'tab-' + t));
   if (location.hash.slice(1) !== t) history.pushState(null, '', '#' + t);
-  RENDER[t]();
+  window.tabFresh = fresh; RENDER[t](); window.tabFresh = false;
   window.ShoppingAccounts?.refresh();
   applyRoleView();
   if (t === 'school') updateSchoolEditControls();
   window.scrollTo(0, 0);
 }
+/** 상위 메뉴를 누르면 늘 그 메뉴의 첫 하위 메뉴(보이는 것 중 맨 앞)로 감 — 전에 보던 하위 메뉴·화면에 머물지 않음 */
 function goGroup(g) {
-  const first = GROUP_FIRST[g] || 'home';
-  showTab(['schoolinfo', 'haksa'].includes(g) ? first : lastInGroup[g] || first);
+  const adminNow = !!(window.App.isAdmin && window.App.isAdmin());
+  const btn = [...document.querySelectorAll(`#tabs [data-group="${g}"]`)].find(b =>
+    !(b.classList.contains('admin-tab') && !adminNow) && (!TAB_GUARDS[b.dataset.tab] || TAB_GUARDS[b.dataset.tab]() === true));
+  window.tabFresh = true;   // 각 화면 안의 작은 메뉴(예: 학교사용환경설정 › 학급 현황 설정)도 처음으로
+  showTab(btn ? btn.dataset.tab : GROUP_FIRST[g] || 'home');
+  window.tabFresh = false;
 }
 
 /* ---------- HOME ---------- */
@@ -1238,6 +1251,7 @@ function bind() {
     if (!c) return;
     if (!canEditCal()) return;
     toggleCalPick(c.dataset.ds, e.shiftKey);
+    if (calPick.size) $('calEditor').open = true;
     renderCal();
     $('calGrid').querySelector(`.day[data-ds="${c.dataset.ds}"]`)?.focus({ preventScroll: true });
   });
