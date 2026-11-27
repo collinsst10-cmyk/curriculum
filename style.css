@@ -2019,5 +2019,3 @@ th.kc-col { color: #5b21b6; }
 #staffAdmin section { margin-top: 16px; }
 #staffAdmin select[multiple] { min-height: 85px; }
 #staffAdmin textarea { width: 100%; }
-
-#hdrSchool { white-space: nowrap; padding: 4px 8px; border-radius: 8px; background: var(--nv-pale); color: var(--nv-d); opacity: 1; }

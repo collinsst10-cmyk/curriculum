@@ -109,14 +109,28 @@ service cloud.firestore {
     }
 
     // 학교 정보(학교명·학년도·학급 수). 선생님 화면이 이 값을 씀. 관리자만 수정
+    match /schoolPrivate/neis {
+      allow read: if isStaff();
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasOnly(['code'])
+        && request.resource.data.code is string && request.resource.data.code.size() <= 10
+        && (isDeveloper() || recentlyAuthenticated() || (request.method == 'create'
+          && get(/databases/$(database)/documents/config/school).data.get('neis', null) == request.resource.data.code));
+    }
+
     match /config/school {
-      allow read: if isApproved();
+      allow read: if isApproved() && (isStaff() || !resource.data.keys().hasAny(['neis']));
       allow create: if isAdmin() && (isDeveloper() || recentlyAuthenticated())
+        && !request.resource.data.keys().hasAny(['neis'])
         && request.resource.data.year is int && request.resource.data.year >= 2000 && request.resource.data.year <= 2099;
       allow update: if isAdmin() && (
         isDeveloper() || recentlyAuthenticated()
         || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bell', 'updatedAt', 'updatedBy'])
-      ) && request.resource.data.year is int && request.resource.data.year >= 2000 && request.resource.data.year <= 2099;
+        || (resource.data.keys().hasAny(['neis']) && !request.resource.data.keys().hasAny(['neis'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['neis'])
+          && existsAfter(/databases/$(database)/documents/schoolPrivate/neis))
+      ) && (!request.resource.data.keys().hasAny(['neis'])
+        || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['neis'])) && request.resource.data.year is int && request.resource.data.year >= 2000 && request.resource.data.year <= 2099;
     }
 
     match /schoolYears/{year} {

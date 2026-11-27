@@ -17,7 +17,8 @@
     days: {}, sem: null, eventPlans: {}, operatingPeriod: null,
     canEdit: () => !!(window.Cloud && Cloud.ready && Cloud.isAdmin()),
     canCreate: () => H.loaded && !H.active && H.canEdit(),
-    writeDays, writeSem, createFromLocal, setOperatingYear,
+    writeDays, writeSem, createFromLocal, setOperatingYear, writeNeis,
+    get neis() { return schoolNeis; },
     get operatingYear() { return operatingYear; },
   };
 
@@ -78,15 +79,50 @@
   /* ---------- 학교 정보(학교명·학년도·학급 수) 공유: config/school ----------
    * 관리자가 고치면 저장되고, 선생님 화면은 이 값으로 학년도·학급 수를 맞춤(교육활동 대상 학급 등) */
   let unsubSchool = null, lastSchool = '', operatingYear = null, schoolLoaded = false;
+  let schoolNeis = '', unsubNeis = null, migratingNeis = false;
+  const neisRef = () => Cloud.fb.F.doc(Cloud.fb.db, 'schoolPrivate', 'neis');
+  function subscribeNeis() {
+    unsubNeis?.();
+    schoolNeis = '';
+    document.dispatchEvent(new Event('school-neis-change'));
+    if (!Cloud.ready || Cloud.isGeneral) return;
+    unsubNeis = Cloud.fb.F.onSnapshot(neisRef(), doc => {
+      schoolNeis = doc.data()?.code || '';
+      document.dispatchEvent(new Event('school-neis-change'));
+    }, error => console.warn('NEIS 학교코드 읽기 실패', error));
+  }
+  async function writeNeis(code) {
+    guard();
+    const { F, db } = Cloud.fb;
+    await F.runTransaction(db, async tx => {
+      const shared = await tx.get(infoRef());
+      tx.set(neisRef(), { code });
+      if (Object.hasOwn(shared.data() || {}, 'neis')) tx.update(infoRef(), { neis: F.deleteField() });
+    });
+  }
+  async function migrateNeis() {
+    const { F, db } = Cloud.fb;
+    migratingNeis = true;
+    try {
+      await F.runTransaction(db, async tx => {
+        const shared = await tx.get(infoRef());
+        const existing = await tx.get(neisRef());
+        if (!Object.hasOwn(shared.data() || {}, 'neis')) return;
+        if (!existing.exists()) tx.set(neisRef(), { code: shared.data().neis || '' });
+        tx.update(infoRef(), { neis: F.deleteField() });
+      });
+    } catch (error) { console.warn('NEIS 학교코드 분리 실패', error); }
+    finally { migratingNeis = false; }
+  }
   const infoRef = () => Cloud.fb.F.doc(Cloud.fb.db, 'config', 'school');
   const annualRef = year => Cloud.fb.F.doc(Cloud.fb.db, 'schoolYears', String(year));
   const validYear = year => Number.isInteger(year) && year >= 2000 && year <= 2099;
   const bellRows = model => (model.env?.bell?.rows || []).map(({ label, start, end, kind }) => ({ label, start, end, kind }));
   const annual = model => ({ classes: { ...model.school.classes }, kclass: Number(model.school.kclass ?? 3), bell: bellRows(model) });
   const annualFields = data => ({ classes: data.classes || {}, kclass: Number(data.kclass ?? 3), bell: data.bell || [] });
-  const schoolInfo = () => ({ name: state.school.name, neis: state.school.neis || '', year: state.school.year, ...annual(state),
+  const schoolInfo = () => ({ name: state.school.name, year: state.school.year, ...annual(state),
     ...(state.school.details ? { details: { ...state.school.details } } : {}) });
-  const encodeSchool = data => JSON.stringify({ name: data.name, neis: data.neis || '', year: data.year,
+  const encodeSchool = data => JSON.stringify({ name: data.name, year: data.year,
     ...annualFields(data), ...(data.details ? { details: data.details } : {}) });
 
   async function writeSchool(force) {
@@ -142,12 +178,13 @@
       const changed = operatingYear !== s.year || state.school.year !== s.year;
       operatingYear = s.year;
       lastSchool = encodeSchool(s);
-      Object.assign(state.school, { name: s.name || state.school.name, neis: s.neis || '', details: { ...s.details } });
+      if (Cloud.isAdmin() && !migratingNeis && Object.hasOwn(s, 'neis')) migrateNeis();
+      Object.assign(state.school, { name: s.name || state.school.name, details: { ...s.details } });
       if (changed || !Cloud.isAdmin()) applyOperatingYear(s.year, annualFields(s));
       else if (curTab === 'school') rerenderKeepFocus(renderInfo);
     }, err => console.warn('학교 정보 불러오기 실패', err));
   }
 
-  document.addEventListener('cloud-change', () => { subscribe(); subscribeSchool(); });
+  document.addEventListener('cloud-change', () => { subscribe(); subscribeSchool(); subscribeNeis(); });
   document.addEventListener('year-change', subscribe);
 })();

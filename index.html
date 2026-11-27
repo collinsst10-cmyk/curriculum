@@ -6,14 +6,13 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=20261127224336">
+<link rel="stylesheet" href="style.css?v=school-access-2">
 <link rel="stylesheet" href="behavior.css?v=20261127224336">
 </head>
 <body>
 <header class="topbar">
   <a class="brand" href="#home" title="HOME">
     <img class="brand-logo" src="assets/logo-transparent.webp" alt="용원초등학교 YONGWON ELEMENTARY">
-    <span id="hdrSchool" class="sub" aria-live="polite"></span>
   </a>
   <nav class="mainnav" id="mainNav">
     <button data-go="home">HOME</button>
@@ -572,10 +571,10 @@
       </div>
       <div class="form school-form">
         <label>학교명 <input id="inSchool" type="text" placeholder="예: ○○초등학교"></label>
-        <label>NEIS 학교코드 <input id="inNeis" type="text" inputmode="numeric" maxlength="10" placeholder="예: 7380xxx (7자리)"></label>
+        <label id="schoolNeisField" hidden>NEIS 학교코드 <input id="inNeis" type="text" inputmode="numeric" maxlength="10" placeholder="예: 7380xxx (7자리)"></label>
         <label>운영 학년도 <select id="inYear" aria-describedby="operatingYearStatus"></select><small id="operatingYearStatus" role="status" class="hint"></small></label>
       </div>
-      <p class="hint" id="neisHint">NEIS 학교코드는 나이스·학교알리미 등에서 학교를 구분하는 7자리 번호입니다.</p>
+      <p class="hint" id="neisHint" hidden>NEIS 학교코드는 나이스·학교알리미 등에서 학교를 구분하는 7자리 번호입니다.</p>
       <div class="school-details">
         <section class="school-detail-panel school-detail-location">
           <div class="card-head">
@@ -971,14 +970,14 @@
 </dialog>
 
 <script src="data.js?v=20261127224336"></script>
-<script src="app.js?v=20261127224336"></script>
+<script src="app.js?v=school-access-2"></script>
 <script src="features.js?v=20261127224336"></script>
 <script src="cloud-config.js?v=20261127224336"></script>
 <script src="cloud.js?v=20261127224336"></script>
 <script src="shopping-accounts.js?v=20261127224336"></script>
 <script src="activities.js?v=20261127224336"></script>
 <script src="operating-calendar.js?v=20261127224336"></script>
-<script src="haksa.js?v=20261127224336"></script>
+<script src="haksa.js?v=school-access-1"></script>
 <script src="menus.js?v=20261127224336"></script>
 <script src="staff-model.js?v=20261127224336"></script>
 <script src="staff-sync-model.js?v=20261127224336"></script>

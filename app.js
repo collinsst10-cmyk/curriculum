@@ -182,6 +182,7 @@ function load() {
 function normalize(s) {
   const d = defaultState();
   s.school = Object.assign(d.school, s.school || {});
+  delete s.school.neis;
   if (!s.school.name) s.school.name = DEFAULT_SCHOOL;
   s.sem = Object.assign(defaultSemesters(s.school.year), s.sem || {});
   s.days = s.days || {};
@@ -259,7 +260,6 @@ function saveNow() {
 
 function updateTitles() {
   const t = `${state.school.name || '학교명 미입력'} · ${state.school.year}학년도`;
-  $('hdrSchool').textContent = state.school.year + '학년도 운영';
   $('printTitle').textContent = `${state.school.year}학년도 교육과정`;
   document.title = `${state.school.name || '초등학교'} 교육과정 편성 도우미`;
 }
@@ -570,7 +570,7 @@ function renderInfo() {
   $('tab-school').querySelectorAll('[data-school-detail]').forEach(field => {
     if (document.activeElement !== field) field.value = state.school.details?.[field.dataset.schoolDetail] || '';
   });
-  if (document.activeElement !== $('inNeis')) $('inNeis').value = state.school.neis || '';
+  renderSchoolNeis();
   const ys = $('inYear'); const y0 = new Date().getFullYear();
   ys.innerHTML = '';
   for (let y = y0 - 1; y <= y0 + 3; y++) ys.add(new Option(`${y}학년도${PRESET_HOLIDAYS[y] ? '' : ' (공휴일 직접 입력)'}`, y));
@@ -596,12 +596,22 @@ function renderInfo() {
     }).join('');
 }
 
+const canSeeSchoolNeis = () => !!(window.Cloud?.ready && !Cloud.isGeneral);
+function renderSchoolNeis() {
+  const visible = canSeeSchoolNeis();
+  $('schoolNeisField').hidden = $('neisHint').hidden = !visible;
+  if (!visible || document.activeElement !== $('inNeis')) $('inNeis').value = visible ? window.Haksa?.neis || '' : '';
+}
+document.addEventListener('school-neis-change', renderSchoolNeis);
+const canEditOperatingYear = () => !!window.Cloud?.ready && Cloud.isAdmin() && canEditSchool();
+
 const canEditSchool = () => !isTeacherView() && (window.App.canEditSchool?.() ?? !window.FIREBASE_CONFIG);
 function updateSchoolEditControls() {
   const editable = canEditSchool();
   $('schoolUnlockRow').hidden = editable || !window.Cloud?.isAdmin();
   $('schoolAddressSearch').hidden = !editable;
   $('tab-school').querySelectorAll('input, select').forEach(input => { input.disabled = !editable; });
+  $('inYear').disabled = !canEditOperatingYear();
 }
 
 let schoolPostcodeLoader;
@@ -1269,7 +1279,12 @@ function bind() {
     } finally { button.disabled = false; }
   });
   $('inSchool').addEventListener('input', e => { if (canEditSchool()) { state.school.name = e.target.value; save(); } });
-  $('inNeis').addEventListener('input', e => { if (canEditSchool()) { state.school.neis = e.target.value.replace(/[^0-9A-Za-z]/g, '').slice(0, 10); save(); } });
+  $('inNeis').addEventListener('change', async e => {
+    if (!canSeeSchoolNeis() || !canEditSchool()) return;
+    try { await Haksa.writeNeis(e.target.value.replace(/[^0-9A-Za-z]/g, '').slice(0, 10)); }
+    catch (error) { alert('NEIS 학교코드를 저장하지 못했습니다. ' + error.message); }
+    finally { renderSchoolNeis(); }
+  });
   $('tab-school').addEventListener('change', e => {
     const field = e.target, key = field.dataset.schoolDetail;
     if (!key || !canEditSchool()) return;
@@ -1290,29 +1305,19 @@ function bind() {
     save();
   });
   $('inYear').addEventListener('change', async e => {
-    if (!canEditSchool()) return;
+    if (!canEditOperatingYear()) { e.target.value = state.school.year; return; }
     const input = e.target, year = Number(input.value);
     if (year === state.school.year) return;
-    if (window.FIREBASE_CONFIG && !window.Haksa?.canEdit()) {
-      input.value = state.school.year;
-      return;
-    }
-    const online = !!window.FIREBASE_CONFIG;
-    if (online && !confirm(year + '학년도를 학교 공용 운영 학년도로 설정할까요?')) {
+    if (!confirm(year + '학년도를 학교 공용 운영 학년도로 설정할까요?')) {
       input.value = state.school.year;
       return;
     }
     input.disabled = true;
     try {
-      if (online) {
-        const next = switchPlanYear(state, year);
-        localStorage.setItem(STORE_KEY, JSON.stringify(state));
-        await App.flushPlanForYearChange?.();
-        await Haksa.setOperatingYear(year, next);
-      } else {
-        localStorage.setItem(STORE_KEY, JSON.stringify(state));
-        applyOperatingYear(year);
-      }
+      const next = switchPlanYear(state, year);
+      localStorage.setItem(STORE_KEY, JSON.stringify(state));
+      await App.flushPlanForYearChange?.();
+      await Haksa.setOperatingYear(year, next);
       $('operatingYearStatus').textContent = year + '학년도로 전환했습니다.';
     } catch (error) {
       input.value = state.school.year;
