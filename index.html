@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=202611271131">
+<link rel="stylesheet" href="style.css?v=202611271149">
 </head>
 <body>
 <header class="topbar">
@@ -16,9 +16,10 @@
   </a>
   <nav class="mainnav" id="mainNav">
     <button data-go="home">HOME</button>
-    <button data-go="curr" class="admin-only">교육과정 편성</button>
     <button data-go="schoolinfo">학교 정보</button>
+    <button data-go="curr" class="admin-only">교육과정 편성</button>
     <button data-go="haksa">학사일정</button>
+    <button data-go="act">교육활동 일정</button>
     <button data-go="cls">학급관리</button>
     <button data-go="tt" class="admin-only">시간표 편성</button>
     <button data-go="kclass">이주배경학생</button>
@@ -43,11 +44,11 @@
 <nav class="tabs" id="tabs">
   <button data-tab="roster" data-group="cls">우리 반 학생</button>
   <button data-tab="hview" data-group="haksa">학사일정</button>
-  <button data-tab="act" data-group="haksa">신규 학사일정 등록</button>
-  <button data-tab="ksl" data-group="haksa">한국어학급 연계</button>
+  <button data-tab="act" data-group="act">일정 신청·관리</button>
+  <button data-tab="ksl" data-group="act">한국어학급 연계</button>
+  <button data-tab="school" data-group="schoolinfo">기본 정보</button>
   <button data-tab="purchase" data-group="schoolinfo">물품 구입</button>
   <button data-tab="schoolstructure" data-group="schoolinfo">학교 구조</button>
-  <button data-tab="school" data-group="schoolinfo">기본 정보</button>
   <button data-tab="env" data-group="curr" class="admin-tab">학교사용환경설정</button>
   <button data-tab="cal" data-group="curr" class="admin-tab">학사일정 편성</button>
   <button data-tab="event" data-group="curr" class="admin-tab">교내행사</button>
@@ -302,6 +303,39 @@
         <span id="siteStatus" class="hint" role="status"></span></div>
       <ul id="sitePhotos" class="site-photos"></ul>
     </div>
+
+    <details class="card school-management">
+      <summary>학교 정보 관리</summary>
+      <h2>물품 구입 사이트</h2>
+      <form id="purchaseSiteForm" class="form school-form">
+        <label>사이트 이름 <input id="purchaseSiteName" type="text" maxlength="60" required></label>
+        <label>사이트 주소 <input id="purchaseSiteUrl" type="url" placeholder="https://" maxlength="350" required></label>
+        <div class="row"><button type="submit" class="btn primary" id="purchaseSiteSave">사이트 추가</button><button type="button" class="btn small" id="purchaseSiteReset" hidden>수정 취소</button></div>
+      </form>
+      <p id="purchaseSiteStatus" class="hint" role="status"></p>
+      <ul id="purchaseSiteList" class="purchase-site-list"></ul>
+    <section class="school-account-box" id="shoppingAccounts" hidden>
+      <h2>물품 구입 계정</h2>
+      <p class="hint">운영자·개발자 전용입니다. 계정 정보는 입력한 브라우저에 암호화해 보관합니다.</p>
+      <form id="shoppingAccountForm" autocomplete="off">
+        <div class="form school-form">
+          <label>쇼핑몰 <select id="shoppingProvider" required></select></label>
+          <label>학교 아이디 <input id="shoppingId" type="text" maxlength="200" spellcheck="false"></label>
+          <label>학교 비밀번호 <input id="shoppingPassword" type="password" maxlength="300" autocomplete="new-password"></label>
+        </div>
+        <label>보관함 잠금 암호 <input id="shoppingLock" type="password" required minlength="12" maxlength="200" autocomplete="new-password"></label>
+        <p class="hint">쇼핑몰 비밀번호와 다른 잠금 암호를 12자 이상으로 정하세요. 저장한 계정을 열 때 같은 암호를 입력합니다.</p>
+        <div class="row">
+          <button type="submit" class="btn primary">암호화해 저장</button>
+          <button type="button" class="btn" id="shoppingUnlock">저장한 계정 열기</button>
+          <button type="button" class="btn small" id="shoppingReveal" aria-pressed="false">비밀번호 보기</button>
+          <button type="button" class="btn small" id="shoppingClear">입력란 잠그기</button>
+        </div>
+        <p id="shoppingStatus" class="hint" role="status"></p>
+      </form>
+    </section>
+    </details>
+
   </section>
 
   <!-- 학교 일지 (관리자·교무부장 작성) -->
@@ -412,31 +446,12 @@
 
   <!-- 관리자 -->
   <section id="tab-admin" class="tab">
-    <section class="card school-card" id="shoppingAccounts" hidden>
-      <h2>물품 구입 계정</h2>
-      <p class="hint">운영자·개발자 전용입니다. 계정 정보는 입력한 브라우저에 암호화해 보관합니다.</p>
-      <form id="shoppingAccountForm" autocomplete="off">
-        <div class="form school-form">
-          <label>쇼핑몰 <select id="shoppingProvider"><option value="coupang">쿠팡</option><option value="iscreammall">아이스크림몰</option></select></label>
-          <label>학교 아이디 <input id="shoppingId" type="text" maxlength="200" spellcheck="false"></label>
-          <label>학교 비밀번호 <input id="shoppingPassword" type="password" maxlength="300" autocomplete="new-password"></label>
-        </div>
-        <label>보관함 잠금 암호 <input id="shoppingLock" type="password" required minlength="12" maxlength="200" autocomplete="new-password"></label>
-        <p class="hint">쇼핑몰 비밀번호와 다른 잠금 암호를 12자 이상으로 정하세요. 저장한 계정을 열 때 같은 암호를 입력합니다.</p>
-        <div class="row">
-          <button type="submit" class="btn primary">암호화해 저장</button>
-          <button type="button" class="btn" id="shoppingUnlock">저장한 계정 열기</button>
-          <button type="button" class="btn small" id="shoppingReveal" aria-pressed="false">비밀번호 보기</button>
-          <button type="button" class="btn small" id="shoppingClear">입력란 잠그기</button>
-        </div>
-        <p id="shoppingStatus" class="hint" role="status"></p>
-      </form>
-    </section>
     <div id="adminBody"></div>
   </section>
 
   <!-- 학사일정 보기 (선생님·관리자 모두, 조회 전용): 달력만 -->
   <section id="tab-hview" class="tab">
+    <div class="calendar-view-heading"><h2 id="hviewTitle">학사일정</h2></div>
     <div class="legend">
       <span class="lg school">수업일</span>
       <span class="lg event">교내행사</span>
@@ -447,21 +462,14 @@
       <span><span class="calendar-activity-dot"></span> 교육활동</span>
       <span class="hint">날짜에 마우스를 올리면 자세한 내용이 보입니다.</span>
     </div>
-    <div id="hvGrid" class="cal-grid hv-full compact-calendar"></div>
+    <div id="hvGrid" class="cal-grid hv-full compact-calendar teacher-calendar"></div>
   </section>
 
   <section id="tab-purchase" class="tab">
     <div class="card school-card">
       <h2>물품 구입</h2>
       <p class="hint">쇼핑몰은 새 탭에서 열립니다. 학교 계정은 각 쇼핑몰에서 로그인하세요.</p>
-      <div class="school-purchase-links">
-        <a href="https://www.coupang.com/" target="_blank" rel="noopener noreferrer">
-          <strong>쿠팡</strong><span>사무용품·생활용품</span>
-        </a>
-        <a href="https://i-screammall.co.kr/" target="_blank" rel="noopener noreferrer">
-          <strong>아이스크림몰</strong><span>수업 교구·학급 운영 물품</span>
-        </a>
-      </div>
+      <div class="school-purchase-links" id="schoolPurchaseLinks"></div>
     </div>
   </section>
   <section id="tab-schoolstructure" class="tab">
@@ -482,6 +490,16 @@
         <label>학년도 <select id="inYear"></select></label>
       </div>
       <p class="hint" id="neisHint">NEIS 학교코드는 나이스·학교알리미 등에서 학교를 구분하는 7자리 번호입니다.</p>
+      <div class="form school-form school-contact">
+        <label>도로명 우편번호 <input data-school-detail="postalCode" inputmode="numeric" maxlength="5" pattern="[0-9]{5}"></label>
+        <label class="school-address">도로명 주소 <input data-school-detail="address" maxlength="250"></label>
+        <label class="school-address">영문 주소 <input data-school-detail="englishAddress" maxlength="250"></label>
+        <label>전화번호 <input data-school-detail="phone" type="tel" maxlength="30"></label>
+        <label>팩스번호 <input data-school-detail="fax" type="tel" maxlength="30"></label>
+        <label>홈페이지 주소 <input data-school-detail="website" type="url" maxlength="350" placeholder="https://"></label>
+        <label>개교기념일자 <input data-school-detail="anniversary" type="date"></label>
+        <label>설립구분 <select data-school-detail="foundation"><option value="">선택</option><option value="국립">국립</option><option value="공립">공립</option><option value="사립">사립</option></select></label>
+      </div>
       <h3>학년별 학급 수</h3>
       <table class="tbl" id="tblClasses"></table>
     </div>
@@ -811,28 +829,28 @@
   <div id="cloudBody"></div>
 </dialog>
 
-<script src="data.js?v=202611271131"></script>
-<script src="app.js?v=202611271131"></script>
-<script src="features.js?v=202611271131"></script>
-<script src="cloud-config.js?v=202611271131"></script>
-<script src="cloud.js?v=202611271131"></script>
-<script src="shopping-accounts.js?v=202611271131"></script>
-<script src="activities.js?v=202611271131"></script>
-<script src="haksa.js?v=202611271131"></script>
-<script src="menus.js?v=202611271131"></script>
-<script src="schedule.js?v=202611271131"></script>
-<script src="kclass.js?v=202611271131"></script>
-<script src="home.js?v=202611271131"></script>
-<script src="status.js?v=202611271131"></script>
-<script src="log.js?v=202611271131"></script>
-<script src="transfer.js?v=202611271131"></script>
-<script src="migrant.js?v=202611271131"></script>
-<script src="roster.js?v=202611271131"></script>
-<script src="site.js?v=202611271131"></script>
-<script src="env.js?v=202611271131"></script>
-<script src="pyeonje.js?v=202611271131"></script>
-<script src="pyeonje-grade.js?v=202611271131"></script>
-<script src="calextra.js?v=202611271131"></script>
-<script src="savebar.js?v=202611271131"></script>
+<script src="data.js?v=202611271149"></script>
+<script src="app.js?v=202611271149"></script>
+<script src="features.js?v=202611271149"></script>
+<script src="cloud-config.js?v=202611271149"></script>
+<script src="cloud.js?v=202611271149"></script>
+<script src="shopping-accounts.js?v=202611271149"></script>
+<script src="activities.js?v=202611271149"></script>
+<script src="haksa.js?v=202611271149"></script>
+<script src="menus.js?v=202611271149"></script>
+<script src="schedule.js?v=202611271149"></script>
+<script src="kclass.js?v=202611271149"></script>
+<script src="home.js?v=202611271149"></script>
+<script src="status.js?v=202611271149"></script>
+<script src="log.js?v=202611271149"></script>
+<script src="transfer.js?v=202611271149"></script>
+<script src="migrant.js?v=202611271149"></script>
+<script src="roster.js?v=202611271149"></script>
+<script src="site.js?v=202611271149"></script>
+<script src="env.js?v=202611271149"></script>
+<script src="pyeonje.js?v=202611271149"></script>
+<script src="pyeonje-grade.js?v=202611271149"></script>
+<script src="calextra.js?v=202611271149"></script>
+<script src="savebar.js?v=202611271149"></script>
 </body>
 </html>

@@ -18,7 +18,7 @@
   RENDER.review = renderTable;
   RENDER.hview = renderHview;
   RENDER.school = renderInfo;
-  RENDER.purchase = () => {};
+  RENDER.purchase = () => window.PurchaseSites?.renderLinks();
   RENDER.schoolstructure = () => {
     $('schoolStructure').innerHTML = GRADES.map(grade => {
       const count = Number(state.school.classes[grade]) || 0;
@@ -33,6 +33,7 @@
    * ========================================================= */
   function renderHview(target = 'hvGrid') {
     const days = computeYear(), today = fmt(new Date()), A = acts();
+    if (target === 'hvGrid') $('hviewTitle').textContent = `${state.school.year}학년도 학사일정`;
     let html = '';
     for (let i = 0; i < 12; i++) {
       const y = state.school.year + (i >= 10 ? 1 : 0), m = (2 + i) % 12;

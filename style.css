@@ -612,6 +612,27 @@ body { font-family: var(--f4); }
 .school-purchase-links strong { font-size: 17px; }
 .school-purchase-links span { color: var(--muted); font-size: 13px; }
 .school-purchase-links a:hover strong, .school-purchase-links a:focus-visible strong { text-decoration: underline; }
+.calendar-view-heading { margin-bottom: 10px; }
+.calendar-view-heading h2 { margin: 0; color: var(--nv-d); font-size: clamp(21px, 2vw, 29px); }
+#hvGrid.teacher-calendar { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+#hvGrid.teacher-calendar .month { padding: clamp(10px, 1.4vw, 20px); }
+#hvGrid.teacher-calendar .month-head { font-size: 18px; }
+#hvGrid.teacher-calendar .dow { font-size: 13px; }
+#hvGrid.teacher-calendar .day { min-height: clamp(32px, 3.1vw, 46px); cursor: default; }
+#hvGrid.teacher-calendar .d { font-size: clamp(14px, 1.5vw, 19px); }
+#hvGrid.teacher-calendar .calendar-activity-dot { width: 7px; height: 7px; }
+.school-management summary { cursor: pointer; color: var(--nv-d); font-family: var(--f7); font-size: 18px; }
+.school-management h2 { margin-top: 16px; }
+.purchase-site-list { list-style: none; padding: 0; }
+.purchase-site-list li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding: 8px 0; }
+.purchase-site-list small { flex: 1 1 180px; color: var(--muted); overflow-wrap: anywhere; }
+.school-account-box { margin-top: 16px; border-top: 1px solid var(--line); }
+.school-contact .school-address { grid-column: span 2; }
+@media (max-width: 900px) { #hvGrid.teacher-calendar { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 590px) {
+  #hvGrid.teacher-calendar { grid-template-columns: minmax(0, 1fr); }
+  .school-contact .school-address { grid-column: auto; }
+}
 #schoolUnlockRow { margin-bottom: 14px; }
 #schoolUnlockRow[hidden] { display: none; }
 @container (max-width: 580px) { #calGrid.compact-calendar { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

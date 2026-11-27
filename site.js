@@ -10,6 +10,13 @@
   'use strict';
   const MAX = 10, MAX_CHARS = 950000;
   let photos = [], interval = 6, unsubP = null, unsubS = null, timer = null, idx = 0;
+  const defaultSites = [
+    { id: 'coupang', name: '쿠팡', url: 'https://www.coupang.com/' },
+    { id: 'iscreammall', name: '아이스크림몰', url: 'https://i-screammall.co.kr/' },
+  ];
+  let purchaseSites = defaultSites;
+  let editingSite = null;
+  let savingSite = false;
 
   const isAdm = () => !!(window.Cloud && Cloud.ready && Cloud.isAdmin());
   TAB_GUARDS.site = () => isAdm();
@@ -17,7 +24,7 @@
 
   function subscribe() {
     [unsubP, unsubS].forEach(u => u && u()); unsubP = unsubS = null; photos = [];
-    if (!window.Cloud || !Cloud.ready) { buildSlides(); return; }
+    if (!window.Cloud || !Cloud.ready) { purchaseSites = defaultSites; renderPurchaseLinks(); buildSlides(); return; }
     const F = Cloud.fb.F;
     unsubP = F.onSnapshot(F.query(col(), F.orderBy('order')), s => {
       photos = s.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -25,6 +32,8 @@
     }, e => { console.warn('홈 사진 불러오기 실패', e); buildSlides(); });
     unsubS = F.onSnapshot(F.doc(Cloud.fb.db, 'config', 'site'), d => {
       interval = Math.min(30, Math.max(3, Number(d.data()?.interval) || 6));
+      purchaseSites = readSites(d.data());
+      renderPurchaseLinks();
       startTimer(); if (curTab === 'site') renderAdmin();
     }, () => {});
   }
@@ -71,8 +80,133 @@
   }
 
   /* ---------- 관리 화면 ---------- */
+  function safeLink(value) {
+    try {
+      const url = new URL(value);
+      return url.protocol === 'https:' && !url.username && !url.password ? url : null;
+    } catch { return null; }
+  }
+
+  function readSites(config) {
+    const list = Array.isArray(config?.purchaseSites) ? config.purchaseSites : defaultSites;
+    return list.filter(site => site && typeof site.id === 'string' && typeof site.name === 'string' && safeLink(site.url));
+  }
+
+  function renderPurchaseLinks() {
+    const links = purchaseSites.map(site => {
+      const link = document.createElement('a');
+      const name = document.createElement('strong');
+      const address = document.createElement('span');
+      const url = safeLink(site.url);
+      link.href = url.href;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      name.textContent = site.name;
+      address.textContent = url.hostname;
+      link.append(name, address);
+      return link;
+    });
+    if (!links.length) {
+      const empty = document.createElement('p');
+      empty.className = 'hint';
+      empty.textContent = '등록된 구입 사이트가 없습니다.';
+      links.push(empty);
+    }
+    $('schoolPurchaseLinks').replaceChildren(...links);
+  }
+
+  function renderPurchaseAdmin() {
+    const provider = $('shoppingProvider');
+    const selected = provider.value;
+    provider.replaceChildren(new Option('사이트를 선택하세요', ''), ...purchaseSites.map(site => new Option(site.name, site.id)));
+    provider.value = purchaseSites.some(site => site.id === selected) ? selected : '';
+    if (provider.value !== selected) window.ShoppingAccounts?.lock();
+    const rows = purchaseSites.map(site => {
+      const row = document.createElement('li');
+      const name = document.createElement('strong');
+      const address = document.createElement('small');
+      name.textContent = site.name;
+      address.textContent = site.url;
+      row.append(name, address);
+      for (const [action, label] of [['edit', '수정'], ['remove', '삭제']]) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn small';
+        button.dataset.siteAction = action;
+        button.dataset.siteId = site.id;
+        button.textContent = label;
+        row.append(button);
+      }
+      return row;
+    });
+    $('purchaseSiteList').replaceChildren(...rows);
+  }
+
+  function resetPurchaseForm() {
+    editingSite = null;
+    $('purchaseSiteForm').reset();
+    $('purchaseSiteSave').textContent = '사이트 추가';
+    $('purchaseSiteReset').hidden = true;
+  }
+
+  async function changePurchaseSites(update, message) {
+    if (savingSite || !isAdm()) return;
+    savingSite = true;
+    $('purchaseSiteSave').disabled = true;
+    try {
+      const { F, db } = Cloud.fb;
+      const ref = F.doc(db, 'config', 'site');
+      await F.runTransaction(db, async tx => {
+        const snap = await tx.get(ref);
+        tx.set(ref, { purchaseSites: update(readSites(snap.data())) }, { merge: true });
+      });
+      $('purchaseSiteStatus').textContent = message;
+      resetPurchaseForm();
+    } catch (error) {
+      $('purchaseSiteStatus').textContent = '저장 실패. ' + error.message;
+    } finally {
+      savingSite = false;
+      $('purchaseSiteSave').disabled = false;
+    }
+  }
+
+  $('purchaseSiteForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const name = $('purchaseSiteName').value.trim();
+    const url = safeLink($('purchaseSiteUrl').value.trim());
+    if (!name || !url) { $('purchaseSiteStatus').textContent = '사이트 이름과 https:// 주소를 입력하세요.'; return; }
+    const editing = editingSite;
+    const entry = { id: editing || crypto.randomUUID(), name, url: url.href };
+    changePurchaseSites(list => {
+      if (editing) {
+        if (!list.some(site => site.id === editing)) throw new Error('이 사이트가 이미 삭제됐습니다.');
+        return list.map(site => site.id === editing ? entry : site);
+      }
+      if (list.length >= 30) throw new Error('사이트는 30개까지 등록할 수 있습니다.');
+      return [...list, entry];
+    }, '학교 정보의 물품 구입 메뉴에 반영했습니다.');
+  });
+  $('purchaseSiteReset').addEventListener('click', resetPurchaseForm);
+  $('purchaseSiteList').addEventListener('click', e => {
+    const button = e.target.closest('[data-site-action]');
+    if (!button || !isAdm() || savingSite) return;
+    const site = purchaseSites.find(item => item.id === button.dataset.siteId);
+    if (!site) return;
+    if (button.dataset.siteAction === 'edit') {
+      editingSite = site.id;
+      $('purchaseSiteName').value = site.name;
+      $('purchaseSiteUrl').value = site.url;
+      $('purchaseSiteSave').textContent = '수정 저장';
+      $('purchaseSiteReset').hidden = false;
+      $('purchaseSiteName').focus();
+    } else if (confirm(site.name + ' 바로가기를 삭제할까요?')) {
+      changePurchaseSites(list => list.filter(item => item.id !== site.id), '바로가기를 삭제했습니다.');
+    }
+  });
+  window.PurchaseSites = { renderLinks: renderPurchaseLinks };
   function renderAdmin() {
     if (!isAdm()) return;
+    renderPurchaseAdmin();
     $('siteInterval').value = String(interval);
     $('siteCount').textContent = `${photos.length} / ${MAX}장`;
     $('siteUpload').disabled = photos.length >= MAX;

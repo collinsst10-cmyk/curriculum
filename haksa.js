@@ -75,13 +75,15 @@
   let unsubSchool = null, lastSchool = '';
   // 일과시간(교시 시각)도 함께 공유 → 선생님 화면의 시간표에도 시각 표시
   const bellRows = () => ((state.env && state.env.bell && state.env.bell.rows) || []).map(r => ({ label: r.label, start: r.start, end: r.end, kind: r.kind }));
-  const schoolInfo = () => ({ name: state.school.name, neis: state.school.neis || '', year: state.school.year, classes: { ...state.school.classes }, kclass: Number(state.school.kclass ?? 3), bell: bellRows() });
+  const schoolInfo = () => ({ name: state.school.name, neis: state.school.neis || '', year: state.school.year, classes: { ...state.school.classes }, kclass: Number(state.school.kclass ?? 3), bell: bellRows(),
+    ...(state.school.details ? { details: { ...state.school.details } } : {}),
+  });
   async function writeSchool(force) {
     if (!H.canEdit()) return;
     const json = JSON.stringify(schoolInfo());
     if (!force && json === lastSchool) return;
+    await Cloud.fb.F.setDoc(Cloud.fb.F.doc(Cloud.fb.db, 'config', 'school'), { ...JSON.parse(json), ...stamp() });
     lastSchool = json;
-    await Cloud.fb.F.setDoc(Cloud.fb.F.doc(Cloud.fb.db, 'config', 'school'), { ...schoolInfo(), ...stamp() });
   }
   H.onSaved = () => { if (window.Cloud && Cloud.ready && Cloud.isAdmin()) writeSchool().catch(e => console.warn('학교 정보 저장 실패', e)); };
   function subscribeSchool() {
@@ -90,8 +92,18 @@
     unsubSchool = Cloud.fb.F.onSnapshot(Cloud.fb.F.doc(Cloud.fb.db, 'config', 'school'), d => {
       if (!d.exists()) return;
       const s = d.data();
-      if (Cloud.isAdmin()) { lastSchool = JSON.stringify({ name: s.name, neis: s.neis || '', year: s.year, classes: s.classes, bell: s.bell || [] }); return; }
+      if (Cloud.isAdmin()) {
+        lastSchool = JSON.stringify({ name: s.name, neis: s.neis || '', year: s.year, classes: s.classes,
+          kclass: Number(s.kclass ?? 3), bell: s.bell || [], ...(s.details ? { details: s.details } : {}),
+        });
+        if (s.details && !d.metadata.hasPendingWrites) {
+          state.school.details = { ...s.details };
+          if (curTab === 'school') rerenderKeepFocus(renderInfo);
+        }
+        return;
+      }
       state.school.neis = s.neis || '';
+      state.school.details = { ...s.details };
       // 선생님: 관리자가 정한 학교 정보 사용
       const yearChanged = s.year && s.year !== state.school.year;
       state.school.name = s.name || state.school.name;

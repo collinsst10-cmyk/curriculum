@@ -15,7 +15,7 @@
   let busy = false;
 
   function access() {
-    return curTab === 'admin' && window.Cloud?.ready && Cloud.realAdmin() && Cloud.isAdmin();
+    return curTab === 'site' && window.Cloud?.ready && Cloud.realAdmin() && Cloud.isAdmin();
   }
 
   function lock() {
@@ -60,7 +60,7 @@
   }
 
   async function useAccount(write) {
-    if (busy || !access()) return;
+    if (busy || !access() || !provider.reportValidity()) return;
     if (!window.crypto?.subtle) { message.textContent = 'HTTPS 환경에서 보관함을 사용할 수 있습니다.'; return; }
     if (!passphrase.reportValidity()) return;
     const account = { id: userId.value.trim(), password: password.value };

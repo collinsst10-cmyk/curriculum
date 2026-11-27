@@ -475,6 +475,9 @@ function collectIssues() {
 function renderInfo() {
   $('schoolRo').hidden = !isTeacherView();   // 학교 정보는 운영자·개발자만 고침
   $('inSchool').value = state.school.name;
+  $('tab-school').querySelectorAll('[data-school-detail]').forEach(field => {
+    if (document.activeElement !== field) field.value = state.school.details?.[field.dataset.schoolDetail] || '';
+  });
   if (document.activeElement !== $('inNeis')) $('inNeis').value = state.school.neis || '';
   const ys = $('inYear'); const y0 = new Date().getFullYear();
   ys.innerHTML = '';
@@ -912,7 +915,7 @@ function showTab(t) {
   if (t === 'school') updateSchoolEditControls();
   window.scrollTo(0, 0);
 }
-function goGroup(g) { showTab(lastInGroup[g] || GROUP_FIRST[g] || 'home'); }
+function goGroup(g) { showTab(g === 'schoolinfo' ? 'school' : lastInGroup[g] || GROUP_FIRST[g] || 'home'); }
 
 /* ---------- HOME ---------- */
 const ICON = {
@@ -1094,6 +1097,17 @@ function bind() {
   });
   $('inSchool').addEventListener('input', e => { if (canEditSchool()) { state.school.name = e.target.value; save(); } });
   $('inNeis').addEventListener('input', e => { if (canEditSchool()) { state.school.neis = e.target.value.replace(/[^0-9A-Za-z]/g, '').slice(0, 10); save(); } });
+  $('tab-school').addEventListener('change', e => {
+    const field = e.target, key = field.dataset.schoolDetail;
+    if (!key || !canEditSchool() || !field.reportValidity()) return;
+    if (key === 'website' && field.value && !/^https?:\/\//i.test(field.value)) {
+      alert('홈페이지 주소를 https:// 또는 http://로 시작해 입력해 주세요.');
+      return;
+    }
+    state.school.details ||= {};
+    state.school.details[key] = field.value.trim();
+    save();
+  });
   $('inYear').addEventListener('change', e => {
     if (!canEditSchool()) return;
     const y = Number(e.target.value);
