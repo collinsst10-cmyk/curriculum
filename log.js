@@ -21,11 +21,45 @@
   window.LogRoles = { isWriter };
   const ref = ds => Cloud.fb.F.doc(Cloud.fb.db, 'dailyLogs', ds);
 
+  /* ---------- 관리자 복무: 상태 + 시간 + 장소 ----------
+   * duty[k] = { status, from, to, note, plan, today(이어 붙인 글 — 한글 파일·예전 화면용) } */
+  const STATUS = ['정상 근무', '출장', '연가', '조퇴', '외출', '병가', '공가', '교육', '기타'];
+  const Duty = {
+    STATUS,
+    /** "출장 14:00~16:30 (교육청)" */
+    text(d) {
+      if (!d) return '';
+      if (!d.status && !d.from && !d.to && !d.note) return d.today || '';
+      const time = d.from || d.to ? `${d.from || ''}~${d.to || ''}` : '';
+      return [d.status, time, d.note ? `(${d.note})` : ''].filter(Boolean).join(' ');
+    },
+    /** 글(한글 파일·예전 자료) → { status, from, to, note } */
+    parse(t) {
+      t = String(t || '').trim(); if (!t) return { status: '', from: '', to: '', note: '' };
+      const m = t.match(/(\d{1,2})[:시]\s*(\d{2})?\s*분?\s*[~\-–부터]+\s*(\d{1,2})?[:시]?\s*(\d{2})?/);
+      const rest = (m ? t.replace(m[0], '') : t).replace(/[()\s]/g, '');
+      const st = STATUS.find(s => t.replace(/\s/g, '').includes(s.replace(/\s/g, ''))) || (/정상|근무/.test(t) ? '정상 근무' : rest ? '기타' : '');
+      const hm = (h, mm) => h ? `${String(h).padStart(2, '0')}:${mm || '00'}` : '';
+      let note = t.replace(st.replace(' ', ''), '').replace(st, '');
+      if (m) note = note.replace(m[0], '');
+      note = note.replace(/[()]/g, ' ').replace(/\s+/g, ' ').trim();
+      return { status: st, from: m ? hm(m[1], m[2]) : '', to: m ? hm(m[3], m[4]) : '', note: st === '기타' && !m ? t : note };
+    },
+    /** 저장된 값 → 화면용 */
+    of(d) { d = d || {}; const p = ('status' in d || 'from' in d) ? d : { ...Duty.parse(d.today), plan: d.plan }; return { status: p.status || '', from: p.from || '', to: p.to || '', note: p.note || '', plan: d.plan || '', today: Duty.text(p) }; },
+  };
+  window.Duty = Duty;
+
+  /* ---------- 보결: [{ cls:'3-1', periods:[2,3], teacher:'영어전담' }] → "3-1 2·3교시 → 영어전담" ---------- */
+  const coverText = list => (list || []).filter(c => c.cls).map(c => `${c.cls} ${(c.periods || []).slice().sort((a, b) => a - b).join('·')}${(c.periods || []).length ? '교시' : ''} → ${c.teacher || '미정'}`).join('\n');
+  window.CoverText = coverText;
+
   /** 저장된 문서 → 항목 (예전처럼 text 만 있으면 전달사항으로) */
   function fieldsOf(doc) {
     const d = doc || {}, duty = d.duty || {};
-    const f = { duty: {} }; KEYS.forEach(k => { f[k] = d[k] || ''; });
-    PEOPLE.forEach(([k]) => { f.duty[k] = { today: (duty[k] && duty[k].today) || '', plan: (duty[k] && duty[k].plan) || '' }; });
+    const f = { duty: {}, covers: Array.isArray(d.covers) ? d.covers : [] }; KEYS.forEach(k => { f[k] = d[k] || ''; });
+    PEOPLE.forEach(([k]) => { f.duty[k] = Duty.of(duty[k]); });
+    if (f.covers.length) f.cover = coverText(f.covers);   // 보결 관리에서 입력한 내용이 결보강이 됨
     if (!KEYS.some(k => d[k]) && !d.duty && d.text) f.notice = d.text;
     return f;
   }
@@ -39,16 +73,29 @@
   }
   const isEmpty = f => !textOf(f).trim();
 
+  // 복무 입력 줄: 시작~끝 시각 | 예정
+  $('lgDutyBody').innerHTML = PEOPLE.map(([k, n]) => `<tr><th>${n}</th>
+    <td><span class="dt-time"><input type="time" data-duty="${k}.from" step="600" aria-label="${n} 시작 시각"><i>~</i><input type="time" data-duty="${k}.to" step="600" aria-label="${n} 끝 시각"></span></td>
+    <td><textarea data-duty="${k}.plan" rows="2" maxlength="500"></textarea></td></tr>`).join('');
+
+  let covers = [];   // 지금 날짜의 보결 (보결 관리에서 입력)
   function readForm() {
-    const f = { duty: {} };
+    const f = { duty: {}, covers };
     document.querySelectorAll('#lgForm [data-lg]').forEach(t => { f[t.dataset.lg] = t.value.replace(/\s+$/, ''); });
-    PEOPLE.forEach(([k]) => { f.duty[k] = { today: '', plan: '' }; });
+    PEOPLE.forEach(([k]) => { f.duty[k] = { status: '', from: '', to: '', note: '', plan: '' }; });
     document.querySelectorAll('#lgForm [data-duty]').forEach(t => { const [k, s] = t.dataset.duty.split('.'); f.duty[k][s] = t.value.trim(); });
+    PEOPLE.forEach(([k]) => { f.duty[k].today = Duty.text(f.duty[k]); });
+    if (covers.length) f.cover = coverText(covers);
     return f;
   }
   function fillForm(f) {
+    covers = Array.isArray(f.covers) ? f.covers : covers;
     document.querySelectorAll('#lgForm [data-lg]').forEach(t => { t.value = f[t.dataset.lg] || ''; });
-    document.querySelectorAll('#lgForm [data-duty]').forEach(t => { const [k, s] = t.dataset.duty.split('.'); t.value = (f.duty[k] && f.duty[k][s]) || ''; });
+    document.querySelectorAll('#lgForm [data-duty]').forEach(t => { const [k, s] = t.dataset.duty.split('.'); const d = Duty.of(f.duty && f.duty[k]); t.value = d[s] || ''; });
+    // 보결 관리에 입력이 있으면 결보강은 그 내용(여기서는 고치지 않음)
+    const cov = document.querySelector('#lgForm [data-lg="cover"]');
+    cov.readOnly = covers.length > 0; cov.classList.toggle('from-cover', covers.length > 0);
+    if (covers.length) cov.value = coverText(covers);
   }
 
   function refreshNav() {
@@ -99,7 +146,7 @@
     const F = Cloud.fb.F;
     $('lgSave').disabled = true;
     try {
-      await F.setDoc(ref(day), { ...Object.fromEntries(KEYS.map(k => [k, f[k] || ''])), duty: f.duty, text: textOf(f).slice(0, 20000),
+      await F.setDoc(ref(day), { ...Object.fromEntries(KEYS.map(k => [k, f[k] || ''])), duty: f.duty, covers, text: textOf(f).slice(0, 20000),
         by: Cloud.email, byName: Cloud.profileName || '', updatedAt: F.serverTimestamp() });
       dirty = false; renderEditor(); $('lgStatus').textContent = '저장했습니다. 선생님들이 HOME에서 볼 수 있습니다.';
       renderRecent(); HomeLog.refreshRecent();

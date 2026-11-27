@@ -968,6 +968,7 @@ function showTab(t) {
   if (t === 'admin' && !(window.App.isAdmin && window.App.isAdmin())) t = 'home';
   if (isTeacherView() && ['curr', 'tt', 'data', 'admin'].includes(groupOf(t))) t = 'home';
   if (groupOf(t) === 'tt') t = 'home';   // '시간표 편성' 메뉴는 쓰지 않음
+  if (window.Cloud && Cloud.isGeneral && !['home', 'hview'].includes(t)) t = 'home';   // 일반 사용자: 공개 정보(HOME·학사일정)만
   if (TAB_GUARDS[t]) { const ok = TAB_GUARDS[t](); if (ok === false) t = 'home'; else if (typeof ok === 'string') t = ok; }
   const fresh = curTab !== t || !!window.tabFresh;   // 다른 메뉴에서 들어옴 → 화면 안의 작은 메뉴를 처음으로
   if (curTab !== t) window.ShoppingAccounts?.lock();
@@ -1130,14 +1131,14 @@ function renderHome() {
   const gateOk = !locked && !$('homeGate').querySelector('.neg');
   $('homeGate').hidden = gateOk && !!window.FIREBASE_CONFIG;
   $('homePanel').hidden = !!locked;
-  $('homeWork').hidden = !!locked;
+  $('homeWork').hidden = true;    // 이번 주 학교 일정·내 교육활동은 HOME에서 뺌
+  $('homeMoves').hidden = true;   // 학생 전입·전출 알림도 뺌
+  $('homeLog').hidden = !!locked || !!(window.Cloud && Cloud.isGeneral);   // 학교운영일지가 HOME의 중심(일반 사용자에게는 숨김)
   if (locked) return;
 
-  renderHomeWork();
   renderHomeMonth();
-  if (window.HomeLog) HomeLog.render();
+  if (window.HomeLog && !$('homeLog').hidden) HomeLog.render();
   if (window.SchoolStatus) SchoolStatus.renderHome();
-  if (window.Transfers) Transfers.renderHome();
 }
 /** 다시 그린 뒤에도 입력 중이던 칸에 커서를 유지 */
 function rerenderKeepFocus(fn) {
