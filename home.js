@@ -49,41 +49,87 @@
   function render() {
     if (!$('logView')) return;
     $('logDate').value = logDate;
-    $('logDay').innerHTML = longDate(logDate) + (logDate === fmt(new Date()) ? ' <span class="pill ok">오늘</span>' : '');
-    if (!window.Cloud || !Cloud.ready) { $('logView').innerHTML = '<p class="hint">로그인하면 학교운영일지를 볼 수 있습니다.</p>'; return; }
+    $('logDay').dateTime = logDate;
+    $('logDay').textContent = longDate(logDate);
+    const download = $('logHwp');
+    download.disabled = true;
+    if (!window.Cloud || !Cloud.ready) {
+      $('logView').innerHTML = '<p class="hint">로그인하면 학교운영일지를 볼 수 있습니다.</p>';
+      renderRecent();
+      return;
+    }
     watch();
-    const has = c => c && (c.text || ['notice', 'events', 'guidance', 'cover'].some(k => c[k]) || (c.covers || []).length);
+    const has = c => c && (['text', 'notice', 'events', 'guidance', 'cover', 'preview', 'lecture']
+      .some(key => String(c[key] || '').trim()) || c.covers?.length ||
+      Object.values(c.duty || {}).some(d => d && ['today', 'plan', 'status', 'from', 'to', 'note'].some(key => d[key])));
     if (current === undefined) $('logView').innerHTML = '<p class="hint">불러오는 중…</p>';
     else if (!has(current)) $('logView').innerHTML = '<p class="log-empty">이 날 등록된 운영일지가 없습니다.</p>';
-    else $('logView').innerHTML = logBody(current) + `<div class="log-foot"><span class="hint">${esc(current.byName || '')}${current.updatedAt ? ' · ' + fmtTs(current.updatedAt) : ''}</span>
-      <button type="button" class="btn small" id="logHwp">한글 파일로 저장</button></div>`;
+    else {
+      $('logView').innerHTML = logBody(current);
+      download.disabled = !window.LogExport;
+    }
     renderRecent();
   }
 
-  /** 일지 본문: 전달사항 · 주요행사 및 교육활동 · 생활지도 및 안전지도 · 관리자 복무 (+ 보결이 있으면) */
+  const freeText = value => (value || '').trim()
+    ? `<div class="hl-copy">${esc(value)}</div>`
+    : '<p class="hl-none">등록된 내용이 없습니다.</p>';
+
+  // 날짜나 교시로 시작하는 줄만 분리합니다. 기존 문구와 줄바꿈은 보존합니다.
+  function logLines(value, mode) {
+    if (!(value || '').trim()) return freeText(value);
+    const datePrefix = /^([ \t]*(?:\d{4}[.\/-]\s*)?\d{1,2}[.\/-]\s*\d{1,2}\.?(?:\s*\([월화수목금토일]\))?)(?=[ \t:：-]|$)/;
+    const periodPrefix = /^([ \t]*(?:\d{1,2}(?:\s*[-~·]\s*\d{1,2})*교시|\d{1,2}:\d{2})(?:[ \t]+\d{1,2}:\d{2})?)(?=[ \t:：-]|$)/;
+    return `<div class="hl-copy hl-lines">${value.split('\n').map(line => {
+      if (!line.trim()) return '<div class="hl-line-space"></div>';
+      const time = (line.match(datePrefix) || (mode === 'events' ? line.match(periodPrefix) : null))?.[0];
+      if (!time) {
+        const heading = mode === 'guidance' && /^\s*\[[^\]]+\]\s*$/.test(line);
+        return `<div class="${heading ? 'hl-copy-heading' : 'hl-line'}">${esc(line)}</div>`;
+      }
+      return `<div class="hl-timed"><b>${esc(time)}</b><span>${esc(line.slice(time.length))}</span></div>`;
+    }).join('')}</div>`;
+  }
+
   function logBody(c) {
-    const f = window.LogExport ? LogExport.fieldsOf(c) : c;
-    if (!['notice', 'events', 'guidance', 'cover'].some(k => f[k]) && !c.duty && c.text) return `<div class="log-text">${esc(c.text)}</div>`;
     const box = (cls, title, body) => `<section class="hl-card ${cls}"><h3>${title}</h3>${body}</section>`;
-    const txt = t => (t || '').trim() ? `<p>${esc(t)}</p>` : '<p class="hl-none">-</p>';
-    const D = window.Duty;
-    const duty = [['p', '교장'], ['v', '교감'], ['a', '행정실장']].map(([k, n]) => {
-      const d = D ? D.of((c.duty || {})[k]) : { status: '', today: '' };
-      return `<li><b>${n}</b><span class="hl-tm">${d.from || d.to ? `${esc(d.from)} ~ ${esc(d.to)}` : '<span class="hl-none">-</span>'}</span>
-        ${d.plan ? `<small class="hl-plan">예정 · ${esc(d.plan)}</small>` : ''}</li>`;
+    const extra = (title, value) => (value || '').trim()
+      ? `<div class="hl-extra"><h4>${title}</h4>${logLines(value, 'events')}</div>` : '';
+    const structuredText = ['notice', 'events', 'guidance', 'cover', 'preview', 'lecture'].some(key => (c[key] || '').trim());
+    const duty = [['p', '교장'], ['v', '교감'], ['a', '행정실장']].map(([key, role]) => {
+      const entry = (c.duty || {})[key] || {};
+      const hours = entry.from || entry.to ? (entry.from || '') + ' ~ ' + (entry.to || '') : '';
+      const body = [entry.status, entry.note].filter(Boolean).join(' · ');
+      return `<li><strong>${role}</strong><div>${hours ? `<div class="hl-duty-time">${esc(hours)}</div>` : ''}
+        ${body ? freeText(body) : ''}
+        ${!(hours || body) && entry.today ? freeText(entry.today) : ''}
+        ${entry.plan ? `<div class="hl-secondary">예정 · ${esc(entry.plan)}</div>` : ''}
+        ${!(hours || body || entry.today || entry.plan) ? '<span class="hl-none">—</span>' : ''}</div></li>`;
     }).join('');
+    const covers = Array.isArray(c.covers) ? c.covers : [];
+    const coverList = covers.length ? `<ul class="hl-cover-list">${covers.map(row => {
+      const periods = Array.isArray(row.periods) ? [...row.periods].sort((a, b) => a - b).join('·') : '';
+      return `<li><strong>${esc(row.cls || '학급 미지정')}</strong>
+        <b class="hl-period">${esc(periods ? periods + '교시' : '교시 미지정')}</b>
+        <span>${esc(row.teacher || '담당 미정')}</span></li>`;
+    }).join('')}</ul>` : '';
+    const coverNote = c.cover && (!covers.length || c.cover.trim() !== window.CoverText?.(covers).trim()) ? freeText(c.cover) : '';
     return `<div class="hl-grid">
-      ${box('hl-notice', '전달사항', txt(f.notice))}
-      ${box('hl-events', '주요행사 및 교육활동', txt(f.events))}
-      ${box('hl-guide', '생활지도 및 안전지도', txt(f.guidance))}
-      ${box('hl-duty', '관리자 복무', `<ul class="hl-duty-list">${duty}</ul>`)}
-      ${(f.cover || '').trim() ? box('hl-cover', '보결', txt(f.cover)) : ''}
+      <div class="hl-column">
+        ${box('hl-notice', '전달사항', logLines(c.notice || (!structuredText && c.text) || '', 'notice'))}
+        ${box('hl-events', '주요행사 및 교육활동', logLines(c.events, 'events') + extra('교육활동 예고', c.preview) + extra('외부강의 확인', c.lecture))}
+        ${box('hl-guide', '생활지도 및 안전지도', logLines(c.guidance, 'guidance'))}
+      </div>
+      <div class="hl-column">
+        ${box('hl-cover', '보결', (coverList + coverNote) || freeText(''))}
+        ${box('hl-duty', '관리자 복무', `<ul class="hl-duty-list">${duty}</ul>`)}
+      </div>
     </div>`;
   }
 
   function go(ds) { logDate = ds; render(); }
-  $('logView').addEventListener('click', async e => {
-    if (!e.target.closest('#logHwp') || !current || !window.LogExport) return;
+  $('logHwp').addEventListener('click', async () => {
+    if (!current || !window.LogExport) return;
     try { await LogExport.exportHwp(LogExport.fieldsOf(current), logDate, current.byName || ''); }
     catch (err) { alert('한글 파일 만들기 실패: ' + err.message); }
   });

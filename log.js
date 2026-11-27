@@ -118,7 +118,7 @@
     if (!dirty) fillForm(fieldsOf(current));
     $('lgDelete').hidden = !current;
     if (!dirty) $('lgStatus').textContent = current
-      ? `마지막 저장: ${current.byName || ''}${current.updatedAt ? ' · ' + HomeLog.fmtTs(current.updatedAt) : ''}` : '아직 작성하지 않은 날입니다.';
+      ? '저장된 일지입니다.' : '아직 작성하지 않은 날입니다.';
   }
 
   async function renderRecent() {
