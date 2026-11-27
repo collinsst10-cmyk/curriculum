@@ -1664,3 +1664,25 @@ th.kc-col { color: #5b21b6; }
 .toast.err { background: #b42323; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 @media print { .save-fab, .toast { display: none !important; } }
+
+/* 학교사용환경설정: 표는 내용만큼만(불필요한 가로 여백 없애기) + 전담 교과 고르기 */
+.env-grades { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.env-grade { padding: 10px 12px; }
+.env-tbl th, .env-tbl td { padding: 5px 8px; }
+.env-tbl.fit { width: auto; max-width: 100%; }
+.env-tbl.fit input:not([type]), .env-tbl.fit input[type="text"] { width: 130px; }
+.env-tbl.fit select { width: auto; max-width: 160px; }
+.env-tbl.fit td.l { text-align: left; }
+.env-tbl.fit .env-cls { flex-wrap: wrap; max-width: 260px; }
+.env-tbl.fit .env-cls .tg { padding: 3px 7px; font-size: 12px; }
+.env-tbl .env-cls-name { width: auto; }
+.sm-two { grid-template-columns: repeat(auto-fit, minmax(260px, 420px)); gap: 12px; }
+.sm-list td, .sm-list th { padding: 6px 8px; }
+.sm-list .s { width: 1%; white-space: nowrap; }
+.sm-sel { font: inherit; font-size: 13px; padding: 3px 6px; border: 1px solid #d7dce8; border-radius: 7px; background: #fff; }
+.jd-subj { border: 1px solid #e3e7f0; border-radius: 14px; padding: 10px 14px; background: #fbfcfe; margin: 12px 0 4px; }
+.jd-subj.empty { border-color: var(--gold); background: #fffaf0; }
+.jd-subj-h { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin-bottom: 8px; }
+.jd-subj-h b { color: var(--nv-d); font-family: var(--f7); font-weight: normal; }
+.jd-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.jd-chips .tg { font-size: 14px; padding: 5px 12px; border-radius: 999px; }
