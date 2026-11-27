@@ -245,6 +245,13 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
     // 홈페이지 설정(사진 바뀌는 간격 등). 관리자만 수정
+    match /shoppingSites/{view} {
+      allow get: if (view == 'catalog' && isAdmin()) || (view == 'active' && isStaff());
+      allow create, update: if view in ['catalog', 'active'] && isAdmin()
+        && request.resource.data.keys().hasOnly(['sites'])
+        && request.resource.data.sites is list && request.resource.data.sites.size() <= 30;
+    }
+
     match /config/site {
       allow read: if isApproved();
       allow write: if isAdmin();

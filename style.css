@@ -623,10 +623,13 @@ body { font-family: var(--f4); }
 .school-structure section div { display: flex; gap: 6px; flex-wrap: wrap; }
 .school-structure section span { padding: 3px 8px; border-radius: 6px; background: var(--nv-pale); color: var(--nv); }
 .school-purchase-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 12px; margin-top: 16px; }
-.school-purchase-links a { display: grid; gap: 5px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; color: var(--nv); background: var(--nv-pale); text-decoration: none; }
-.school-purchase-links strong { font-size: 17px; }
-.school-purchase-links span { color: var(--muted); font-size: 13px; }
-.school-purchase-links a:hover strong, .school-purchase-links a:focus-visible strong { text-decoration: underline; }
+.purchase-card { display: grid; align-content: start; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--nv-pale); }
+.purchase-card h3, .purchase-card p { margin: 0; }
+.purchase-card h3 { color: var(--nv); }
+.purchase-card a { justify-self: start; text-decoration: none; }
+.purchase-credential { display: grid; grid-template-columns: 2em minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.purchase-credential code { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--nv-d); }
+.purchase-notes { padding-top: 8px; border-top: 1px solid var(--line); white-space: pre-wrap; overflow-wrap: anywhere; }
 .calendar-view-heading { margin-bottom: 10px; }
 .calendar-view-heading h2 { margin: 0; color: var(--nv-d); font-size: clamp(21px, 2vw, 29px); }
 #hvGrid.teacher-calendar { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 18px; }
@@ -648,7 +651,6 @@ body { font-family: var(--f4); }
 .purchase-site-list { list-style: none; padding: 0; }
 .purchase-site-list li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding: 8px 0; }
 .purchase-site-list small { flex: 1 1 180px; color: var(--muted); overflow-wrap: anywhere; }
-.school-account-box { margin-top: 16px; border-top: 1px solid var(--line); }
 .school-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 18px 0 22px; }
 .school-detail-panel { padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: #f8fafc; }
 .school-detail-panel h3, #schoolAddressTitle { margin: 0; color: var(--nv-d); }

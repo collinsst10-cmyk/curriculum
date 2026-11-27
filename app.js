@@ -605,6 +605,24 @@ function renderSchoolNeis() {
 document.addEventListener('school-neis-change', renderSchoolNeis);
 const canEditOperatingYear = () => !!window.Cloud?.ready && Cloud.isAdmin() && canEditSchool();
 
+function schoolWebsiteUrl(value) {
+  try {
+    const url = new URL(value.trim());
+    if (['https:', 'http:'].includes(url.protocol) && !url.username && !url.password) return url.href;
+  } catch { /* 주소가 비어 있거나 올바르지 않으면 링크를 표시하지 않는다. */ }
+  return '';
+}
+
+function renderSchoolWebsite(editable) {
+  const url = schoolWebsiteUrl(state.school.details?.website || '');
+  const link = $('schoolWebsiteLink');
+  link.hidden = !url;
+  if (url) link.href = url;
+  else link.removeAttribute('href');
+  $('schoolWebsiteEmpty').hidden = !!url || editable;
+  $('schoolWebsiteEdit').hidden = !editable;
+}
+
 const canEditSchool = () => !isTeacherView() && (window.App.canEditSchool?.() ?? !window.FIREBASE_CONFIG);
 function updateSchoolEditControls() {
   const editable = canEditSchool();
@@ -612,6 +630,7 @@ function updateSchoolEditControls() {
   $('schoolAddressSearch').hidden = !editable;
   $('tab-school').querySelectorAll('input, select').forEach(input => { input.disabled = !editable; });
   $('inYear').disabled = !canEditOperatingYear();
+  renderSchoolWebsite(editable);
 }
 
 let schoolPostcodeLoader;
@@ -1074,7 +1093,6 @@ function showTab(t) {
   if (window.Cloud && Cloud.isGeneral && !['home', 'hview'].includes(t)) t = 'home';   // 일반 사용자: 공개 정보(HOME·학사일정)만
   if (TAB_GUARDS[t]) { const ok = TAB_GUARDS[t](); if (ok === false) t = 'home'; else if (typeof ok === 'string') t = ok; }
   const fresh = curTab !== t || !!window.tabFresh;   // 다른 메뉴에서 들어옴 → 화면 안의 작은 메뉴를 처음으로
-  if (curTab !== t) window.ShoppingAccounts?.lock();
   curTab = t;
   const g = groupOf(t);
   lastInGroup[g] = t;
@@ -1087,7 +1105,6 @@ function showTab(t) {
   document.querySelectorAll('.tab').forEach(s => s.classList.toggle('active', s.id === 'tab-' + t));
   if (location.hash.slice(1) !== t) history.pushState(null, '', '#' + t);
   window.tabFresh = fresh; RENDER[t](); window.tabFresh = false;
-  window.ShoppingAccounts?.refresh();
   applyRoleView();
   if (t === 'school') updateSchoolEditControls();
   window.scrollTo(0, 0);
@@ -1296,12 +1313,13 @@ function bind() {
       field.setCustomValidity(valid ? '' : '실제 날짜를 연도-월-일 형식으로 입력해 주세요.');
     }
     if (!field.reportValidity()) return;
-    if (key === 'website' && field.value && !/^https?:\/\//i.test(field.value)) {
+    if (key === 'website' && field.value.trim() && !schoolWebsiteUrl(field.value)) {
       alert('홈페이지 주소를 https:// 또는 http://로 시작해 입력해 주세요.');
       return;
     }
     state.school.details ||= {};
     state.school.details[key] = field.value.trim();
+    if (key === 'website') renderSchoolWebsite(true);
     save();
   });
   $('inYear').addEventListener('change', async e => {

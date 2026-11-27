@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=school-access-2">
+<link rel="stylesheet" href="style.css?v=purchase-staff-1">
 <link rel="stylesheet" href="behavior.css?v=20261127224336">
 </head>
 <body>
@@ -323,34 +323,20 @@
 
     <details class="card school-management">
       <summary>학교 정보 관리</summary>
-      <h2>물품 구입 사이트</h2>
-      <form id="purchaseSiteForm" class="form school-form">
+      <h2>물품 구입 사이트 관리</h2>
+      <form id="purchaseSiteForm" class="form school-form" autocomplete="off">
         <label>사이트 이름 <input id="purchaseSiteName" type="text" maxlength="60" required></label>
         <label>사이트 주소 <input id="purchaseSiteUrl" type="url" placeholder="https://" maxlength="350" required></label>
+        <label>로그인 ID <input id="purchaseSiteId" maxlength="200" spellcheck="false"></label>
+        <label>로그인 PW <input id="purchaseSitePw" type="password" maxlength="300" autocomplete="new-password"></label>
+        <label>사용 목적 <input id="purchaseSitePurpose" maxlength="150"></label>
+        <label>안내사항 <textarea id="purchaseSiteNotes" maxlength="1000" rows="2"></textarea></label>
+        <label>표시 순서 <input id="purchaseSiteOrder" type="number" min="1" max="999" step="1" value="1" required></label>
+        <label>사용 여부 <select id="purchaseSiteActive"><option value="yes">사용</option><option value="no">사용 안 함</option></select></label>
         <div class="row"><button type="submit" class="btn primary" id="purchaseSiteSave">사이트 추가</button><button type="button" class="btn small" id="purchaseSiteReset" hidden>수정 취소</button></div>
       </form>
       <p id="purchaseSiteStatus" class="hint" role="status"></p>
       <ul id="purchaseSiteList" class="purchase-site-list"></ul>
-    <section class="school-account-box" id="shoppingAccounts" hidden>
-      <h2>물품 구입 계정</h2>
-      <p class="hint">운영자·개발자 전용입니다. 계정 정보는 입력한 브라우저에 암호화해 보관합니다.</p>
-      <form id="shoppingAccountForm" autocomplete="off">
-        <div class="form school-form">
-          <label>쇼핑몰 <select id="shoppingProvider" required></select></label>
-          <label>학교 아이디 <input id="shoppingId" type="text" maxlength="200" spellcheck="false"></label>
-          <label>학교 비밀번호 <input id="shoppingPassword" type="password" maxlength="300" autocomplete="new-password"></label>
-        </div>
-        <label>보관함 잠금 암호 <input id="shoppingLock" type="password" required minlength="12" maxlength="200" autocomplete="new-password"></label>
-        <p class="hint">쇼핑몰 비밀번호와 다른 잠금 암호를 12자 이상으로 정하세요. 저장한 계정을 열 때 같은 암호를 입력합니다.</p>
-        <div class="row">
-          <button type="submit" class="btn primary">암호화해 저장</button>
-          <button type="button" class="btn" id="shoppingUnlock">저장한 계정 열기</button>
-          <button type="button" class="btn small" id="shoppingReveal" aria-pressed="false">비밀번호 보기</button>
-          <button type="button" class="btn small" id="shoppingClear">입력란 잠그기</button>
-        </div>
-        <p id="shoppingStatus" class="hint" role="status"></p>
-      </form>
-    </section>
     </details>
 
   </section>
@@ -553,7 +539,7 @@
   <section id="tab-purchase" class="tab">
     <div class="card school-card">
       <h2>물품 구입</h2>
-      <p class="hint">쇼핑몰은 새 탭에서 열립니다. 학교 계정은 각 쇼핑몰에서 로그인하세요.</p>
+      <p id="purchaseCopyStatus" class="hint" role="status"></p>
       <div class="school-purchase-links" id="schoolPurchaseLinks"></div>
     </div>
   </section>
@@ -606,7 +592,11 @@
           <div class="form school-detail-fields">
             <label>전화번호 <input data-school-detail="phone" type="tel" maxlength="30"></label>
             <label>팩스번호 <input data-school-detail="fax" type="tel" maxlength="30"></label>
-            <label class="school-detail-wide">홈페이지 주소 <input data-school-detail="website" type="url" maxlength="350" placeholder="https://"></label>
+            <div class="school-detail-wide">
+              <a id="schoolWebsiteLink" href="#" target="_blank" rel="noopener noreferrer" hidden>용원초등학교 홈페이지</a>
+              <span id="schoolWebsiteEmpty" class="hint" hidden>등록된 학교 홈페이지가 없습니다.</span>
+              <label id="schoolWebsiteEdit" hidden>홈페이지 주소 <input data-school-detail="website" type="url" maxlength="350" placeholder="https://"></label>
+            </div>
           </div>
         </section>
         <section class="school-detail-panel">
@@ -970,11 +960,10 @@
 </dialog>
 
 <script src="data.js?v=20261127224336"></script>
-<script src="app.js?v=school-access-2"></script>
+<script src="app.js?v=purchase-staff-1"></script>
 <script src="features.js?v=20261127224336"></script>
 <script src="cloud-config.js?v=20261127224336"></script>
 <script src="cloud.js?v=school-roles-2"></script>
-<script src="shopping-accounts.js?v=20261127224336"></script>
 <script src="activities.js?v=20261127224336"></script>
 <script src="operating-calendar.js?v=20261127224336"></script>
 <script src="haksa.js?v=school-access-1"></script>
@@ -1000,7 +989,7 @@
 <script src="roster.js?v=20261127224336"></script>
 <script src="roster-workbook.js?v=20261127224336"></script>
 <script src="roster-years.js?v=20261127224336"></script>
-<script src="site.js?v=20261127224336"></script>
+<script src="site.js?v=purchase-staff-1"></script>
 <script src="env.js?v=20261127224336"></script>
 <script src="pyeonje.js?v=20261127224336"></script>
 <script src="pyeonje-grade.js?v=20261127224336"></script>
