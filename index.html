@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=202611270816">
+<link rel="stylesheet" href="style.css?v=202611270957">
 </head>
 <body>
 <header class="topbar">
@@ -82,16 +82,23 @@
         <div class="hx-big">YONGWON<i></i></div>
         <h2 id="homeTitle">함께 그리는 우리 학교의 내일</h2>
         <p id="homeSub">교육과정과 학교 일정을 한눈에 살펴보세요.</p>
-        <div class="hx-btns">
-          <button class="hx-btn fill" id="homeBtn1" data-go="curr"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span>교육과정 살펴보기</span></button>
-          <button class="hx-btn line" data-go="haksa"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4M8.5 15l2.3 2.3 4.7-4.6"/></svg><span>학사일정 확인</span></button>
-        </div>
-        <div class="hx-stats" id="homeKpi"></div>
-        <span id="homeYear" hidden></span>
       </div>
     </div>
 
     <div id="homeGate" class="home-gate"></div>
+
+    <div class="hx-grid home-work" id="homeWork" hidden>
+      <section class="card hx-card">
+        <div class="hx-card-head"><h2>이번 주 학교 일정</h2><a href="#hview">학사일정 전체 보기</a></div>
+        <p id="homeWeekRange" class="hint"></p>
+        <ul id="homeWeekList" class="home-work-list"></ul>
+      </section>
+      <section class="card hx-card">
+        <div class="hx-card-head"><h2>내 교육활동</h2><a href="#act">교육활동 신청</a></div>
+        <p id="homeActivitySummary" class="hint"></p>
+        <ul id="homeActivityList" class="home-work-list"></ul>
+      </section>
+    </div>
 
     <section class="hx-moves" id="homeMoves" hidden>
       <div class="hx-moves-head"><h2>학생 전입·전출</h2><span id="homeMovesSum" class="hint"></span></div>
@@ -414,10 +421,10 @@
       <span class="lg closure">재량휴업일</span>
       <span class="lg vacation">방학</span>
       <span class="lg weekend">주말</span>
-      <span><span class="acts c">n</span> 교육활동(외부강의 등)</span>
+      <span><span class="calendar-activity-dot"></span> 교육활동</span>
       <span class="hint">날짜에 마우스를 올리면 자세한 내용이 보입니다.</span>
     </div>
-    <div id="hvGrid" class="cal-grid hv-full"></div>
+    <div id="hvGrid" class="cal-grid hv-full compact-calendar"></div>
   </section>
 
   <!-- 교육과정 편성 ① 학교 정보 (관리자) -->
@@ -437,11 +444,11 @@
 
   <!-- 교육과정 편성 ② 학사일정 (관리자) -->
   <section id="tab-cal" class="tab">
-    <div class="card cal-top">
+    <div class="card cal-top calendar-settings">
       <div class="card-head">
         <div id="calWhere" class="hint" style="margin:0"></div>
       </div>
-      <h3 style="margin-top:0">학기 · 방학 <button id="btnDefaultSem" class="btn small">기본값</button></h3>
+      <div class="card-head"><h2>학기·방학</h2><button id="btnDefaultSem" class="btn small">기본값</button></div>
       <div class="sem-grid six">
         <label>1학기 개학일 <input id="s1Start" type="date"></label>
         <label>여름방학 시작 <input id="summerStart" type="date"></label>
@@ -453,8 +460,9 @@
       <div id="semSummary" class="hint"></div>
       <div id="januaryFix" class="date-fix" hidden></div>
     </div>
-    <div class="cal-layout">
-      <div>
+    <div class="cal-layout calendar-plan">
+      <section class="card calendar-year">
+        <div class="card-head"><h2>연간 달력</h2><button id="btnExportCal" class="btn small">엑셀 저장</button></div>
         <div class="legend">
           <span class="lg school">수업일</span>
           <span class="lg event">교내행사</span>
@@ -462,18 +470,17 @@
           <span class="lg closure">재량휴업일</span>
           <span class="lg vacation">방학</span>
           <span class="lg weekend">주말</span>
-          <span><span class="acts c">n</span> 교육활동</span>
+          <span><span class="calendar-activity-dot"></span> 교육활동</span>
           <span class="lg kd-in">입학일·졸업일</span>
           <span class="lg kd-end">종업일</span>
           <span class="lg kd-s2">2학기 시작일</span>
           <span class="lg kd-vac">방학 첫날·끝날</span>
-          <span class="hint">날짜 클릭: 선택 · Shift+클릭: 기간 선택 · 색 테두리 날짜는 끌어서 옮기기</span>
         </div>
-        <div id="calGrid" class="cal-grid"></div>
-      </div>
+        <div id="calGrid" class="cal-grid compact-calendar"></div>
+      </section>
       <aside class="cal-side">
         <div class="card sticky" id="calEditor">
-          <h2>일정 입력</h2>
+          <h2>선택한 날짜 편집</h2>
           <div id="edSel" class="date-pick"></div>
           <div class="fld"><span class="fld-l">구분</span>
             <div class="seg" id="edKind">
@@ -491,7 +498,7 @@
           <button id="btnApply" class="btn primary" style="width:100%">적용</button>
           <div id="calSummary" class="mini-summary"></div>
           <div id="holidayWarn"></div>
-          <button id="btnExportCal" class="btn small">학사일정 엑셀 저장</button>
+          <ul id="calSelectedDetails" class="calendar-selection-details" hidden></ul>
         </div>
       </aside>
     </div>
@@ -514,15 +521,29 @@
 
   <!-- 교육과정 편성 ② 교내행사 (관리자) -->
   <section id="tab-event" class="tab">
+    <div class="card">
+      <div class="row">
+        <button class="btn small" id="evUndo">실행 취소</button>
+        <button class="btn small" id="evRedo">다시 실행</button>
+        <button class="btn small" id="evBasis">요일별 기준 시수</button>
+        <button class="btn small" id="evPrevious">작년 행사 가져오기</button>
+        <button class="btn small" id="evAdjust">단축·연장 수업 설정</button>
+        <button class="btn small danger" id="evDeleteAll">올해 행사 모두 삭제</button>
+      </div>
+      <p id="evSemInfo" class="hint"></p>
+      <details><summary>전일 행사일과 확보 시수</summary><div class="tbl-scroll" id="evReport"></div></details>
+      <details><summary>행사 적용 시수 보기</summary><div class="tbl-scroll" id="evApplied"></div></details>
+    </div>
     <div class="act-layout">
       <div>
         <p class="hint">날짜를 눌러 고르세요. 2박 3일처럼 여러 날은 차례로 누르거나 Shift+클릭으로 범위를 고릅니다. 다시 누르면 빠지고, 달력 밖을 누르면 선택이 해제됩니다.</p>
         <div id="evCalendar" class="cal-grid"></div>
         <div class="card">
-          <div class="card-head"><h2 id="evListTitle">교내행사</h2></div>
-          <p class="hint">여기 등록한 교내행사는 학사일정에 표시되고, 시간(교시)을 정하면 그 시간은 창체 시수로 계산되며 교육활동 일정에서 같은 시간·학년의 신청이 막힙니다.</p>
+          <div class="card-head"><h2>교내행사</h2><button class="btn small" id="evGroup">선택 행사 묶기</button></div>
+          <p class="hint">여러 날짜를 선택해 한 행사로 묶을 수 있습니다. 날짜나 대상이 다른 행사는 각각 등록하세요.</p>
           <div class="tbl-scroll"><table class="tbl compact" id="evList"></table></div>
         </div>
+        <div class="card"><h2>단축·연장 수업일</h2><div class="tbl-scroll"><table class="tbl compact" id="evAdjustList"></table></div></div>
         <div class="card">
           <h2>선생님들이 교육활동 일정에 등록한 교내행사 <span class="hint">(참고)</span></h2>
           <div class="tbl-scroll"><table class="tbl compact" id="evActList"></table></div>
@@ -535,15 +556,10 @@
             <div class="fld"><span class="fld-l">날짜</span><div id="evSel" class="ev-sel"></div></div>
             <label>행사명 <input id="evName" type="text" maxlength="40" placeholder="예: 입학식, 운동회, 학예회"></label>
           </div>
-          <div class="fld"><span class="fld-l">시간</span><div class="seg" id="evHours"></div></div>
           <div class="fld"><span class="fld-l">대상 학년</span><div class="seg" id="evGrades"></div></div>
-          <div class="fld"><span class="fld-l">창체 영역 <span class="hint">(시간을 정한 경우)</span></span>
-            <div class="seg" id="evArea">
-              <label class="tg"><input type="radio" name="evArea" value="cha_auto" checked>자율·자치</label>
-              <label class="tg"><input type="radio" name="evArea" value="cha_club">동아리</label>
-              <label class="tg"><input type="radio" name="evArea" value="cha_career">진로</label>
-            </div>
-          </div>
+          <label>대상 학급 <select id="evClass"></select></label>
+          <label id="evDayLabel"><input type="checkbox" id="evAllDay"> 전일 행사</label>
+          <div class="fld"><span class="fld-l" id="evPeriodsLabel">교시별 적용 과목</span><div class="event-periods" id="evHours"></div></div>
           <div id="evCheck" class="act-check"></div>
           <button class="btn primary" id="evSave" style="width:100%">교내행사 등록</button>
         </div>
@@ -745,27 +761,27 @@
   <div id="cloudBody"></div>
 </dialog>
 
-<script src="data.js?v=202611270816"></script>
-<script src="app.js?v=202611270816"></script>
-<script src="features.js?v=202611270816"></script>
-<script src="cloud-config.js?v=202611270816"></script>
-<script src="cloud.js?v=202611270816"></script>
-<script src="activities.js?v=202611270816"></script>
-<script src="haksa.js?v=202611270816"></script>
-<script src="menus.js?v=202611270816"></script>
-<script src="schedule.js?v=202611270816"></script>
-<script src="kclass.js?v=202611270816"></script>
-<script src="home.js?v=202611270816"></script>
-<script src="status.js?v=202611270816"></script>
-<script src="log.js?v=202611270816"></script>
-<script src="transfer.js?v=202611270816"></script>
-<script src="migrant.js?v=202611270816"></script>
-<script src="roster.js?v=202611270816"></script>
-<script src="site.js?v=202611270816"></script>
-<script src="env.js?v=202611270816"></script>
-<script src="pyeonje.js?v=202611270816"></script>
-<script src="pyeonje-grade.js?v=202611270816"></script>
-<script src="calextra.js?v=202611270816"></script>
-<script src="savebar.js?v=202611270816"></script>
+<script src="data.js?v=202611270957"></script>
+<script src="app.js?v=202611270957"></script>
+<script src="features.js?v=202611270957"></script>
+<script src="cloud-config.js?v=202611270957"></script>
+<script src="cloud.js?v=202611270957"></script>
+<script src="activities.js?v=202611270957"></script>
+<script src="haksa.js?v=202611270957"></script>
+<script src="menus.js?v=202611270957"></script>
+<script src="schedule.js?v=202611270957"></script>
+<script src="kclass.js?v=202611270957"></script>
+<script src="home.js?v=202611270957"></script>
+<script src="status.js?v=202611270957"></script>
+<script src="log.js?v=202611270957"></script>
+<script src="transfer.js?v=202611270957"></script>
+<script src="migrant.js?v=202611270957"></script>
+<script src="roster.js?v=202611270957"></script>
+<script src="site.js?v=202611270957"></script>
+<script src="env.js?v=202611270957"></script>
+<script src="pyeonje.js?v=202611270957"></script>
+<script src="pyeonje-grade.js?v=202611270957"></script>
+<script src="calextra.js?v=202611270957"></script>
+<script src="savebar.js?v=202611270957"></script>
 </body>
 </html>

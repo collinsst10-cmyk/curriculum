@@ -14,7 +14,7 @@
   const H = window.Haksa = {
     active: false,          // 학교 공용 학사일정 사용 중
     loaded: false,
-    days: {}, sem: null,
+    days: {}, sem: null, eventPlans: {},
     canEdit: () => !!(window.Cloud && Cloud.ready && Cloud.isAdmin()),
     canCreate: () => H.loaded && !H.active && H.canEdit(),
     writeDays, writeSem, createFromLocal,
@@ -32,6 +32,7 @@
       const data = d.exists() ? d.data() : null;
       H.active = !!data;
       H.days = (data && data.days) || {};
+      H.eventPlans = data?.eventPlans || {};
       H.sem = (data && data.sem) || null;
       H.loaded = true;
       rerender();
@@ -40,7 +41,7 @@
   function stop() {
     if (unsub) unsub();
     unsub = null; subYear = null;
-    H.active = false; H.loaded = false; H.days = {}; H.sem = null;
+    H.active = false; H.loaded = false; H.days = {}; H.sem = null; H.eventPlans = {};
   }
   function rerender() {
     _yearCache = null;   // app.js 의 학년도 계산 캐시
@@ -65,7 +66,7 @@
   /** 이 PC의 학사일정(현재 화면)으로 학교 공용 학사일정을 처음 만듦 */
   async function createFromLocal() {
     guard();
-    await Cloud.fb.F.setDoc(ref(), { year: state.school.year, sem: semDoc(state.sem), days: JSON.parse(JSON.stringify(state.days)), ...stamp() });
+    await Cloud.fb.F.setDoc(ref(), { year: state.school.year, sem: semDoc(state.sem), days: JSON.parse(JSON.stringify(state.days)), eventPlans: calendarPlans(), ...stamp() });
     await writeSchool(true);
   }
 

@@ -99,20 +99,19 @@
     const d = yearDay(it.date);
     if (!d) return [];
     if (!d.isSchool) return [`학사일정상 ${d.type === 'weekend' ? '주말' : TYPE_LABEL[d.type]}${d.name ? `(${d.name})` : ''}이라 신청할 수 없습니다.`];
-    if (d.ev && it.status !== 'canceled') {
-      const ps = Array.from({ length: d.ev.hrs }, (_, i) => i + 1);
-      const gs = d.ev.grades.length ? d.ev.grades : GRADES;
-      const pOver = inter(it.periods, ps).length > 0;
-      const gOver = it.targets.some(t => gs.includes(Number(t.split('-')[0])));
-      if (pOver && gOver) return [`학사일정 교내행사 "${d.name || '행사'}" (1~${d.ev.hrs}교시, ${d.ev.grades.length ? d.ev.grades.join('·') + '학년' : '전교'})와 겹칩니다.`];
-    }
-    return [];
+    if (it.status === 'canceled') return [];
+    return d.events.filter(event => it.targets.some(target => {
+      const [grade, classNumber] = target.split('-').map(Number);
+      return eventTargets(event, grade, classNumber)
+        && it.periods.some(period => (event.allDay || event.subjects[period])
+          && calendarPeriods(d, grade, classNumber).includes(period));
+    })).map(event => `학사일정 교내행사 "${event.name}"와 겹칩니다.`);
   }
   /** 막지는 않지만 알려 줄 내용 */
   function calendarWarnings(date) {
     const d = yearDay(date);
     if (!d) return ['현재 학년도 밖의 날짜입니다.'];
-    if (d.isSchool && d.type === 'event' && d.name && !d.ev) return [`같은 날 학사일정 교내행사가 있습니다: ${d.name}`];
+    if (d.isSchool && d.events.some(event => !Object.keys(event.subjects).length)) return [`같은 날 학사일정 교내행사가 있습니다: ${d.name}`];
     return [];
   }
 
@@ -153,7 +152,7 @@
     if (curTab === 'ksl') { if (kslChanged) { renderKslTable(); renderKslTeachers(); } renderKslList(); }
     if (curTab === 'cal') renderCal();   // 학사일정 달력에 교육활동 표시
     if (curTab === 'hview' || curTab === 'event') RENDER[curTab]();
-    if (curTab === 'home') renderHomeMonth();   // HOME 이번 달 학사일정에 교육활동 반영
+    if (curTab === 'home') { renderHomeMonth(); renderHomeWork(); }
     updateBell();
   }
 
@@ -265,7 +264,7 @@
       const list = (items[ds] || []).slice().sort((a, b) => a.periods[0] - b.periods[0]);
       html += `<div class="aday ${cls}${ds === sel ? ' sel' : ''}${ds === today ? ' today' : ''}" data-ds="${ds}">
         <div class="aday-h"><span class="d">${d}</span></div>
-        ${info && info.name && info.type !== 'weekend' ? `<div class="chip haksa ${info.isSchool ? '' : 'off'}" title="학사일정: ${esc2(TYPE_LABEL[info.type] + ' · ' + info.name + (info.ev ? ` (1~${info.ev.hrs}교시)` : ''))}">${info.ev ? `1~${info.ev.hrs}교시 ` : ''}${calendarLabel(info.name)}</div>` : ''}
+        ${info && info.name && info.type !== 'weekend' ? `<div class="chip haksa ${info.isSchool ? '' : 'off'}" title="학사일정: ${esc2(TYPE_LABEL[info.type] + ' · ' + info.name)}">${calendarLabel(info.name)}</div>` : ''}
         ${list.map(it => `<div class="chip ${it.status}" data-id="${esc2(it.id)}" title="${esc2(`${ST[it.status]} · ${periodLabel(it.periods)} · ${it.title} · ${targetLabel(it.targets)}`)}">
           ${kslHits(it).length ? '⚠' : ''}<span class="cp">${esc2(periodLabel(it.periods))}</span> ${calendarLabel(it.title)}</div>`).join('')}
       </div>`;

@@ -9,7 +9,6 @@
   'use strict';
   const e2 = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const acts = () => (window.Activities ? Activities.items : {});
-  const AREA = { cha_auto: '자율·자치', cha_club: '동아리', cha_career: '진로' };
 
   /* ---------- 화면 묶기 ---------- */
   const daysAndWeeks = RENDER.days;          // 수업일수(월별·요일별)
@@ -20,22 +19,6 @@
   RENDER.hview = renderHview;
   RENDER.school = renderInfo;
   RENDER.event = renderEvent;
-
-  /** 연속된 같은 일정(예: 여름방학 30일)을 하나의 기간으로 묶음 */
-  function ranges(filter) {
-    const out = [];
-    computeYear().forEach(x => {
-      if (!filter(x)) return;
-      const last = out[out.length - 1];
-      const key = x.type + '|' + x.name;
-      if (last && last.key === key && fmt(addDays(parse(last.end), 1)) === x.ds) last.end = x.ds;
-      else if (last && last.key === key && x.type === 'vacation' && parse(x.ds) - parse(last.end) <= 3 * 86400000) last.end = x.ds;   // 주말 끼어도 이어서
-      else out.push({ key, type: x.type, name: x.name, start: x.ds, end: x.ds, ev: x.ev });
-    });
-    return out;
-  }
-  const rangeLabel = r => r.start === r.end ? fmtK(r.start) : `${fmtK(r.start)} ~ ${fmtK(r.end)}`;
-  const typeLabel = t => t === 'event' ? '교내행사' : t === 'school' ? '수업일 지정' : TYPE_LABEL[t];
 
   /* =========================================================
    * 학사일정 보기 (조회 전용)
@@ -54,7 +37,11 @@
         const eventDate = target === 'evCalendar';
         const selected = eventDate && evPick.has(x.ds);
         const tip = `${x.ds} ${TYPE_LABEL[x.type]}${x.name ? ' · ' + x.name : ''}` + al.map(t => `\n· ${t.kind} ${t.title} (${t.status === 'confirmed' ? '확정' : '신청'})`).join('');
-        html += `<${eventDate ? 'button type="button" data-event-date="' + x.ds + '" aria-pressed="' + Boolean(selected) + '"' : 'div'} class="day ${x.type}${selected ? ' sel' : ''}${x.ds === today ? ' today' : ''}" title="${e2(tip)}"><span class="d">${x.d.getDate()}</span>${al.length ? `<span class="acts ${al.some(t => t.status === 'confirmed') ? 'c' : ''}">${al.length}</span>` : ''}<span class="n">${calendarLabel(x.name || (al[0] ? al[0].title : ''))}</span></${eventDate ? 'button' : 'div'}>`;
+        const number = `<span class="d">${x.d.getDate()}</span>`;
+        const content = eventDate
+          ? `${number}${al.length ? `<span class="acts ${al.some(t => t.status === 'confirmed') ? 'c' : ''}">${al.length}</span>` : ''}<span class="n">${calendarLabel(x.name || (al[0] ? al[0].title : ''))}</span>`
+          : number + calendarActivityDot(al);
+        html += `<${eventDate ? 'button type="button" data-event-date="' + x.ds + '" aria-pressed="' + Boolean(selected) + '"' : 'div'} class="day ${x.type}${selected ? ' sel' : ''}${x.ds === today ? ' today' : ''}" title="${e2(tip)}">${content}</${eventDate ? 'button' : 'div'}>`;
       });
       html += '</div></div>';
     }
@@ -64,178 +51,302 @@
   /* =========================================================
    * 교내행사 (관리자)
    * ========================================================= */
-  let evEditing = null;   // { start, end } 수정 중인 행사 기간
-  // 달력에서 고른 날짜들 (학사일정 편성처럼: 클릭 = 넣기/빼기, Shift+클릭 = 범위, 달력 밖 클릭 = 선택 해제)
+
   const evPick = new Set();
-  let evLastPick = null;
-  function toggleEvPick(ds, shift) {
-    if (shift && evLastPick) {
-      const [a, b] = evLastPick <= ds ? [evLastPick, ds] : [ds, evLastPick];
-      for (let d = parse(a); fmt(d) <= b; d = addDays(d, 1)) evPick.add(fmt(d));
-    } else if (evPick.has(ds)) evPick.delete(ds);
-    else evPick.add(ds);
-    evLastPick = ds;
-  }
-  function clearEvPick() { evPick.clear(); evLastPick = null; }
-  /** 고른 날짜를 이어진 묶음으로: "3.5(수) ~ 3.7(금), 3.12(수)" */
-  function pickLabel(list) {
-    const groups = [];
-    list.forEach(ds => { const g = groups[groups.length - 1]; if (g && fmt(addDays(parse(g[1]), 1)) === ds) g[1] = ds; else groups.push([ds, ds]); });
-    return groups.map(([a, b]) => a === b ? fmtK(a) : `${fmtK(a)} ~ ${fmtK(b)}`).join(', ');
-  }
+  let anchor = null;
+  let editing = null;
+  let adjusting = false;
+  let undo = null;
+  let redo = null;
+  let busy = false;
+  const selectedGrades = () => [...$('evGrades').querySelectorAll('input:checked')].map(i => Number(i.value));
+  const targetLabel = p => p.classNumber ? p.grades[0] + '학년 ' + p.classNumber + '반' : p.grades.length ? p.grades.join('·') + '학년' : '전교';
+  const datesLabel = dates => dates.map(fmtK).join(', ');
+  const yearStart = y => y + '-03-01';
+  const yearEnd = y => (y + 1) + '-03-01';
+  const inYear = (ds, y) => ds >= yearStart(y) && ds < yearEnd(y);
 
-  function eventRanges() {
-    const cd = calDays();
-    const keys = Object.keys(cd).filter(ds => cd[ds].type === 'event').sort();
-    const out = [];
-    keys.forEach(ds => {
-      const v = cd[ds], sig = JSON.stringify([v.name, v.hrs || 0, v.grades || [], v.area || '']);
-      const last = out[out.length - 1];
-      if (last && last.sig === sig && (parse(ds) - parse(last.end)) <= 3 * 86400000) last.end = ds;
-      else out.push({ sig, start: ds, end: ds, name: v.name, hrs: v.hrs || 0, grades: v.grades || [], area: v.area || 'cha_auto' });
-    });
-    return out;
-  }
-
-  function renderEventForm() {
-    const hrs = Number((document.querySelector('input[name="evHours"]:checked') || {}).value || 0);
-    $('evHours').innerHTML = [0, 1, 2, 3, 4, 5, 6].map(h => `<label class="tg"><input type="radio" name="evHours" value="${h}" ${h === hrs ? 'checked' : ''}>${h ? `${h}교시까지` : '표시만'}</label>`).join('');
-    const gs = [...document.querySelectorAll('#evGrades input[value]:checked')].map(i => Number(i.value));
-    const all = !gs.length || gs.length === 6;
-    $('evGrades').innerHTML = `<label class="tg"><input type="checkbox" id="evAllGrades" ${all ? 'checked' : ''}>전교</label>` +
-      GRADES.map(g => `<label class="tg"><input type="checkbox" value="${g}" ${!all && gs.includes(g) ? 'checked' : ''}>${g}학년</label>`).join('');
-  }
-
-  function evForm() {
-    const dates = [...evPick].sort();
-    const start = dates[0] || '', end = dates[dates.length - 1] || '';
-    const gs = [...document.querySelectorAll('#evGrades input[value]:checked')].map(i => Number(i.value));
-    return {
-      dates, start, end, name: $('evName').value.trim(),
-      hrs: Number((document.querySelector('input[name="evHours"]:checked') || {}).value || 0),
-      grades: $('evAllGrades') && $('evAllGrades').checked ? [] : gs,
-      area: (document.querySelector('input[name="evArea"]:checked') || {}).value || 'cha_auto',
-    };
-  }
-
-  function renderEvCheck() {
-    const f = evForm(), box = $('evCheck'), msgs = [];
-    $('evSel').innerHTML = f.dates.length
-      ? `<b>${pickLabel(f.dates)}</b> <span class="hint">(${f.dates.length}일)</span> <button type="button" class="x" id="evClearPick" title="선택 해제">✕</button>`
-      : '<span class="hint">왼쪽 달력에서 날짜를 누르세요. 여러 날은 차례로 누르거나 Shift+클릭으로 범위를 고릅니다.</span>';
-    $('evSel').classList.toggle('set', f.dates.length > 0);
-    if (!f.start) { box.innerHTML = ''; $('evSave').disabled = true; return; }
-    const days = computeYear().filter(x => f.dates.includes(x.ds));
-    const off = days.filter(x => !x.isSchool && x.type !== 'weekend');
-    if (off.length) msgs.push(`<div class="ck warn">⚠ 수업일이 아닌 날이 있습니다: ${off.map(x => `${fmtK(x.ds)} ${TYPE_LABEL[x.type]}`).join(', ')} (그날은 행사로 계산되지 않음)</div>`);
-    // 이미 신청된 교육활동과 겹침(관리자는 등록 가능, 알림)
-    if (f.hrs) {
-      const ps = Array.from({ length: f.hrs }, (_, i) => i + 1), gs = f.grades.length ? f.grades : GRADES;
-      const hit = Object.values(acts()).flat().filter(t => t.status !== 'canceled' && f.dates.includes(t.date)
-        && t.periods.some(p => ps.includes(p)) && t.targets.some(c => gs.includes(Number(c.split('-')[0]))));
-      if (hit.length) msgs.push(`<div class="ck warn"><b>⚠ 이미 신청된 교육활동과 시간이 겹칩니다.</b>${hit.map(t => `<div>· ${fmtK(t.date)} ${t.periods.join('·')}교시 ${e2(t.title)} (${e2(t.ownerName || '')})</div>`).join('')}<div class="hint">등록은 되지만, 해당 선생님과 일정을 조정하세요.</div></div>`);
+  function entries(days, plans, year) {
+    const rows = Object.entries(plans).filter(([, p]) => p.dates?.some(ds => inYear(ds, year)));
+    for (const [ds, day] of Object.entries(days)) {
+      const id = 'legacy-' + ds;
+      if (!inYear(ds, year) || day.type !== 'event' || Object.hasOwn(plans, id)) continue;
+      const [legacy] = calendarEvents(ds, day, {});
+      rows.push([id, { ...legacy, dates: [ds] }]);
     }
-    if (!f.name) msgs.push('<div class="hint">행사명을 입력하세요.</div>');
-    if (f.name && !msgs.some(m => m.includes('ck warn'))) msgs.unshift(`<div class="ck ok">✅ ${pickLabel(f.dates)} · ${f.hrs ? `1~${f.hrs}교시` : '표시만'} · ${f.grades.length ? f.grades.join('·') + '학년' : '전교'}</div>`);
-    box.innerHTML = msgs.join('');
-    $('evSave').disabled = !f.name || !canEditCal();
-    $('evSave').textContent = evEditing ? '수정 저장' : '교내행사 등록';
-    $('evFormTitle').textContent = evEditing ? '교내행사 수정' : '교내행사 등록';
+    return rows.sort((a, b) => a[1].dates[0].localeCompare(b[1].dates[0]));
+  }
+
+  function draft() {
+    const grades = selectedGrades();
+    const classNumber = Number($('evClass').value);
+    const dates = [...evPick].sort();
+    if (adjusting) return { kind: 'adjust', dates, grades, classNumber, periods: [...$('evHours').querySelectorAll('input:checked')].map(i => Number(i.value)) };
+    const subjects = Object.fromEntries([...$('evHours').querySelectorAll('select')].filter(s => s.value).map(s => [s.dataset.period, s.value]));
+    return { kind: 'event', dates, name: $('evName').value.trim(), grades, classNumber, allDay: $('evAllDay').checked, subjects };
+  }
+
+  function renderControls(p = {}) {
+    if (!$('evGrades').children.length) {
+      $('evGrades').innerHTML = GRADES.map(g => '<label class="tg"><input type="checkbox" value="' + g + '">' + g + '학년</label>').join('');
+    }
+    $('evGrades').querySelectorAll('input').forEach(i => { i.checked = p.grades?.includes(Number(i.value)) || false; });
+    $('evName').value = p.name || '';
+    $('evAllDay').checked = Boolean(p.allDay);
+    $('evName').closest('label').hidden = adjusting;
+    $('evDayLabel').hidden = adjusting;
+    $('evPeriodsLabel').textContent = adjusting ? '수업하는 교시' : '교시별 적용 과목';
+    renderPeriods(p);
+  }
+
+  function renderPeriods(p) {
+    const grades = selectedGrades();
+    const count = grades.length === 1 ? Number(state.school.classes[grades[0]]) : 0;
+    $('evClass').innerHTML = '<option value="0">전체 학급</option>' + Array.from({ length: count }, (_, i) => '<option value="' + (i + 1) + '">' + (i + 1) + '반</option>').join('');
+    $('evClass').value = count >= p.classNumber ? String(p.classNumber || 0) : '0';
+    const targets = grades.length ? grades : GRADES;
+    const subjects = subjectsOf(targets[0]).filter(s => targets.every(g => subjectsOf(g).some(t => t.key === s.key)));
+    $('evHours').innerHTML = Array.from({ length: MAX_PERIODS }, (_, i) => {
+      const n = i + 1;
+      if (adjusting) return '<label class="tg"><input type="checkbox" value="' + n + '"' + (p.periods?.includes(n) ? ' checked' : '') + '>' + n + '교시</label>';
+      const options = subjects.map(s => '<option value="' + e2(s.key) + '"' + (p.subjects?.[n] === s.key ? ' selected' : '') + '>' + e2(s.name) + '</option>').join('');
+      return '<label>' + n + '교시<select data-period="' + n + '"><option value="">기초 시간표 유지</option>' + options + '</select></label>';
+    }).join('');
+  }
+
+  function errors(p) {
+    if (!p.dates.length) return ['날짜를 선택하세요.'];
+    if (adjusting && !p.periods.length) return ['수업할 교시를 하나 이상 선택하세요.'];
+    if (!adjusting && !p.name) return ['행사명을 입력하세요.'];
+    const days = computeYear().filter(d => p.dates.includes(d.ds));
+    if (days.length !== p.dates.length || days.some(d => !d.isSchool)) return ['수업일만 등록할 수 있습니다.'];
+    const targets = p.grades.length ? p.grades : GRADES;
+    const peers = entries(calDays(), calendarPlans(), state.school.year).filter(([id, other]) =>
+      id !== editing && other.kind === p.kind && other.dates.some(ds => p.dates.includes(ds))
+      && targets.some(g => !other.grades.length || other.grades.includes(g))
+      && (!p.classNumber || !other.classNumber || p.classNumber === other.classNumber));
+    if (peers.some(([, other]) => adjusting || p.allDay || other.allDay || Object.keys(p.subjects).some(n => other.subjects[n]))) {
+      return ['선택한 날짜와 대상에 겹치는 교내행사 또는 수업일 설정이 있습니다.'];
+    }
+    return [];
+  }
+
+  function renderCheck() {
+    const p = draft(), problems = errors(p);
+    $('evSel').textContent = p.dates.length ? datesLabel(p.dates) : '선택한 날짜 없음';
+    const clashes = adjusting || problems.length ? [] : Object.values(acts()).flat().filter(item =>
+      item.status !== 'canceled' && p.dates.includes(item.date)
+      && item.targets.some(target => eventTargets(p, ...target.split('-').map(Number)))
+      && item.periods.some(period => p.allDay || p.subjects[period]));
+    $('evCheck').textContent = problems[0] || (clashes.length
+      ? '교육활동과 겹칩니다. ' + clashes.map(item => item.title).join(', ')
+      : targetLabel(p) + ' · ' + p.dates.length + '일');
+    $('evSave').disabled = busy || !!problems.length || !canEditCal();
+    $('evFormTitle').textContent = adjusting ? '단축·연장 수업 설정' : editing ? '교내행사 수정' : '교내행사 등록';
+    $('evSave').textContent = editing || adjusting ? '저장' : '교내행사 등록';
+  }
+
+  function renderReport() {
+    const sem = semFull(calSem());
+    $('evSemInfo').textContent = '1학기 ' + fmtK(sem.s1Start) + ' · 2학기 ' + fmtK(sem.s2Start)
+      + ' · 여름방학 ' + datesLabel(sem.summer) + ' · 겨울방학 ' + datesLabel(sem.winter);
+    $('evReport').innerHTML = '<table class="tbl compact"><tr><th>대상</th><th>1학기 전일 행사</th><th>2학기 전일 행사</th><th>연간 전일 행사</th><th>1학기 확보−계획</th><th>2학기 확보−계획</th><th>연간 확보−계획</th></tr>'
+      + GRADES.flatMap(g => {
+        const days = computeYear().filter(d => d.isSchool);
+        const classSpecific = days.some(d => [...d.events, ...d.adjustments].some(p => p.classNumber && p.grades.includes(g)));
+        const classes = classSpecific ? Array.from({length: Number(state.school.classes[g])}, (_, i) => i + 1) : [undefined];
+        return classes.map(c => {
+          const full = s => days.filter(d => d.sem === s && d.events.some(p => p.allDay && eventTargets(p, g, c))).length;
+          const diff = s => days.filter(d => d.sem === s).reduce((n, d) => n + calendarPeriods(d, g, c).length, 0) - gradeSem(g, 's' + s);
+          const signed = n => n > 0 ? '+' + n : n;
+          const firstDays = full(1), secondDays = full(2), firstDiff = diff(1), secondDiff = diff(2);
+          return '<tr><td>' + g + '학년' + (c ? ' ' + c + '반' : '') + '</td><td>' + firstDays + '</td><td>' + secondDays + '</td><td>' + (firstDays + secondDays) + '</td><td>' + signed(firstDiff) + '</td><td>' + signed(secondDiff) + '</td><td>' + signed(firstDiff + secondDiff) + '</td></tr>';
+        });
+      }).join('') + '</table><p class="hint">확보 시수는 수업하는 교시 수입니다. 적용 과목별 운영 시수는 시간표 편성에서 확인할 수 있습니다.</p>';
+    const rows = [];
+    for (const g of GRADES) {
+      const classes = Number(state.school.classes[g]) || 0;
+      for (let c = 1; c <= classes; c++) {
+        const totals = { 1: {}, 2: {} };
+        for (const day of computeYear()) {
+          if (!day.sem) continue;
+          for (const key of Object.values(calendarSubjects(day, g, c))) {
+            totals[day.sem][key] = (totals[day.sem][key] || 0) + 1;
+          }
+        }
+        for (const { key, name } of subjectsOf(g)) {
+          const first = totals[1][key] || 0, second = totals[2][key] || 0;
+          if (first || second) rows.push('<tr><td>' + g + '학년 ' + c + '반</td><td>' + e2(name) + '</td><td>' + first + '</td><td>' + second + '</td><td>' + (first + second) + '</td></tr>');
+        }
+      }
+    }
+    $('evApplied').innerHTML = rows.length ? '<table class="tbl compact"><tr><th>학급</th><th>적용 과목</th><th>1학기</th><th>2학기</th><th>연간</th></tr>' + rows.join('') + '</table>' : '<p class="hint">적용된 행사 시수가 없습니다.</p>';
   }
 
   function renderEvent() {
-    renderEventForm();
+    if (!$('evGrades').children.length) renderControls();
     renderHview('evCalendar');
-    const list = eventRanges();
-    $('evListTitle').textContent = `교내행사 (${list.length}건)`;
-    $('evList').innerHTML = `<tr><th>날짜</th><th class="l">행사명</th><th>시간</th><th>대상</th><th>창체</th><th></th></tr>` +
-      (list.length ? list.map(r => `<tr><td class="num">${rangeLabel(r)}</td><td class="l"><b>${e2(r.name)}</b></td>
-        <td>${r.hrs ? `1~${r.hrs}교시` : '<span class="hint">표시만</span>'}</td><td>${r.grades.length ? r.grades.join('·') + '학년' : '전교'}</td>
-        <td class="hint">${r.hrs ? AREA[r.area] || '' : ''}</td>
-        <td class="nowrap"><button class="btn small" data-ev="edit" data-s="${r.start}" data-e="${r.end}">수정</button>
-        <button class="btn small danger" data-ev="del" data-s="${r.start}" data-e="${r.end}">삭제</button></td></tr>`).join('')
-        : '<tr><td colspan="6" class="hint">등록된 교내행사가 없습니다. 오른쪽에서 등록하세요.</td></tr>');
-    const al = Object.values(acts()).flat().filter(t => t.kind === '교내행사' && t.status !== 'canceled').sort((a, b) => a.date.localeCompare(b.date));
-    $('evActList').innerHTML = `<tr><th>날짜</th><th class="l">교육활동명</th><th>교시</th><th>상태</th><th>기록자</th></tr>` +
-      (al.length ? al.map(t => `<tr><td class="num">${fmtK(t.date)}</td><td class="l">${e2(t.title)}</td><td>${t.periods.join('·')}</td>
-        <td><span class="st ${t.status}">${t.status === 'confirmed' ? '확정' : '신청'}</span></td><td class="hint">${e2(t.ownerName || '')}</td></tr>`).join('')
-        : '<tr><td colspan="5" class="hint">없음</td></tr>');
-    renderEvCheck();
+    const rows = entries(calDays(), calendarPlans(), state.school.year);
+    const actions = id => '<button class="btn small" data-ev="edit" data-id="' + e2(id) + '">수정</button> <button class="btn small danger" data-ev="delete" data-id="' + e2(id) + '">삭제</button>';
+    $('evList').innerHTML = '<tr><th>선택</th><th>날짜</th><th>행사명</th><th>대상</th><th>적용 교시·과목</th><th></th></tr>' + rows.filter(([, p]) => p.kind !== 'adjust').map(([id, p]) =>
+      '<tr><td><input type="checkbox" data-group-event="' + e2(id) + '" aria-label="' + e2(p.name) + ' 선택"></td><td>' + datesLabel(p.dates) + '</td><td>' + e2(p.name) + '</td><td>' + targetLabel(p) + '</td><td>'
+      + (p.allDay ? '전일 · ' : '') + (Object.entries(p.subjects).map(([n, key]) => n + '교시 ' + e2(SHORT[key] || key)).join(', ') || '일정 표시') + '</td><td>' + actions(id) + '</td></tr>').join('');
+    $('evAdjustList').innerHTML = '<tr><th>날짜</th><th>대상</th><th>수업 교시</th><th></th></tr>' + rows.filter(([, p]) => p.kind === 'adjust').map(([id, p]) =>
+      '<tr><td>' + datesLabel(p.dates) + '</td><td>' + targetLabel(p) + '</td><td>' + p.periods.join('·') + '</td><td>' + actions(id) + '</td></tr>').join('');
+    $('evActList').innerHTML = '<tr><th>날짜</th><th>교육활동명</th><th>상태</th></tr>' + Object.values(acts()).flat()
+      .filter(p => p.kind === '교내행사' && p.status !== 'canceled' && inYear(p.date, state.school.year))
+      .map(p => '<tr><td>' + fmtK(p.date) + '</td><td>' + e2(p.title) + '</td><td>' + (p.status === 'confirmed' ? '확정' : '신청') + '</td></tr>').join('');
+    $('evUndo').disabled = busy || undo?.year !== state.school.year;
+    $('evRedo').disabled = busy || redo?.year !== state.school.year;
+    renderReport();
+    renderCheck();
   }
 
-  function datesBetween(a, b) { const out = []; for (let d = parse(a); fmt(d) <= b; d = addDays(d, 1)) out.push(fmt(d)); return out; }
-
-  async function saveEvent() {
-    if (!canEditCal()) { alert('관리자만 수정할 수 있습니다.'); return; }
-    const f = evForm();
-    if (!f.start || !f.name) return;
-    const patch = {};
-    if (evEditing) datesBetween(evEditing.start, evEditing.end).forEach(ds => { if ((calDays()[ds] || {}).type === 'event') patch[ds] = null; });
-    f.dates.forEach(ds => {
-      patch[ds] = f.hrs ? { type: 'event', name: f.name, hrs: f.hrs, area: f.area, grades: f.grades } : { type: 'event', name: f.name };
-    });
-    try { await writeDays(patch); resetEventForm(); _yearCache = null; renderEvent(); }
-    catch (err) { alert('저장 실패: ' + err.message); }
+  function selectRow(id, p) {
+    editing = id;
+    adjusting = p?.kind === 'adjust';
+    evPick.clear();
+    anchor = null;
+    (p?.dates || []).forEach(ds => evPick.add(ds));
+    renderControls(p);
+    renderEvent();
   }
 
-  function resetEventForm() {
-    evEditing = null;
-    clearEvPick(); $('evName').value = '';
-    document.querySelectorAll('input[name="evHours"]').forEach(i => { i.checked = i.value === '0'; });
-    document.querySelectorAll('#evGrades input').forEach(i => { i.checked = i.id === 'evAllGrades'; });
-    renderEventForm(); renderEvCheck(); renderHview('evCalendar');
+  async function storePlans(next, expected) {
+    if (!canEditCal() || isTeacherView()) throw new Error('편집 권한이 없습니다.');
+    const year = state.school.year;
+    if (haksaShared()) {
+      const { F, db } = Cloud.fb;
+      const ref = F.doc(db, 'calendar', String(year));
+      await F.runTransaction(db, async tx => {
+        const snap = await tx.get(ref);
+        if (!snap.exists() || !samePlans(snap.data().eventPlans || {}, expected)) throw new Error('다른 변경 사항을 불러온 뒤 다시 시도해 주세요.');
+        tx.update(ref, { eventPlans: next });
+      });
+      if (state.school.year === year && haksaShared()) Haksa.eventPlans = next;
+    } else {
+      state.eventPlans ||= {};
+      state.eventPlans[year] = next;
+      save();
+    }
+    _yearCache = null;
+  }
+  function samePlans(a, b) {
+    const ordered = value => {
+      if (Array.isArray(value)) return value.map(ordered);
+      if (!value || typeof value !== 'object') return value;
+      return Object.fromEntries(Object.keys(value).sort().map(key => [key, ordered(value[key])]));
+    };
+    return JSON.stringify(ordered(a)) === JSON.stringify(ordered(b));
   }
 
-  function loadEvent(start, end) {
-    const v = calDays()[start]; if (!v) return;
-    evEditing = { start, end };
-    clearEvPick();
-    datesBetween(start, end).forEach(ds => { const d = calDays()[ds]; if (d && d.type === 'event' && d.name === v.name) evPick.add(ds); });
-    $('evName').value = v.name || '';
-    document.querySelectorAll('input[name="evHours"]').forEach(i => { i.checked = Number(i.value) === (v.hrs || 0); });
-    const gs = v.grades || [];
-    document.querySelectorAll('#evGrades input[value]').forEach(i => { i.checked = gs.includes(Number(i.value)); });
-    $('evAllGrades').checked = !gs.length;
-    document.querySelectorAll('input[name="evArea"]').forEach(i => { i.checked = i.value === (v.area || 'cha_auto'); });
-    renderEventForm(); renderEvCheck(); renderHview('evCalendar');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  async function change(next, history) {
+    if (busy) return;
+    const year = state.school.year;
+    const before = calendarPlans();
+    busy = true;
+    try {
+      await storePlans(next, history ? history.expected : before);
+      if (history?.redo) { undo = history.entry; redo = null; }
+      else if (history) { redo = history.entry; undo = null; }
+      else { undo = { year, before, next }; redo = null; }
+      selectRow(null);
+    } catch (error) { alert(error.message); }
+    finally { busy = false; renderEvent(); }
   }
 
-  $('evList').addEventListener('click', async e => {
-    const b = e.target.closest('[data-ev]'); if (!b) return;
-    if (b.dataset.ev === 'edit') { loadEvent(b.dataset.s, b.dataset.e); return; }
-    if (!canEditCal()) return;
-    const name = (calDays()[b.dataset.s] || {}).name || '';
-    if (!confirm(`교내행사 "${name}"을(를) 학사일정에서 삭제할까요?`)) return;
-    const patch = {}; datesBetween(b.dataset.s, b.dataset.e).forEach(ds => { if ((calDays()[ds] || {}).type === 'event') patch[ds] = null; });
-    try { await writeDays(patch); if (evEditing && evEditing.start === b.dataset.s) resetEventForm(); _yearCache = null; renderEvent(); }
-    catch (err) { alert('삭제 실패: ' + err.message); }
-  });
-  $('evSave').addEventListener('click', saveEvent);
-  $('evReset').addEventListener('click', resetEventForm);
-  $('evCalendar').addEventListener('click', event => {
-    const date = event.target.closest('[data-event-date]')?.dataset.eventDate;
-    if (!date || !canEditCal() || isTeacherView()) return;
-    toggleEvPick(date, event.shiftKey);
-    renderEvCheck();
+  $('evSave').onclick = () => {
+    const p = draft();
+    if (errors(p).length) return;
+    change({ ...calendarPlans(), [editing || crypto.randomUUID()]: p });
+  };
+  $('evReset').onclick = () => selectRow(null);
+  $('evAdjust').onclick = () => selectRow(null, { kind: 'adjust', dates: [...evPick] });
+  $('evBasis').onclick = () => { showTab('hours'); $('tblPeriods')?.scrollIntoView({ block: 'center' }); };
+  $('evUndo').onclick = () => { if (undo?.year === state.school.year) change(undo.before, { expected: undo.next, entry: undo }); };
+  $('evRedo').onclick = () => { if (redo?.year === state.school.year) change(redo.next, { expected: redo.before, entry: redo, redo: true }); };
+  function remove(next, id) {
+    if (id.startsWith('legacy-')) next[id] = { removed: true };
+    else delete next[id];
+  }
+  $('evGroup').onclick = () => {
+    const ids = [...$('evList').querySelectorAll('[data-group-event]:checked')].map(i => i.dataset.groupEvent);
+    const rows = entries(calDays(), calendarPlans(), state.school.year).filter(([id]) => ids.includes(id));
+    if (rows.length < 2) { alert('묶을 행사 두 건 이상을 선택하세요.'); return; }
+    const details = p => ({ name: p.name, grades: p.grades, classNumber: p.classNumber || 0, allDay: !!p.allDay, subjects: p.subjects });
+    const first = details(rows[0][1]);
+    if (rows.some(([, p]) => !samePlans(details(p), first))) { alert('행사명, 대상, 적용 교시·과목이 같은 행사끼리 묶을 수 있습니다.'); return; }
+    const next = { ...calendarPlans() };
+    rows.forEach(([id]) => remove(next, id));
+    next[crypto.randomUUID()] = { ...first, kind: 'event', dates: [...new Set(rows.flatMap(([, p]) => p.dates))].sort() };
+    change(next);
+  };
+  $('evDeleteAll').onclick = () => {
+    const rows = entries(calDays(), calendarPlans(), state.school.year).filter(([, p]) => p.kind !== 'adjust');
+    if (!rows.length || !confirm('올해 교내행사 ' + rows.length + '건을 모두 삭제할까요?')) return;
+    const next = { ...calendarPlans() };
+    rows.forEach(([id]) => remove(next, id));
+    change(next);
+  };
+  $('evPrevious').onclick = async () => {
+    if (busy || !canEditCal()) return;
+    const year = state.school.year;
+    let prior = { days: state.days, eventPlans: state.eventPlans?.[year - 1] };
+    try {
+      if (window.Cloud?.ready) {
+        const { F, db } = Cloud.fb;
+        const snap = await F.getDoc(F.doc(db, 'calendar', String(year - 1)));
+        if (snap.exists()) prior = snap.data();
+      }
+      if (state.school.year !== year || curTab !== 'event') return;
+      const schoolDays = new Set(computeYear().filter(d => d.isSchool).map(d => d.ds));
+      const rows = entries(prior.days || {}, prior.eventPlans || {}, year - 1).filter(([, p]) => p.kind !== 'adjust');
+      const occupied = new Set(entries(calDays(), calendarPlans(), year).filter(([, p]) => p.kind !== 'adjust').flatMap(([, p]) => p.dates));
+      const importing = [];
+      rows.forEach(([, p]) => {
+        const dates = p.dates.map(ds => (Number(ds.slice(0, 4)) + 1) + ds.slice(4)).filter(ds => schoolDays.has(ds) && !occupied.has(ds));
+        if (dates.length && (!p.classNumber || p.classNumber <= state.school.classes[p.grades[0]])) importing.push({ ...p, dates });
+      });
+      if (!importing.length) { alert('가져올 수 있는 작년 행사가 없습니다.'); return; }
+      if (!confirm('작년 행사 ' + importing.length + '건을 올해 같은 월·일로 가져올까요? 휴업일과 이미 행사가 있는 날짜는 제외됩니다.')) return;
+      const next = { ...calendarPlans() };
+      importing.forEach(p => { next[crypto.randomUUID()] = p; });
+      await change(next);
+    } catch (error) { alert(error.message); }
+  };
+
+  $('tab-event').addEventListener('click', e => {
+    const b = e.target.closest('[data-ev]');
+    if (b && !busy) {
+      const id = b.dataset.id;
+      const row = entries(calDays(), calendarPlans(), state.school.year).find(([key]) => key === id);
+      if (!row) return;
+      if (b.dataset.ev === 'edit') { selectRow(id, row[1]); return; }
+      if (confirm((row[1].name || '수업일 설정') + '을 삭제할까요?')) {
+        const next = { ...calendarPlans() };
+        remove(next, id);
+        change(next);
+      }
+    }
+    const ds = e.target.closest('[data-event-date]')?.dataset.eventDate;
+    if (!ds || !canEditCal() || busy) return;
+    if (e.shiftKey && anchor) {
+      const [from, to] = [anchor, ds].sort();
+      for (let d = parse(from); fmt(d) <= to; d = addDays(d, 1)) evPick.add(fmt(d));
+    } else if (evPick.has(ds)) evPick.delete(ds);
+    else evPick.add(ds);
+    anchor = ds;
+    renderCheck();
     renderHview('evCalendar');
-    $('evCalendar').querySelector('[data-event-date="' + date + '"]')?.focus({ preventScroll: true });
+    $('evCalendar').querySelector('[data-event-date="' + ds + '"]')?.focus({ preventScroll: true });
   });
-  // 달력의 날짜·등록 칸이 아닌 곳을 누르면 선택 해제 (학사일정 편성과 같은 방식)
-  document.addEventListener('click', e => {
-    if (curTab !== 'event' || !evPick.size) return;
-    if (e.target.closest('#evCalendar [data-event-date], #tab-event aside, #evList')) return;
-    clearEvPick();
-    renderEvCheck();
-    $('evCalendar').querySelectorAll('.day.sel').forEach(d => { d.classList.remove('sel'); d.setAttribute('aria-pressed', 'false'); });
-  }, true);
-  $('evSel').addEventListener('click', e => { if (e.target.id === 'evClearPick') { clearEvPick(); renderEvCheck(); renderHview('evCalendar'); } });
-  $('evName').addEventListener('input', renderEvCheck);
-  $('evHours').addEventListener('change', renderEvCheck);
-  $('evArea').addEventListener('change', renderEvCheck);
-  $('evGrades').addEventListener('change', e => {
-    if (e.target.id === 'evAllGrades') { if (e.target.checked) document.querySelectorAll('#evGrades input[value]').forEach(i => { i.checked = false; }); }
-    else $('evAllGrades').checked = ![...document.querySelectorAll('#evGrades input[value]:checked')].length;
-    renderEvCheck();
+  $('evGrades').onchange = () => { renderPeriods(draft()); renderCheck(); };
+  ['evName', 'evClass', 'evAllDay', 'evHours'].forEach(id => $(id).addEventListener('input', renderCheck));
+  document.addEventListener('year-change', () => {
+    undo = redo = null;
+    evPick.clear();
+    anchor = editing = null;
+    adjusting = false;
+    if (curTab === 'event') { renderControls(); renderEvent(); }
   });
 })();

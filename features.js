@@ -32,14 +32,14 @@ function weeklyCount(g, s) {
 const ttFilled = g => [1, 2].some(s => Object.keys(weeklyCount(g, s)).length > 0);
 
 /* ---------- 시수 운영 계산: 기초 시간표 × 학사일정 ---------- */
-function runCalc(g) {
+function runCalc(g, classNumber) {
   const res = { sem: { 1: {}, 2: {} }, weeks: {}, blank: { 1: 0, 2: 0 } };
   computeYear().forEach(x => {
     if (!x.isSchool || !x.sem) return;
     const di = x.dow >= 1 && x.dow <= 5 ? x.dow - 1 : 4; // 주말 수업일은 금요일 시간표로
-    const n = periodsOf(g, di);
-    const slots = state.timetable[g][x.sem][di].slice(0, n);
-    if (evFor(x, g)) for (let i = 0; i < Math.min(x.ev.hrs, n); i++) slots[i] = x.ev.area;
+    const timetable = state.timetable[g][x.sem][di];
+    const subjects = calendarSubjects(x, g, classNumber);
+    const slots = calendarPeriods(x, g, classNumber).map(p => subjects[p] || timetable[p - 1] || '');
     const wk = weekKey(x.d);
     res.weeks[wk] = res.weeks[wk] || {};
     slots.forEach(k => {

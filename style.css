@@ -557,6 +557,48 @@ body { font-family: var(--f4); }
 @media (max-width: 1000px) { .schedule-layout { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 650px) { #calGrid, #hvGrid, #evCalendar { grid-template-columns: minmax(0, 1fr); } }
 
+/* 연간 학사일정 */
+.calendar-settings .card-head h2, .calendar-year .card-head h2 { margin: 0; }
+.calendar-settings .sem-grid { gap: 12px; }
+.calendar-settings input[type="date"] { width: 100%; min-width: 0; }
+#tab-cal .calendar-plan { grid-template-columns: minmax(0, 1fr) minmax(246px, 290px); gap: 18px; }
+.calendar-year { min-width: 0; margin: 0; container-type: inline-size; }
+#calGrid.compact-calendar, #hvGrid.compact-calendar {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 196px), 1fr));
+  gap: 12px;
+}
+#calGrid.compact-calendar { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.compact-calendar .month { min-width: 0; background: #fbfcff; padding: 10px; border-color: #e0e7f1; }
+.compact-calendar .month-head { gap: 4px 8px; flex-wrap: wrap; align-items: baseline; color: var(--nv-d); }
+.compact-calendar .mgrid { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+.compact-calendar .dow:nth-child(7) { color: var(--primary); }
+.compact-calendar .day {
+  position: relative; display: grid; place-items: center; min-width: 0; min-height: 34px;
+  padding: 0; color: var(--ink, #253655); text-align: center;
+}
+.compact-calendar .day .d { font-size: 14px; line-height: 1; }
+.compact-calendar .day.weekend { color: #68758b; }
+.compact-calendar .day.weekend:nth-child(7n + 1) { color: #a72632; }
+.compact-calendar .day.weekend:nth-child(7n) { color: #315297; }
+.compact-calendar .day.holiday { color: #a72632; }
+.compact-calendar button.day:hover:not(:disabled) { border-color: var(--nv); }
+.compact-calendar button.day:focus-visible { outline: 3px solid var(--nv); outline-offset: 1px; z-index: 1; }
+.compact-calendar .day.sel { background: var(--nv); color: #fff; }
+.compact-calendar .day.sel .d { color: inherit; }
+.calendar-activity-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #246b50; vertical-align: middle; }
+.compact-calendar .calendar-activity-dot { position: absolute; right: 3px; bottom: 3px; }
+.compact-calendar .day.sel .calendar-activity-dot { background: #bfead5; }
+.calendar-selection-details { margin: 12px 0 0; padding: 10px 0 0; border-top: 1px solid var(--line); list-style: none; }
+.calendar-selection-details li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; padding-block: 5px; }
+.calendar-selection-details span { overflow-wrap: anywhere; }
+@container (max-width: 580px) { #calGrid.compact-calendar { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container (max-width: 370px) { #calGrid.compact-calendar { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 840px) {
+  #tab-cal .calendar-plan { grid-template-columns: minmax(0, 1fr); }
+  .calendar-plan .cal-side { order: -1; }
+  .calendar-settings .sem-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr)); }
+}
+
 /* 시간표 통합 보기와 영역 설정 */
 .schedule-layout { grid-template-columns: minmax(0, 780px) minmax(250px, 330px); }
 .schedule-main #scheduleTitle { font-size: clamp(24px, 3vw, 34px); margin-bottom: 6px; }
@@ -603,17 +645,17 @@ body { background: #f4f6fa; }
 /* 히어로 */
 #tab-home { max-width: none; }
 main:has(#tab-home.active) { max-width: none; padding: 0 0 24px; }
-.hx-hero { position: relative; min-height: clamp(520px, 50vw, 720px); background: linear-gradient(180deg, #f7f9fc, #eef2f8); overflow: hidden; display: flex; align-items: center; }
+.hx-hero { position: relative; min-height: clamp(240px, 25vw, 360px); background: linear-gradient(180deg, #f7f9fc, #eef2f8); overflow: hidden; display: flex; align-items: center; }
 .hx-photo { position: absolute; inset: 0 0 0 38%; background: url('assets/hero-kids.jpg') center 30% / cover no-repeat; }
 .hx-photo::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #f3f6fb 0%, rgba(243, 246, 251, .85) 16%, rgba(243, 246, 251, 0) 42%); }
-.hx-text { position: relative; z-index: 1; padding: 40px 0 40px clamp(24px, 7vw, 120px); max-width: 760px; }
-.hx-kicker { display: flex; align-items: center; gap: 22px; font-size: 15px; letter-spacing: .42em; color: var(--nv-d); font-family: var(--f7); margin-bottom: 26px; }
+.hx-text { position: relative; z-index: 1; padding: 28px clamp(20px, 5vw, 86px); max-width: 760px; }
+.hx-kicker { display: flex; align-items: center; gap: 12px; font-size: clamp(10px, 1.1vw, 14px); letter-spacing: .25em; color: var(--nv-d); font-family: var(--f7); margin-bottom: 14px; }
 .hx-kicker span { display: inline-block; width: 56px; height: 2px; background: var(--nv-d); }
-.hx-big { font-family: var(--f9); font-size: clamp(64px, 9vw, 150px); line-height: .92; letter-spacing: -.03em;
+.hx-big { font-family: var(--f9); font-size: clamp(36px, 6vw, 96px); line-height: .92; letter-spacing: -.03em;
   color: var(--nv); display: flex; align-items: flex-end; }
 .hx-big i { display: inline-block; flex: 0 0 .26em; width: .26em; height: .26em; border-radius: 50%; background: var(--dot); margin: 0 0 .06em .12em; }
-.hx-text h2 { font-size: clamp(30px, 3.4vw, 52px); color: var(--nv-d); margin: 22px 0 14px; letter-spacing: -.02em; font-family: var(--f8); }
-.hx-text p { font-size: clamp(16px, 1.6vw, 24px); color: #5b6478; margin: 0 0 30px; }
+.hx-text h2 { font-size: clamp(22px, 2.5vw, 39px); color: var(--nv-d); margin: 14px 0 8px; letter-spacing: -.02em; font-family: var(--f8); }
+.hx-text p { font-size: clamp(14px, 1.3vw, 19px); color: #5b6478; margin: 0; }
 .hx-btns { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 40px; }
 .hx-btn { display: inline-flex; align-items: center; gap: 12px; font: inherit; font-size: 19px; font-family: var(--f8); border-radius: 999px; padding: 16px 34px; cursor: pointer; border: 2px solid var(--nv); }
 .hx-btn svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -631,6 +673,17 @@ main:has(#tab-home.active) { max-width: none; padding: 0 0 24px; }
 #homeGate { max-width: 560px; margin: 24px auto 0; }
 .hx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 1400px; margin: 28px auto 0; padding: 0 clamp(16px, 3vw, 40px); }
 .hx-grid[hidden] { display: none; }
+.home-work { align-items: start; gap: 16px; margin-top: 16px; }
+.home-work .hx-card { min-width: 0; margin: 0; }
+.home-work .hx-card-head { margin-bottom: 6px; }
+.home-work .hx-card-head a { color: var(--nv); font-size: 14px; text-underline-offset: 3px; }
+.home-work-list { list-style: none; padding: 0; margin: 10px 0 0; max-height: 280px; overflow-y: auto; }
+.home-work-list li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 0; border-top: 1px solid #e3e7f0; }
+.home-work-list small, .home-work-list strong { display: block; overflow-wrap: anywhere; }
+.home-work-list small, .home-work-list .empty { color: var(--muted); }
+.event-periods { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.event-periods label { min-width: 0; }
+.event-periods select { width: 100%; }
 .hx-card { border-radius: 20px; padding: 24px 26px; border: 1px solid #e3e7f0; box-shadow: 0 6px 18px rgba(21, 48, 107, .06); }
 .hx-card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
 .hx-card h2 { display: flex; align-items: center; gap: 10px; font-size: 22px; color: var(--nv-d); margin: 0; }

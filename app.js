@@ -255,6 +255,28 @@ async function writeSem(sem) {
   state.sem = sem; save();
 }
 
+const calendarPlans = () => haksaShared() ? Haksa.eventPlans : (state.eventPlans?.[state.school.year] || {});
+function calendarEvents(ds, day, plans = calendarPlans()) {
+  const legacy = 'legacy-' + ds;
+  const items = Object.entries(plans).filter(([, p]) => p.dates?.includes(ds));
+  if (day?.type === 'event' && !Object.hasOwn(plans, legacy)) {
+    items.unshift([legacy, { kind: 'event', name: day.name, grades: day.grades || [], subjects: Object.fromEntries(
+      Array.from({ length: Number(day.hrs) || 0 }, (_, i) => [i + 1, day.area || 'cha_auto'])) }]);
+  }
+  return items.filter(([, p]) => p.kind !== 'adjust').map(([id, p]) => ({ ...p, id }));
+}
+function eventTargets(p, grade, classNumber) {
+  return (!p.grades?.length || p.grades.includes(grade))
+    && (!p.classNumber || p.classNumber === classNumber);
+}
+function calendarPeriods(day, grade, classNumber) {
+  if (!day.isSchool) return [];
+  const num = day.dow >= 1 && day.dow <= 5 ? day.dow - 1 : 4;
+  const base = Number(state.school.periods[grade]?.[num]) || 0;
+  const adjustment = day.adjustments.find(p => eventTargets(p, grade, classNumber));
+  return adjustment?.periods || Array.from({ length: base }, (_, i) => i + 1);
+}
+
 /* =========================================================
  * 학사일정 계산
  * ========================================================= */
@@ -278,12 +300,15 @@ function computeYear() {
   if (_yearCache) return _yearCache;
   const y = state.school.year;
   const hm = holidayMap(y);
+  const plans = calendarPlans();
   const out = [];
   for (let d = new Date(y, 2, 1); d < new Date(y + 1, 2, 1); d = addDays(d, 1)) {
     const ds = fmt(d), dow = d.getDay();
     const ov = calDays()[ds];
     const hol = hm[ds];
-    let sem = semOf(ds), type, name = ov?.name || '';
+    const events = calendarEvents(ds, ov, plans);
+    const adjustments = Object.values(plans).filter(p => p.kind === 'adjust' && p.dates.includes(ds));
+    let sem = semOf(ds), type, name = ov?.type === 'event' ? '' : ov?.name || '';
     if (ov?.type === 'school') {
       type = 'school';
       if (!sem) sem = ds < calSem().s2Start ? 1 : 2;
@@ -298,12 +323,12 @@ function computeYear() {
     } else if (!sem) {
       type = 'vacation';
     } else {
-      type = ov?.type === 'event' ? 'event' : 'school';
+      type = events.length ? 'event' : 'school';
     }
     const isSchool = type === 'school' || type === 'event';
     if (!name && hol && type !== 'holiday') name = hol.name;
-    const ev = isSchool && ov && Number(ov.hrs) > 0 ? { hrs: Number(ov.hrs), area: ov.area || 'cha_auto', grades: ov.grades || [] } : null;
-    out.push({ ds, d: new Date(d), dow, month: d.getMonth(), year: d.getFullYear(), type, name, isSchool, sem: isSchool ? sem : 0, ev });
+    if (isSchool && events.length) { type = 'event'; name = events.map(p => p.name).join(' · '); }
+    out.push({ ds, d: new Date(d), dow, month: d.getMonth(), year: d.getFullYear(), type, name, isSchool, sem: isSchool ? sem : 0, events, adjustments });
   }
   _yearCache = out;
   return out;
@@ -350,19 +375,29 @@ function dayStats() {
 }
 
 /** 행사일이 학년 g 에 해당하는지 */
-const evFor = (x, g) => x.ev && (!x.ev.grades.length || x.ev.grades.includes(g));
 /** 학년 g 의 행사 활용 창체 시수 {cha_auto, cha_club, cha_career} */
 function eventHours(g) {
   const r = { cha_auto: 0, cha_club: 0, cha_career: 0 };
-  computeYear().forEach(x => { if (evFor(x, g)) r[x.ev.area] += x.ev.hrs; });
+  computeYear().forEach(x => {
+    Object.values(calendarSubjects(x, g)).forEach(k => { if (Object.hasOwn(r, k)) r[k]++; });
+  });
   return r;
 }
 
 /** 학년 g, 학기 s 의 수업 가능 시수 */
-function capacity(g, s, st = dayStats()) {
-  const p = state.school.periods[g];
-  return [1, 2, 3, 4, 5].reduce((t, dow) => t + st.sem[s].wd[dow] * (Number(p[dow - 1]) || 0), 0)
-    + (st.sem[s].wd[6] + st.sem[s].wd[0]) * (Number(p[4]) || 0); // 주말 수업일 지정 시 금요일 교시로 추정
+function capacity(g, s) {
+  return computeYear().reduce((total, day) => total + (day.sem === s ? calendarPeriods(day, g).length : 0), 0);
+}
+
+function calendarSubjects(day, grade, classNumber) {
+  const periods = calendarPeriods(day, grade, classNumber);
+  const subjects = {};
+  day.events.filter(p => eventTargets(p, grade, classNumber)).forEach(p => {
+    Object.entries(p.subjects).forEach(([period, key]) => {
+      if (periods.includes(Number(period))) subjects[period] = key;
+    });
+  });
+  return subjects;
 }
 
 /* =========================================================
@@ -481,6 +516,10 @@ function calendarLabel(name) {
   return String(name || '').trim().split(/\s+/).filter(Boolean).map(calendarWord).join(' ');
 }
 
+function calendarActivityDot(activities) {
+  return activities.length ? '<span class="calendar-activity-dot" aria-hidden="true"></span>' : '';
+}
+
 function renderCal() {
   const days = computeYear();
   const today = fmt(new Date());
@@ -518,8 +557,8 @@ function renderCal() {
       const sel = calPick.has(x.ds) ? ' sel' : '';
       const al = (acts[x.ds] || []).filter(t => t.status !== 'canceled');
       const tip = x.ds + ' ' + TYPE_LABEL[x.type] + (x.name ? ' · ' + x.name : '') + al.map(t => `\n· ${t.kind} ${t.title} (${t.status === 'confirmed' ? '확정' : '신청'})`).join('');
-      html += `<div class="day ${x.type}${sel}${x.ds === today ? ' today' : ''}" data-ds="${x.ds}" title="${esc(tip)}">
-        <span class="d">${x.d.getDate()}</span>${al.length ? `<span class="acts ${al.some(t => t.status === 'confirmed') ? 'c' : ''}">${al.length}</span>` : ''}<span class="n">${calendarLabel(x.name || (al[0] ? al[0].title : ''))}</span></div>`;
+      html += `<button type="button" class="day ${x.type}${sel}${x.ds === today ? ' today' : ''}" data-ds="${x.ds}" aria-pressed="${!!sel}" aria-label="${esc(tip)}" title="${esc(tip)}" ${canEditCal() ? '' : 'disabled'}>
+        <span class="d">${x.d.getDate()}</span>${calendarActivityDot(al)}</button>`;
     });
     html += '</div></div>';
   }
@@ -587,6 +626,15 @@ function renderCalSide() {
     ? picked.map(ds => `<span class="pick">${fmtK(ds)}</span>`).join('') + ` <button class="x" id="edClearPick" title="선택 해제">✕</button>`
     : '<span class="hint">선택한 날짜 없음</span>';
   $('edSel').classList.toggle('set', picked.length > 0);
+  const details = $('calSelectedDetails');
+  const activities = window.Activities?.items || {};
+  const selected = computeYear().filter(day => calPick.has(day.ds));
+  const rows = selected.flatMap(day => {
+    const labels = [day.name, ...(activities[day.ds] || []).filter(item => item.status !== 'canceled').map(item => item.title)].filter(Boolean);
+    return labels.length ? [`<li><b>${fmtK(day.ds)}</b><span>${labels.map(esc).join(' · ')}</span></li>`] : [];
+  });
+  details.hidden = !rows.length;
+  details.innerHTML = rows.join('');
   const k = edKind();
   $('edEtcBox').hidden = k !== 'etc';
   $('btnApply').disabled = !picked.length || !canEditCal();
@@ -915,7 +963,7 @@ function homeMonthItems(y, m) {
     if (!x.name || x.type === 'weekend' || x.type === 'school') return;
     const last = out[out.length - 1];
     if (last && !last.act && last.name === x.name && (parse(x.ds) - parse(last.end)) <= 4 * 86400000) { last.end = x.ds; return; }
-    out.push({ start: x.ds, end: x.ds, name: x.name, type: x.type, ev: x.ev });
+    out.push({ start: x.ds, end: x.ds, name: x.name, type: x.type, events: x.events });
   });
   // 교육활동(외부강의 등, 취소 제외)
   const acts = window.Activities ? Activities.items : {};
@@ -937,35 +985,65 @@ function renderHomeMonth() {
   $('homeMonth').innerHTML = items.length ? items.map(it => {
     const d = parse(it.start), [tag, tone] = it.type === 'act' ? [`${it.kind} · ${it.status === 'confirmed' ? '확정' : '신청'}`, it.status === 'confirmed' ? 'blue' : 'gray'] : (HOME_TAG[it.type] || ['일정', 'gray']);
     const range = it.end !== it.start ? ` ~ ${parse(it.end).getMonth() + 1}.${parse(it.end).getDate()}` : '';
-    const time = it.type === 'act' ? (it.periods.length >= 6 ? '종일' : it.periods.join('·') + '교시') : it.ev ? `1~${it.ev.hrs}교시` : '';
+    const eventPeriods = [...new Set((it.events || []).flatMap(p => Object.keys(p.subjects)))].sort((a, b) => a - b);
+    const time = it.type === 'act' ? (it.periods.length >= 6 ? '종일' : it.periods.join('·') + '교시')
+      : it.events?.some(p => p.allDay) ? '전일' : eventPeriods.length ? eventPeriods.join('·') + '교시' : '';
     return `<li class="${it.end < today ? 'past' : ''}"><span class="mday"><b>${d.getDate()}</b><small>${WD[d.getDay()]}</small></span>
       <span class="mtxt"><b>${esc(it.name)}</b><small>${range ? `${d.getMonth() + 1}.${d.getDate()}${range} · ` : ''}${esc(time)}</small></span>
       <span class="mtag ${tone}">${esc(tag)}</span></li>`;
   }).join('') : '<li class="empty">이 달에는 등록된 학사일정이 없습니다.</li>';
 }
 
+function renderHomeWork() {
+  if ($('homeWork').hidden) return;
+  const today = new Date();
+  const monday = addDays(today, -((today.getDay() + 6) % 7));
+  const sunday = addDays(monday, 6);
+  const start = fmt(monday), end = fmt(sunday);
+  const items = homeMonthItems(monday.getFullYear(), monday.getMonth());
+  if (start.slice(0, 7) !== end.slice(0, 7)) {
+    items.push(...homeMonthItems(sunday.getFullYear(), sunday.getMonth()));
+  }
+  const week = items.filter(item => item.start <= end && item.end >= start);
+  $('homeWeekRange').textContent = fmtK(start) + ' – ' + fmtK(end);
+  $('homeWeekList').innerHTML = week.length ? week.map(item => {
+    const from = item.start < start ? start : item.start;
+    const to = item.end > end ? end : item.end;
+    const date = fmtK(from) + (from === to ? '' : ' ~ ' + fmtK(to));
+    const status = item.type === 'act' ? (item.status === 'confirmed' ? '확정' : '신청') : '';
+    return homeWorkRow(date, item.name, status);
+  }).join('') : '<li class="empty">이번 주에 등록된 일정이 없습니다.</li>';
+
+  const uid = window.Cloud?.user?.uid;
+  const activities = Object.entries(window.Activities?.items || {});
+  const mine = uid ? activities.flatMap(([date, list]) => list
+    .filter(item => item.ownerUid === uid && ['pending', 'confirmed'].includes(item.status))
+    .map(item => ({ ...item, date }))) : [];
+  const pending = mine.filter(item => item.status === 'pending');
+  const upcoming = mine.filter(item => item.date >= fmt(today))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  $('homeActivitySummary').textContent = '확정 전 ' + pending.length + '건 · 예정 ' + upcoming.length + '건';
+  $('homeActivityList').innerHTML = upcoming.length ? upcoming.slice(0, 4).map(item => {
+    const periods = item.periods?.length ? ' · ' + item.periods.join('·') + '교시' : '';
+    return homeWorkRow(fmtK(item.date) + periods, item.title, item.status === 'confirmed' ? '확정' : '신청');
+  }).join('') : '<li class="empty">예정된 내 교육활동이 없습니다.</li>';
+}
+
+function homeWorkRow(date, title, status) {
+  const badge = status ? '<span class="mtag ' + (status === '확정' ? 'blue' : 'gray') + '">' + status + '</span>' : '';
+  return '<li><div><small>' + esc(date) + '</small><strong>' + esc(title) + '</strong></div>' + badge + '</li>';
+}
+
 function renderHome() {
-  const s = state.school, st = dayStats();
-  const teacher = isTeacherView();
   const locked = window.App.locked && window.App.locked();
-  $('homeYear').textContent = `${s.year}학년도`;
   if (window.App.renderGate) window.App.renderGate($('homeGate')); else $('homeGate').innerHTML = '';
   const gateOk = !locked && !$('homeGate').querySelector('.neg');
   $('homeGate').hidden = gateOk && !!window.FIREBASE_CONFIG;
   $('homePanel').hidden = !!locked;
-  $('homeKpi').hidden = !!locked;
-
-  // 첫 번째 버튼: 관리자 = 교육과정 편성, 선생님 = 교육활동 신청
-  $('homeBtn1').dataset.go = teacher ? 'act' : 'curr';
-  $('homeBtn1').querySelector('span').textContent = teacher ? '신규 학사일정 등록' : '교육과정 살펴보기';
+  $('homeWork').hidden = !!locked;
   if (locked) return;
 
-  const nClass = GRADES.reduce((t, g) => t + (Number(s.classes[g]) || 0), 0);
-  const monthN = (() => { const n = new Date(); return homeMonthItems(n.getFullYear(), n.getMonth()).length; })();
-  const stat = (ico, value, label) => `<div class="hx-stat"><span class="hx-sico">${ico}</span><div><b>${value}</b><small>${label}</small></div></div>`;
-  $('homeKpi').innerHTML = stat(ICON.cal, `${st.total}일`, '연간 수업일수') + stat(ICON.people, `${nClass}학급`, '편성 학급') +
-    stat(ICON.check, `${monthN}건`, '이번 달 학사일정');
-
+  renderHomeWork();
   renderHomeMonth();
   if (window.HomeLog) HomeLog.render();
   if (window.SchoolStatus) SchoolStatus.renderHome();
@@ -1052,6 +1130,7 @@ function bind() {
     if (!canEditCal()) return;
     toggleCalPick(c.dataset.ds, e.shiftKey);
     renderCal();
+    $('calGrid').querySelector(`.day[data-ds="${c.dataset.ds}"]`)?.focus({ preventScroll: true });
   });
   document.addEventListener('click', e => {
     if (curTab !== 'cal' || !calPick.size) return;
@@ -1059,7 +1138,10 @@ function bind() {
     if (e.target.closest('#calEditor input, #calEditor label, #calEditor button')) return;
     calPick.clear();
     calLastPick = null;
-    $('calGrid').querySelectorAll('.day.sel').forEach(day => day.classList.remove('sel'));
+    $('calGrid').querySelectorAll('.day.sel').forEach(day => {
+      day.classList.remove('sel');
+      day.setAttribute('aria-pressed', 'false');
+    });
     renderCalSide();
   }, true);
   $('edSel').addEventListener('click', e => { if (e.target.id === 'edClearPick') { calPick.clear(); calLastPick = null; renderCal(); } });
