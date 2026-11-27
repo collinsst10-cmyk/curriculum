@@ -105,42 +105,66 @@
 
   function paneClass() {
     const e = env();
-    const total = GRADES.reduce((t, g) => t + (Number(state.school.classes[g]) || 0), 0);
+    const total = GRADES.reduce((sum, grade) => sum + (Number(state.school.classes[grade]) || 0), 0);
     const kc = Math.max(0, Math.min(3, Number(state.school.kclass ?? 3)));
-    return `<div class="env-head"><h2>학급 현황 설정</h2><span class="hint">일반 학급 ${total}개 · 교과전담 ${e.teachers.length}명 · 한국어학급 ${kc}개 · 특수학급 ${e.special.length}개</span></div>
-      <p class="hint">학급 수는 <a href="#school">학교 정보 › 기본 정보</a>에서 정합니다.</p>
-      <div class="env-grades">${GRADES.map(g => { const n = Number(state.school.classes[g]) || 0; return `<section class="env-grade">
-        <div class="env-grade-h"><b>${g}학년</b><span class="hint">${n}학급 <span class="env-weekly">주 ${(state.school.periods[g] || []).reduce((sum, periods) => sum + (Number(periods) || 0), 0)}차시</span></span></div>
-        <table class="tbl env-tbl"><thead><tr><th>학급</th><th>담임</th></tr></thead><tbody>
-        ${Array.from({ length: n }, (_, i) => { const k = `${g}-${i + 1}`, ci = e.classInfo[k] || {}; return `<tr><th class="env-cls-name">${i + 1}반</th>
-          <td><input data-ci="${k}" data-f="teacher" maxlength="20" placeholder="담임 이름" value="${esc(ci.teacher || '')}"></td></tr>`; }).join('') || '<tr><td colspan="2" class="hint">① 학교 정보에서 학급 수를 입력하세요</td></tr>'}
-        </tbody></table></section>`; }).join('')}</div>
-      <div class="env-staff-layout">
-      <section class="env-sub"><div class="env-sub-h"><h3>교과전담</h3><a class="hint" href="#" data-goroom>특별실-전담 배정</a></div>
-        <table class="tbl env-tbl fit env-staff"><thead><tr><th>교과</th><th>교사 이름</th><th>담당 학급</th><th>주당 시수</th></tr></thead><tbody>
-        ${e.teachers.map(t => { const rows = state.jundam.filter(r => r.teacher === t.name);
-          const subs = [...new Set(rows.map(r => subjName(r.subj)))];
-          const grades = GRADES.filter(g => rows.some(r => Number(r.grade) === g));
-          return `<tr><th scope="row">${subs.map(s => `<span class="env-jd">${esc(s)}</span>`).join(' ') || '미배정'}</th>
-          <td>${esc(t.teacher || t.name || '미등록')}</td>
-          <td class="l">${grades.map(g => `${g}학년`).join(' · ') || '<span class="hint">배정 없음</span>'}</td>
-          <td class="num">${teacherHours(t.name)}</td></tr>`; }).join('')}
-        ${!e.teachers.length ? '<tr><td colspan="4" class="hint">등록된 전담 교사가 없습니다.</td></tr>' : ''}
-        </tbody></table></section>
-      <section class="env-sub"><div class="env-sub-h"><h3>한국어학급</h3></div>
-        <table class="tbl env-tbl fit env-staff"><thead><tr><th>학급</th><th>담임</th></tr></thead><tbody>
-        ${Array.from({ length: kc }, (_, i) => { const k = `k-${i + 1}`, ci = e.classInfo[k] || {}; return `<tr><th class="env-cls-name">한국어학급 ${i + 1}</th>
-          <td><input data-ci="${k}" data-f="teacher" maxlength="20" aria-label="한국어학급 ${i + 1} 담임 이름" placeholder="담임 이름" value="${esc(ci.teacher || '')}"></td></tr>`; }).join('')}
-        ${!kc ? '<tr><td colspan="2" class="hint">등록된 한국어학급이 없습니다.</td></tr>' : ''}
-        </tbody></table></section>
+    const locked = ro() ? 'disabled' : '';
+    const metrics = [['일반학급', total, '학급'], ['교과전담', e.teachers.length, '명'], ['한국어학급', kc, '학급'], ['특수학급', e.special.length, '학급']];
+    const classRow = (label, key, accessibleLabel = label) => `<li class="class-dash-row">
+      <span>${label}</span><input data-ci="${key}" data-f="teacher" maxlength="20" aria-label="${accessibleLabel} 담임" placeholder="담임 이름" value="${esc(e.classInfo[key]?.teacher || '')}" ${locked}>
+    </li>`;
+    const addSpecial = `<button type="button" class="btn small" data-add="special" ${locked}>+ 특수학급 추가</button>`;
+
+    return `<div class="class-dash">
+      <header><h2>학급 현황 설정</h2>
+        <dl class="class-dash-metrics">${metrics.map(([label, count, unit]) => `<div class="class-dash-card">
+          <dt>${label}</dt><dd><strong>${count}</strong> ${unit}</dd></div>`).join('')}</dl>
+      </header>
+      <section aria-labelledby="envClassTitle">
+        <div class="class-dash-heading"><h3 id="envClassTitle">일반학급</h3><a href="#school">학급 수 설정</a></div>
+        <div class="class-dash-grades">${GRADES.map(grade => {
+          const count = Number(state.school.classes[grade]) || 0;
+          const hours = (state.school.periods[grade] || []).reduce((sum, periods) => sum + (Number(periods) || 0), 0);
+          const rows = Array.from({ length: count }, (_, i) => classRow(`${i + 1}반`, `${grade}-${i + 1}`, `${grade}학년 ${i + 1}반`));
+          return `<section class="class-dash-card">
+            <div class="class-dash-heading"><h4>${grade}학년</h4><span>${count}학급</span></div>
+            <p class="class-dash-week">주 ${hours}차시</p>
+            ${rows.length ? `<ul class="class-dash-list">${rows.join('')}</ul>` : '<p class="class-dash-note">등록된 학급이 없습니다.</p>'}
+          </section>`;
+        }).join('')}</div>
+      </section>
+      <div class="class-dash-staff">
+        <section class="class-dash-card">
+          <div class="class-dash-heading"><h3>교과전담</h3><span>주당 시수</span></div>
+          ${e.teachers.length ? `<ul class="class-dash-list">${e.teachers.map(t => {
+            const rows = state.jundam.filter(r => r.teacher === t.name);
+            const subjects = [...new Set(rows.map(r => subjName(r.subj)))];
+            const grades = GRADES.filter(g => rows.some(r => Number(r.grade) === g));
+            return `<li class="class-dash-row class-dash-teacher">
+              <div class="class-dash-badges">${subjects.map(subject => `<span class="class-dash-subject area-${scheduleSubjectArea(subject)}">${esc(subject)}</span>`).join('') || '<span class="class-dash-subject area-other">미배정</span>'}</div>
+              <div><strong>${esc(t.teacher || t.name || '미등록')}</strong><small>${grades.map(g => `${g}학년`).join(' · ') || '담당 학년 미정'}</small></div>
+              <div class="class-dash-hours"><strong>${teacherHours(t.name)}</strong><small>차시</small></div>
+            </li>`;
+          }).join('')}</ul>` : '<p class="class-dash-note">등록된 전담 교사가 없습니다.</p>'}
+          <footer><a href="#" data-goroom>특별실·전담 배정 →</a></footer>
+        </section>
+        <section class="class-dash-card">
+          <div class="class-dash-heading"><h3>한국어학급</h3><span>${kc}학급</span></div>
+          ${kc ? `<ul class="class-dash-list">${Array.from({ length: kc }, (_, i) => classRow(`한국어학급 ${i + 1}`, `k-${i + 1}`)).join('')}</ul>` : '<p class="class-dash-note">등록된 한국어학급이 없습니다.</p>'}
+        </section>
+        <section class="class-dash-card">
+          <div class="class-dash-heading"><h3>특수학급</h3><span>${e.special.length}학급</span></div>
+          ${e.special.length ? `<ul class="class-dash-list">${e.special.map((s, i) => `<li class="class-dash-special">
+            <label>학급 이름<input data-sp="${i}" data-f="name" maxlength="20" placeholder="예: 희망반" value="${esc(s.name || '')}" ${locked}></label>
+            <label>담임<input data-sp="${i}" data-f="teacher" maxlength="20" value="${esc(s.teacher || '')}" ${locked}></label>
+            <label>학생 수${nIn(`data-sp="${i}" data-f="students" max="99" ${locked}`, s.students)}</label>
+            <button type="button" class="sm-del" data-del="special" data-i="${i}" ${locked}>삭제</button>
+          </li>`).join('')}</ul><footer>${addSpecial}</footer>` : `<div class="class-dash-empty">
+            <span class="class-dash-empty-icon" aria-hidden="true"></span>
+            <p>등록된 특수학급이 없습니다.</p>${addSpecial}
+          </div>`}
+        </section>
       </div>
-      <section class="env-sub"><div class="env-sub-h"><h3>특수학급</h3><button type="button" class="btn small" data-add="special">+ 특수학급 추가</button></div>
-        <table class="tbl env-tbl fit"><thead><tr><th>학급 이름</th><th>담임</th><th>학생 수</th><th></th></tr></thead><tbody>
-        ${e.special.map((s, i) => `<tr><td><input data-sp="${i}" data-f="name" maxlength="20" placeholder="예: 희망반" value="${esc(s.name || '')}"></td>
-          <td><input data-sp="${i}" data-f="teacher" maxlength="20" value="${esc(s.teacher || '')}"></td>
-          <td>${nIn(`data-sp="${i}" data-f="students" max="99"`, s.students)}</td>
-          <td class="c"><button type="button" class="sm-del" data-del="special" data-i="${i}">삭제</button></td></tr>`).join('') || '<tr><td colspan="4" class="hint">특수학급이 없으면 비워 두세요</td></tr>'}
-        </tbody></table></section>`;
+    </div>`;
   }
 
   /* 특별실-전담: 왼쪽 두 목록(스쿨마스터와 같은 구성) + 아래 배정표 */

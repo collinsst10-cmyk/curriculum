@@ -24,6 +24,10 @@ function roomNames() {
   return ((state.env && state.env.rooms) || []).map(r => (r.name || '').trim()).filter(Boolean);
 }
 const isRoomKind = k => !!k && k !== '전담과목' && k !== '외부강의';
+const scheduleSubjectArea = title => {
+  const name = title.trim();
+  return name === '영어' ? 'english' : name === '과학' ? 'science' : 'other';
+};
 
 /** 이 배치가 쓰는 특별실: 시설 배치는 그 이름, 디지털튜터는 컴퓨터실,
  *  전담과목은 특별실-전담 배정에서 그 학년·교과·반에 정한 특별실 */
@@ -90,9 +94,7 @@ function scheduleConflict(entries, candidate, editing) {
       if (title === '디지털튜터') return 'tutor';
       return 'external';
     }
-    if (entry.title.trim() === '영어') return 'english';
-    if (entry.title.trim() === '과학') return 'science';
-    return 'other';
+    return scheduleSubjectArea(entry.title);
   }
   let currentState;
   let currentYear;

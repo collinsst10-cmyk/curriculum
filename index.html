@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=202611271330">
+<link rel="stylesheet" href="style.css?v=202611271349">
 </head>
 <body>
 <header class="topbar">
@@ -341,18 +341,31 @@
           <div class="row"><button class="btn small" id="lgPrev" aria-label="이전 날">◀</button><input type="date" id="lgDate"><button class="btn small" id="lgNext" aria-label="다음 날">▶</button><button class="btn small" id="lgToday">오늘</button></div>
         </div>
         <p class="log-date" id="lgTitle"></p>
-        <textarea id="lgText" rows="16" maxlength="20000" placeholder="이 날의 학교 일지(학교운영일지) 내용을 입력하거나 붙여 넣으세요."></textarea>
-        <div class="row"><button class="btn primary" id="lgSave">저장</button><button class="btn danger" id="lgDelete" hidden>삭제</button><span id="lgStatus" class="hint" role="status"></span></div>
-        <p class="hint">저장하면 선생님들이 HOME의 학교운영일지에서 바로 볼 수 있습니다.</p>
+        <div class="lg-form" id="lgForm">
+          <label class="lg-sec"><span>전달사항</span><textarea id="lgNotice" data-lg="notice" rows="5" maxlength="6000" placeholder="교직원에게 전달할 내용"></textarea></label>
+          <label class="lg-sec"><span>주요행사 및 교육활동</span><textarea id="lgEvents" data-lg="events" rows="5" maxlength="6000" placeholder="오늘의 행사, 교육활동"></textarea></label>
+          <label class="lg-sec"><span>생활지도 및 안전지도</span><textarea id="lgGuide" data-lg="guidance" rows="4" maxlength="6000" placeholder="생활지도·안전지도 내용"></textarea></label>
+          <div class="lg-sec"><span>근무상황</span>
+            <table class="lg-duty"><colgroup><col class="w"><col><col></colgroup>
+              <thead><tr><th>구분</th><th>오늘 복무</th><th>예정</th></tr></thead>
+              <tbody>
+                <tr><th>교장</th><td><textarea data-duty="p.today" rows="2" maxlength="500" placeholder="예: 정상 근무"></textarea></td><td><textarea data-duty="p.plan" rows="2" maxlength="500"></textarea></td></tr>
+                <tr><th>교감</th><td><textarea data-duty="v.today" rows="2" maxlength="500"></textarea></td><td><textarea data-duty="v.plan" rows="2" maxlength="500"></textarea></td></tr>
+                <tr><th>행정실장</th><td><textarea data-duty="a.today" rows="2" maxlength="500"></textarea></td><td><textarea data-duty="a.plan" rows="2" maxlength="500"></textarea></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="row lg-actions"><button class="btn primary" id="lgSave">저장</button>
+          <button class="btn" id="lgHwp" type="button">한글 파일로 저장</button>
+          <label class="btn" id="lgImportBtn">한글 파일 불러오기<input type="file" id="lgImport" accept=".hwp,.hwpx" hidden></label>
+          <button class="btn danger" id="lgDelete" hidden>삭제</button><span id="lgStatus" class="hint" role="status"></span></div>
+        <p class="hint">저장하면 선생님들이 HOME의 학교운영일지에서 바로 볼 수 있습니다. 한글 파일(.hwp, .hwpx)을 불러오면 항목별로 알아서 채워지니, 확인한 뒤 저장하세요.</p>
       </div>
       <div>
         <div class="card"><h2>최근 일지</h2><div id="lgRecent" class="log-recent"></div></div>
-        <div class="card" id="lgWritersCard" hidden>
-          <h2>일지 작성자(교무부장) 지정</h2>
-          <p class="hint">여기 등록한 구글 계정은 '학교 일지' 메뉴에서 일지를 작성·수정할 수 있습니다. 승인된 사용자여야 합니다.</p>
-          <ul id="lgWriters" class="hp-list"></ul>
-          <form id="lgWriterForm" class="row"><input type="email" required maxlength="254" placeholder="교무부장 구글 이메일"><button class="btn small" type="submit">추가</button></form>
-          <p id="lgWriterStatus" class="hint" role="status"></p>
+        <div class="card"><h2>작성 권한</h2>
+          <p class="hint">학교 일지는 <b>교무부장</b>만 작성·수정할 수 있습니다. 교무부장 지정은 <a href="#admin">관리자</a> 메뉴의 허용 사용자 목록에서 직위를 '교무부장'으로 정하면 됩니다. 다른 선생님은 HOME에서 읽고 한글 파일로 내려받을 수 있습니다.</p>
         </div>
       </div>
     </div>
@@ -863,28 +876,29 @@
   <div id="cloudBody"></div>
 </dialog>
 
-<script src="data.js?v=202611271330"></script>
-<script src="app.js?v=202611271330"></script>
-<script src="features.js?v=202611271330"></script>
-<script src="cloud-config.js?v=202611271330"></script>
-<script src="cloud.js?v=202611271330"></script>
-<script src="shopping-accounts.js?v=202611271330"></script>
-<script src="activities.js?v=202611271330"></script>
-<script src="haksa.js?v=202611271330"></script>
-<script src="menus.js?v=202611271330"></script>
-<script src="schedule.js?v=202611271330"></script>
-<script src="kclass.js?v=202611271330"></script>
-<script src="home.js?v=202611271330"></script>
-<script src="status.js?v=202611271330"></script>
-<script src="log.js?v=202611271330"></script>
-<script src="transfer.js?v=202611271330"></script>
-<script src="migrant.js?v=202611271330"></script>
-<script src="roster.js?v=202611271330"></script>
-<script src="site.js?v=202611271330"></script>
-<script src="env.js?v=202611271330"></script>
-<script src="pyeonje.js?v=202611271330"></script>
-<script src="pyeonje-grade.js?v=202611271330"></script>
-<script src="calextra.js?v=202611271330"></script>
-<script src="savebar.js?v=202611271330"></script>
+<script src="data.js?v=202611271349"></script>
+<script src="app.js?v=202611271349"></script>
+<script src="features.js?v=202611271349"></script>
+<script src="cloud-config.js?v=202611271349"></script>
+<script src="cloud.js?v=202611271349"></script>
+<script src="shopping-accounts.js?v=202611271349"></script>
+<script src="activities.js?v=202611271349"></script>
+<script src="haksa.js?v=202611271349"></script>
+<script src="menus.js?v=202611271349"></script>
+<script src="schedule.js?v=202611271349"></script>
+<script src="kclass.js?v=202611271349"></script>
+<script src="hwpx.js?v=202611271349"></script>
+<script src="home.js?v=202611271349"></script>
+<script src="status.js?v=202611271349"></script>
+<script src="log.js?v=202611271349"></script>
+<script src="transfer.js?v=202611271349"></script>
+<script src="migrant.js?v=202611271349"></script>
+<script src="roster.js?v=202611271349"></script>
+<script src="site.js?v=202611271349"></script>
+<script src="env.js?v=202611271349"></script>
+<script src="pyeonje.js?v=202611271349"></script>
+<script src="pyeonje-grade.js?v=202611271349"></script>
+<script src="calextra.js?v=202611271349"></script>
+<script src="savebar.js?v=202611271349"></script>
 </body>
 </html>

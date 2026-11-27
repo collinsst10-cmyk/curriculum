@@ -1271,12 +1271,7 @@ main:has(#tab-home.active) { max-width: none; padding: 0 0 24px; }
 .env-tbl input:not([type="checkbox"]), .env-tbl select { font: inherit; font-size: 14px; padding: 6px 8px; border: 1px solid #d7dce8; border-radius: 8px; width: 100%; box-sizing: border-box; background: #fff; }
 .env-tbl input[type="number"], .env-tbl input[type="time"] { width: auto; }
 .env-tbl tbody th { white-space: nowrap; color: var(--nv-d); }
-.env-grades, .env-books { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin: 12px 0 18px; }
-.env-grade { border: 1px solid #e3e7f0; border-radius: 14px; padding: 12px 14px; background: #fff; }
-.env-grade-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.env-grade-h b { font-size: 17px; color: var(--nv-d); font-family: var(--f8); }
-.env-grade-h label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #6b7488; }
-.env-grade-h input { font: inherit; padding: 5px 6px; border: 1px solid #d7dce8; border-radius: 8px; }
+.env-books { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin: 12px 0 18px; }
 .env-sub { margin: 18px 0 0; }
 .env-sub-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .env-sub-h h3 { margin: 0; font-size: 17px; color: var(--nv-d); }
@@ -1681,23 +1676,63 @@ th.kc-col { color: #5b21b6; }
 @media print { .save-fab, .toast { display: none !important; } }
 
 /* 학교사용환경설정: 표는 내용만큼만, 칸 폭 고정·정렬 맞춤 + 전담 교과 고르기 */
-.env-grades { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
-@media (max-width: 1350px) { .env-grades { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 780px) { .env-grades { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 440px) { .env-grades { grid-template-columns: minmax(0, 1fr); } }
-.env-grade-h { flex-wrap: wrap; gap: 4px 8px; }
-.env-weekly { display: inline-block; margin-left: 4px; padding: 2px 6px; border-radius: 8px; color: var(--nv); background: var(--nv-pale); white-space: nowrap; }
-.env-grade { padding: 10px 12px; }
+.class-dash {
+  --dash-text: #172b4d; --dash-muted: #64748b; --dash-line: #e2e8f0;
+  container-type: inline-size;
+  display: grid; gap: 26px; padding: 20px; border-radius: 12px;
+  background: #f7f8fc; color: var(--dash-text); font-size: 14px;
+}
+.class-dash h2, .class-dash h3, .class-dash h4 { color: var(--dash-text); margin: 0; }
+.class-dash h2 { font-family: var(--f7); font-size: 24px; margin-bottom: 12px; }
+.class-dash h3 { font-family: var(--f6); font-size: 18px; }
+.class-dash h4 { font-size: 16px; }
+.class-dash a { color: var(--nv); font-size: 12px; text-underline-offset: 3px; }
+.class-dash-card { min-width: 0; padding: 16px; background: #fff; border: 1px solid var(--dash-line); border-radius: 12px; }
+.class-dash-metrics, .class-dash-grades, .class-dash-staff { display: grid; gap: 16px; }
+.class-dash-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; }
+.class-dash-metrics .class-dash-card { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 2px 8px; padding-block: 10px; }
+.class-dash-metrics dt, .class-dash-metrics dd { color: var(--dash-muted); font-size: 12px; margin: 0; }
+.class-dash-metrics strong { color: var(--dash-text); font-size: 23px; line-height: 1.1; }
+.class-dash-grades { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.class-dash-staff { grid-template-columns: minmax(0, 5fr) minmax(0, 4fr) minmax(0, 3fr); align-items: stretch; }
+.class-dash-staff > section { display: flex; flex-direction: column; gap: 8px; }
+.class-dash-heading { display: flex; justify-content: space-between; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.class-dash-heading > span, .class-dash-note { color: var(--dash-muted); font-size: 12px; }
+.class-dash > section > .class-dash-heading { margin-bottom: 10px; }
+.class-dash-week { margin: 4px 0 6px; color: var(--nv); font-size: 12px; }
+.class-dash-list { list-style: none; margin: 0; padding: 0; }
+.class-dash-list li + li { border-top: 1px solid var(--dash-line); }
+.class-dash-row { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; padding-block: 6px; min-height: 43px; }
+.class-dash input { width: 100%; min-width: 0; border-color: transparent; padding: 4px 5px; color: var(--dash-text); }
+.class-dash input:hover:not(:disabled), .class-dash input:focus { border-color: var(--dash-line); background: #f7f8fc; }
+.class-dash input::placeholder { color: var(--dash-muted); font-size: 12px; }
+.class-dash-row input { text-align: right; }
+.class-dash-teacher { grid-template-columns: minmax(56px, 1fr) minmax(0, 2fr) auto; }
+.class-dash-teacher > div { min-width: 0; overflow-wrap: anywhere; }
+.class-dash-teacher small { display: block; font-size: 12px; color: var(--dash-muted); }
+.class-dash-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.class-dash-subject { padding: 2px 6px; border-radius: 6px; font-size: 12px; background: var(--bg); color: var(--dash-text); border-inline-start: 2px solid var(--c); }
+.class-dash-hours { text-align: right; font-variant-numeric: tabular-nums; }
+.class-dash-staff footer { margin-top: auto; padding-top: 8px; }
+.class-dash-special { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 4px 8px; padding: 7px 0; }
+.class-dash-special label { display: grid; gap: 2px; min-width: 0; font-size: 12px; color: var(--dash-muted); }
+.class-dash-special button { justify-self: end; }
+.class-dash-empty { flex: 1; display: grid; justify-items: center; align-content: center; gap: 8px; padding: 12px 0; text-align: center; }
+.class-dash-empty p { margin: 0; color: var(--dash-muted); font-size: 12px; }
+.class-dash-empty-icon { width: 23px; height: 18px; border: 1.5px solid var(--dash-muted); border-radius: 4px; position: relative; }
+.class-dash-empty-icon::after { content: ''; position: absolute; inset: 6px 5px; border-top: 1.5px solid var(--dash-muted); border-bottom: 1.5px solid var(--dash-muted); }
+@container (max-width: 1080px) { .class-dash-grades { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@container (max-width: 720px) { .class-dash-staff { grid-template-columns: minmax(0, 1fr); } }
+@container (max-width: 510px) {
+  .class-dash-metrics, .class-dash-grades { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .class-dash-card { padding: 12px; }
+}
+@container (max-width: 275px) { .class-dash-grades { grid-template-columns: minmax(0, 1fr); } }
 .env-tbl th, .env-tbl td { padding: 6px 8px; vertical-align: middle; }
 .env-tbl .env-cls-name { width: auto; }
 .env-tbl td.c, .env-tbl th.c { text-align: center; }
 /* 내용만큼만 차지하는 표 */
 .env-tbl.fit { width: auto; max-width: 100%; border: 1px solid #dfe4ee; border-radius: 12px; border-collapse: separate; border-spacing: 0; overflow: hidden; }
-.env-tbl.fit.env-staff { width: 100%; }
-.env-staff-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 14px; }
-@media (max-width: 900px) { .env-staff-layout { grid-template-columns: minmax(0, 1fr); gap: 0; } }
-.env-tbl.fit.env-staff input:not([type]) { width: min(100%, 160px); }
-.env-staff th:first-child { white-space: normal; }
 .env-tbl.fit th, .env-tbl.fit td { border: 0; border-bottom: 1px solid #edf0f5; height: 44px; box-sizing: border-box; }
 .env-tbl.fit thead th { background: #f4f6fa; color: #5b6478; font-size: 13px; height: 38px; border-bottom: 1px solid #dfe4ee; }
 .env-tbl.fit tbody tr:last-child > * { border-bottom: 0; }
