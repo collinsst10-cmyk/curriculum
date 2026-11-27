@@ -8,20 +8,17 @@ window.BehaviorUI = (() => {
   const versions = new Map();
   let rows = [], active = '', ownerKey = '', room = '', epoch = 0;
 
-  // Use only the administrator-assigned classroom for this additional student record.
   function permitted(student) {
-    const position = Cloud.position || {};
-    return Cloud.ready && (Cloud.isAdmin() || (position.posType === 'homeroom' &&
-      position.posCls === student.grade + '-' + student.cls));
+    return Cloud.ready && !!student.year;
   }
 
   function reference(student) {
-    return Cloud.fb.F.doc(Cloud.fb.db, 'students', student.id, 'privateRecords', 'behavior');
+    return Cloud.fb.F.doc(Cloud.fb.db, 'rosterYears', String(student.year), 'behavior', student.id);
   }
 
   function switchRoom(students) {
     const account = Cloud.ready ? Cloud.email : '';
-    const nextRoom = students[0] ? students[0].grade + '-' + students[0].cls : '';
+    const nextRoom = students[0] ? students[0].year + ':' + students[0].grade + '-' + students[0].cls : '';
     if (account !== ownerKey || nextRoom !== room) {
       ++epoch;
       drafts.clear(); items.clear(); versions.clear(); active = '';
@@ -39,9 +36,13 @@ window.BehaviorUI = (() => {
     for (const student of rows) {
       if (items.has(student.id)) continue;
       items.set(student.id, { loading: true });
-      Cloud.fb.F.getDoc(reference(student)).then(snapshot => {
+      Cloud.fb.F.getDoc(reference(student)).then(async snapshot => {
+        if (snapshot.exists() || !Cloud.isAdmin() || !student.legacyId) return snapshot.data() || {};
+        const { F, db } = Cloud.fb;
+        const archive = await F.getDoc(F.doc(db, 'rosterYears', String(student.year), 'records', student.id));
+        return archive.data() || {};
+      }).then(data => {
         if (current !== epoch) return;
-        const data = snapshot.data() || {};
         items.set(student.id, { traits: data.traits || {}, opinion: data.opinion || '', target: data.target || 300 });
         if (active === student.id) render();
         else paintList();
@@ -136,7 +137,18 @@ window.BehaviorUI = (() => {
     const version = (versions.get(id) || 0) + 1;
     versions.set(id, version);
     try {
-      await Cloud.fb.F.setDoc(reference(student), patch, { mergeFields: Object.keys(patch) });
+      const { F, db } = Cloud.fb;
+      const ref = reference(student);
+      await F.runTransaction(db, async tx => {
+        const previous = await tx.get(ref);
+        if (previous.exists()) { tx.update(ref, patch); return; }
+        const year = String(student.year);
+        const refArchive = F.doc(db, 'rosterYears', year, 'records', student.id);
+        const archive = Cloud.isAdmin() && student.legacyId ? (await tx.get(refArchive)).data() : null;
+        const previousContent = archive ? { traits: archive.traits || {}, opinion: archive.opinion || '', target: archive.target || 300 } : {};
+        tx.set(ref, { ...previousContent, ...patch, studentId: student.id, membershipId: student.id, year,
+          grade: student.grade, cls: student.cls, no: student.no, classId: student.classId });
+      });
       if (current !== epoch) return false;
       if (version === versions.get(id)) message(id, '저장했습니다.');
       return true;

@@ -3,7 +3,8 @@
 /* =========================================================
  * 한국어학급 1~3 주간 시간표 (1~3교시)
  *  - 한 학급 = 담임교사 1명 + 강사 1명. 같은 시간에 서로 다른 학생을 맡음
- *  - kclassTimetables/{n}: { slots: { "요일-교시-t|i": { title, targets:"3-1, 4-2" } }, teacherName, instructorName }
+ *  - rosterYears/{year}/kclassTimetables: 교직원용 시간표와 원학급
+ *  - rosterYears/{year}/kclassParticipation: 권한이 제한된 학생 ID와 지도 기록
  *    (예전 "요일-교시" 키는 담임교사 수업으로 읽음)
  *  - 칸을 눌러 대화상자에서 수업명과 학생의 원학급(몇 학년 몇 반)을 고름
  * ========================================================= */
@@ -12,9 +13,11 @@
   const days = [1, 2, 3, 4, 5];
   const periods = [1, 2, 3];
   const ROLES = [['t', '담임교사'], ['i', '강사']];
-  const records = new Map();
+  const records = new Map(), operatingRecords = new Map();
   let subscriptions = [];
-  let generation = 0;
+  let generation = 0, selectedYear = '', unsubCandidates = null;
+  let candidates = [];
+  const yearRef = (name, n) => Cloud.fb.F.doc(Cloud.fb.db, 'rosterYears', selectedYear, name, String(n));
   let dlgCtx = null;   // { n, day, period, picks: { t:Set, i:Set } }
 
   // 지정된 담임 또는 관리자가 편집 (보안 규칙도 같음)
@@ -33,8 +36,9 @@
   /** "3-1, 4-2" → "3학년 1반, 4학년 2반" */
   const targetText = text => splitTargets(text).map(t => { const [g, c] = t.split('-'); return `${g}학년 ${c}반`; }).join(', ');
   /** 이주배경학생 현황에 등록한 학생 (이름을 볼 권한이 있을 때만 채워짐) */
-  const MS = () => (window.MigrantStudents ? MigrantStudents.list() : []);
-  const stuName = id => { const s = window.MigrantStudents?.byId(id); return s ? `${s.name}(${s.grade}-${s.cls})` : null; };
+  const MS = () => candidates;
+  const byStudent = id => candidates.find(student => student.id === id);
+  const stuName = id => { const s = byStudent(id); return s ? `${s.name}(${s.grade}-${s.cls})` : null; };
   /** 칸에 보일 학생: 이름을 볼 수 있으면 이름, 아니면 학급과 인원 */
   function whoText(c) {
     const ids = c.students || [];
@@ -56,6 +60,10 @@
       : editing ? (Cloud.isAdmin() && record.owner !== String(Cloud.email || '').toLowerCase() ? '관리자 편집 가능 · ' : '편집 가능 · ') + '시간표 칸을 누르면 담임교사·강사 수업과 학생의 학년·반을 정할 수 있습니다.'
       : record.owner ? '조회 전용 · 이 학급 담임이 시간표를 편집합니다.'
       : '조회 전용 · 관리자가 담임을 지정하면 편집할 수 있습니다.';
+    if (canEdit(record) && record.slots !== null) {
+      const count = new Set(Object.values(record.participation || {}).flat()).size;
+      $('kclassMode' + number).textContent += ' · 참여 학생 ' + count + '명';
+    }
     renderStaff(number, record, editing);
     const table = $('kclassGrid' + number);
     table.classList.toggle('editable', editing);
@@ -64,7 +72,7 @@
       days.map(day => '<th scope="col">' + WD[day] + '</th>').join('') + '</tr></thead><tbody>' +
       periods.map(period => '<tr><th scope="row">' + periodHead(period, '교시') + '</th>' + days.map(day => {
         const items = ROLES.map(([role, label]) => {
-          const c = cellOf(record.slots, day, period, role);
+          const c = slotWithStudents(record, day, period, role);
           if (!c || !(c.title || c.targets)) return '';
           return `<div class="kc-item ${role}"><span class="kc-who">${label}</span>` +
             (c.title && c.title !== '한국어' ? `<b>${esc(c.title)}</b>` : '') +
@@ -90,47 +98,106 @@
          <span><span class="kc-who i">강사</span> ${esc(inn || '미정')}</span>`;
   }
 
-  async function writeDoc(n, mutate) {
+  function slotWithStudents(record, day, period, role) {
+    const slot = cellOf(record.slots, day, period, role);
+    return slot ? { ...slot, students: record.participation?.[day + '-' + period + '-' + role] || [] } : null;
+  }
+
+  async function writeDoc(n, mutate, changeParticipation = false) {
     const { F, db } = Cloud.fb;
-    const ref = F.doc(db, 'kclassTimetables', String(n));
+    const ref = yearRef('kclassTimetables', n);
+    const privateRef = yearRef('kclassParticipation', n);
     await F.runTransaction(db, async tx => {
       const cur = (await tx.get(ref)).data() || {};
       const next = { slots: { ...(cur.slots || {}) }, teacherName: cur.teacherName || '', instructorName: cur.instructorName || '' };
-      mutate(next);
+      const participation = changeParticipation ? { ...(await tx.get(privateRef)).data()?.slots } : null;
+      mutate(next, participation);
       tx.set(ref, next);
+      if (participation) tx.set(privateRef, { slots: participation });
     });
   }
 
-  function subscribe() {
+  function subscribe(next = state.school.year) {
     const run = ++generation;
     subscriptions.forEach(unsubscribe => unsubscribe());
     subscriptions = [];
+    unsubCandidates?.(); unsubCandidates = null;
+    candidates = [];
     records.clear();
+    operatingRecords.clear();
+    dlgCtx = null;
+    if ($('kclassDlg').open) $('kclassDlg').close();
+    selectedYear = String(next || '');
+    const yearInput = $('kcYear');
+    yearInput.value = selectedYear;
+    yearInput.disabled = !Cloud.isAdmin();
     classes.forEach(n => { $('kclassStatus' + n).textContent = ''; render(n); });
-    if (!Cloud.ready) return;
+    if (!Cloud.ready || !/^20[0-9]{2}$/.test(selectedYear)) return;
     const { F, db } = Cloud.fb;
+    const watchCandidates = () => {
+      if (unsubCandidates || (!Cloud.isAdmin() && ![...records.values()].some(canEdit))) return;
+      unsubCandidates = F.onSnapshot(F.collection(db, 'rosterYears', selectedYear, 'migrantRoster'), snap => {
+        if (run !== generation) return;
+        candidates = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        classes.forEach(render);
+        if (dlgCtx) renderPicks();
+      }, () => { if (run === generation) candidates = []; });
+    };
     classes.forEach(n => {
-      const record = { owner: null, slots: null, teacherName: '', instructorName: '', error: false };
+      const record = { owner: null, slots: null, participation: {}, teacherName: '', instructorName: '', error: false };
       records.set(n, record);
       const report = () => { if (run !== generation) return; record.error = true; render(n); };
-      subscriptions.push(F.onSnapshot(F.doc(db, 'kclassOwners', String(n)), snapshot => {
+      let unsubPrivate = null;
+      const watchPrivate = () => {
+        if (unsubPrivate || !canEdit(record)) return;
+        unsubPrivate = F.onSnapshot(yearRef('kclassParticipation', n), snapshot => {
+          if (run !== generation) return;
+          record.participation = snapshot.data()?.slots || {};
+          render(n);
+        }, () => { record.participation = {}; render(n); });
+        subscriptions.push(unsubPrivate);
+      };
+      subscriptions.push(F.onSnapshot(yearRef('kclassOwners', n), snapshot => {
         if (run !== generation) return;
         record.owner = snapshot.data()?.email || '';
+        if (!canEdit(record) && unsubPrivate) {
+          unsubPrivate();
+          unsubPrivate = null;
+          record.participation = {};
+          if (dlgCtx?.n === n) { dlgCtx = null; $('kclassDlg').close(); }
+        }
+        if (!Cloud.isAdmin() && ![...records.values()].some(canEdit)) {
+          unsubCandidates?.(); unsubCandidates = null; candidates = [];
+        }
+        watchPrivate();
+        watchCandidates();
         render(n);
         document.dispatchEvent(new Event('kclass-change'));
       }, report));
-      subscriptions.push(F.onSnapshot(F.doc(db, 'kclassTimetables', String(n)), snapshot => {
+      subscriptions.push(F.onSnapshot(yearRef('kclassTimetables', n), snapshot => {
         if (run !== generation) return;
         const d = snapshot.data() || {};
         record.slots = d.slots || {};
         record.teacherName = d.teacherName || '';
         record.instructorName = d.instructorName || '';
+        if (selectedYear === String(state.school.year)) operatingRecords.set(n, record);
         render(n);
         document.dispatchEvent(new Event('kclass-change'));
       }, report));
     });
-  }
+    if (selectedYear !== String(state.school.year)) {
+      for (const n of classes) {
+        const ref = F.doc(db, 'rosterYears', String(state.school.year), 'kclassTimetables', String(n));
+        subscriptions.push(F.onSnapshot(ref, snap => {
+          if (run !== generation) return;
+          operatingRecords.set(n, snap.data() || {});
+          document.dispatchEvent(new Event('kclass-change'));
+        }));
+      }
+    }
 
+    watchCandidates();
+  }
   /* ---------- 칸 설정 대화상자 ---------- */
   function openCell(n, day, period) {
     const record = records.get(n);
@@ -138,15 +205,23 @@
     dlgCtx = { n, day, period, picks: {}, stu: {} };
     $('kcDlgTitle').textContent = `한국어학급 ${n} · ${WD[day]}요일 ${period}교시`;
     ROLES.forEach(([role]) => {
-      const c = cellOf(record.slots, day, period, role) || {};
+      const c = slotWithStudents(record, day, period, role) || {};
       dlgCtx.stu[role] = new Set(c.students || []);
       // 학생을 고른 반은 학생 칩으로 보여 주므로, 반 칩은 학생 없이 고른 반만
-      const stuCls = new Set([...dlgCtx.stu[role]].map(id => window.MigrantStudents?.byId(id)).filter(Boolean).map(s => `${s.grade}-${s.cls}`));
+      const stuCls = new Set([...dlgCtx.stu[role]].map(id => byStudent(id)).filter(Boolean).map(s => `${s.grade}-${s.cls}`));
       dlgCtx.picks[role] = new Set(splitTargets(c.targets).filter(k => !stuCls.has(k)));
       $('kcTitle_' + role).value = c.title || '';
       const name = role === 't' ? record.teacherName : record.instructorName;
       $('kcName_' + role).textContent = name ? `(${name})` : '';
     });
+    const participating = new Set(Object.values(record.participation || {}).flat());
+    $('kcRecordStudent').replaceChildren(new Option('학생 선택', ''),
+      ...[...participating].map(id => new Option(stuName(id) || '기존 참여 학생', id)));
+    $('kcRecordNote').value = '';
+    $('kcRecordNote').disabled = true;
+    $('kcRecordSave').disabled = true;
+    $('kcRecordStatus').textContent = '';
+
     renderPicks();
     $('kcDlgStatus').textContent = '';
     $('kclassDlg').showModal();
@@ -159,7 +234,9 @@
       const oLabel = role === 't' ? '강사' : '담임교사';
       const studs = MS();
       $('kcPick_' + role).innerHTML = GRADES.map(g => {
-        const cnt = Number(state.school.classes[g]) || 0;
+        const settings = Number(selectedYear) === state.school.year ? state.school.classes
+          : state.yearPlans?.[selectedYear]?.school?.classes || state.yearArchive?.[selectedYear]?.classes;
+        const cnt = Math.max(Number(settings?.[g]) || 0, ...studs.filter(student => student.grade === g).map(student => student.cls));
         if (!cnt) return '';
         let row = `<div class="kc-prow"><span class="kc-g">${g}학년</span>`;
         for (let c = 1; c <= cnt; c++) {
@@ -168,7 +245,7 @@
         }
         row += '</div>';
         const gs = studs.filter(s => s.grade === g).sort((a, b) => a.cls - b.cls || (a.no || 99) - (b.no || 99));
-        if (gs.length) row += `<div class="kc-stus">${gs.map(s => `<button type="button" class="kc-stu-chip ${s.type}${stu.has(s.id) ? ' on' : ''}${oStu.has(s.id) ? ' taken' : ''}" data-role="${role}" data-sid="${s.id}" title="${s.grade}학년 ${s.cls}반 ${s.no || ''}번 · ${esc(s.country || '')}${oStu.has(s.id) ? ' · ' + oLabel + '도 고름' : ''}"><small>${s.cls}반</small>${esc(s.name)}</button>`).join('')}</div>`;
+        if (gs.length) row += `<div class="kc-stus">${gs.map(s => `<button type="button" class="kc-stu-chip ${s.type}${stu.has(s.id) ? ' on' : ''}${oStu.has(s.id) ? ' taken' : ''}" data-role="${role}" data-sid="${esc(s.id)}" title="${s.grade}학년 ${s.cls}반 ${s.no || ''}번 · ${esc(s.country || '')}${oStu.has(s.id) ? ' · ' + oLabel + '도 고름' : ''}"><small>${s.cls}반</small>${esc(s.name)}</button>`).join('')}</div>`;
         return row;
       }).join('') + (studs.length ? '' : '<p class="hint kc-nostu">이주배경학생 현황에 학생을 등록하면 여기서 이름으로 고를 수 있습니다.</p>');
       const names = [...stu].map(stuName).filter(Boolean);
@@ -178,6 +255,49 @@
         : '선택한 학생 없음';
     });
   }
+  function studentRecordRef(id) {
+    const { F, db } = Cloud.fb;
+    return F.doc(db, 'rosterYears', selectedYear, 'kclassParticipation', String(dlgCtx.n), 'studentRecords', id);
+  }
+
+  $('kcRecordStudent').addEventListener('change', async e => {
+    const id = e.target.value, context = dlgCtx;
+    $('kcRecordNote').value = '';
+    $('kcRecordNote').disabled = $('kcRecordSave').disabled = true;
+    $('kcRecordStatus').textContent = '';
+    if (!id || !context) return;
+    try {
+      const snap = await Cloud.fb.F.getDoc(studentRecordRef(id));
+      if (context !== dlgCtx || id !== $('kcRecordStudent').value) return;
+      $('kcRecordNote').value = snap.data()?.note || '';
+      $('kcRecordNote').disabled = $('kcRecordSave').disabled = false;
+    } catch {
+      if (context === dlgCtx) $('kcRecordStatus').textContent = '학생 기록을 불러오지 못했습니다.';
+    }
+  });
+
+  $('kcRecordSave').addEventListener('click', async () => {
+    const id = $('kcRecordStudent').value, context = dlgCtx;
+    if (!id || !context || !canEdit(records.get(context.n))) return;
+    const { F, db } = Cloud.fb;
+    const ref = studentRecordRef(id), button = $('kcRecordSave');
+    const year = selectedYear, student = byStudent(id), note = $('kcRecordNote').value.trim();
+    button.disabled = true;
+    try {
+      await F.runTransaction(db, async tx => {
+        const old = await tx.get(ref);
+        if (old.exists()) { tx.update(ref, { note }); return; }
+        if (!student) throw new Error('현재 명단에서 학생을 확인할 수 없습니다.');
+        tx.set(ref, { year, studentId: id, grade: student.grade, cls: student.cls, no: student.no, note });
+      });
+      if (context === dlgCtx) $('kcRecordStatus').textContent = '학생 기록을 저장했습니다.';
+    } catch (error) {
+      if (context === dlgCtx) $('kcRecordStatus').textContent = '저장 실패: ' + error.message;
+    } finally {
+      if (context === dlgCtx && id === $('kcRecordStudent').value) button.disabled = false;
+    }
+  });
+
   const sortK = (a, b) => { const [ag, ac] = a.split('-').map(Number), [bg, bc] = b.split('-').map(Number); return ag - bg || ac - bc; };
 
   async function saveCell(clear) {
@@ -189,23 +309,31 @@
       // 원학급(targets) = 고른 반 + 고른 학생의 반 → 교육활동 일정의 한국어학급 알림에 쓰임
       const students = clear ? [] : [...stu[role]];
       const set = new Set(clear ? [] : [...picks[role]]);
-      students.forEach(id => { const s = window.MigrantStudents?.byId(id); if (s) set.add(`${s.grade}-${s.cls}`); });
+      students.forEach(id => { const s = byStudent(id); if (s) set.add(`${s.grade}-${s.cls}`); });
       // 이름을 못 불러온 학생의 반은 예전 값에서 유지
-      const prev = cellOf(records.get(n).slots, day, period, role);
-      if (!clear && prev && students.some(id => !window.MigrantStudents?.byId(id))) splitTargets(prev.targets).forEach(k => set.add(k));
+      const prev = slotWithStudents(records.get(n), day, period, role);
+      if (!clear && prev && students.some(id => !byStudent(id))) splitTargets(prev.targets).forEach(k => set.add(k));
       const targets = [...set].sort(sortK).join(', ');
       const title = clear ? '' : ($('kcTitle_' + role).value.trim() || (targets ? '한국어' : '')).slice(0, 60);
       cells[role] = title || targets ? (students.length ? { title, targets, students } : { title, targets }) : null;
     });
     $('kcSave').disabled = true;
     try {
-      await writeDoc(n, doc => {
+      await writeDoc(n, (doc, participation) => {
         delete doc.slots[`${day}-${period}`];
         ROLES.forEach(([role]) => {
           const key = `${day}-${period}-${role}`;
-          if (cells[role]) doc.slots[key] = cells[role]; else delete doc.slots[key];
+          if (cells[role]) {
+            const { students = [], ...slot } = cells[role];
+            doc.slots[key] = slot;
+            if (students.length) participation[key] = students;
+            else delete participation[key];
+          } else {
+            delete doc.slots[key];
+            delete participation[key];
+          }
         });
-      });
+      }, true);
       $('kclassDlg').close();
       $('kclassStatus' + n).textContent = `${WD[day]}요일 ${period}교시를 ${clear ? '비웠습니다' : '저장했습니다'}.`;
     } catch (e) {
@@ -229,7 +357,7 @@
     }
   });
   // 등록 학생 목록이 늦게 오면 시간표 칸의 이름도 다시 그림
-  document.addEventListener('migrant-change', () => { if (curTab === 'kclass') classes.forEach(n => render(n)); });
+
   $('kcSave').addEventListener('click', () => saveCell(false));
   $('kcClear').addEventListener('click', () => { if (confirm('이 시간의 담임교사·강사 수업을 모두 비울까요?')) saveCell(true); });
   $('kcClose').addEventListener('click', () => $('kclassDlg').close());
@@ -244,7 +372,7 @@
       const run = generation;
       const email = event.currentTarget.querySelector('input').value.trim().toLowerCase();
       try {
-        await F.setDoc(F.doc(db, 'kclassOwners', String(n)), { email });
+        await F.setDoc(yearRef('kclassOwners', n), { email });
         if (run === generation) status.textContent = email ? '담임 계정을 지정했습니다.' : '담임 지정을 해제했습니다.';
       } catch (error) {
         if (run === generation) status.textContent = '담임 지정 실패: ' + error.message;
@@ -296,7 +424,7 @@
     slotsAt: key => {
       const [day, period] = key.split('-').map(Number);
       return classes.flatMap(n => {
-        const r = records.get(n);
+        const r = operatingRecords.get(n);
         return ROLES.flatMap(([role, label]) => {
           const slot = cellOf(r?.slots, day, period, role);
           const name = role === 't' ? r?.teacherName : r?.instructorName;
@@ -308,6 +436,8 @@
       });
     },
   };
-  document.addEventListener('cloud-change', subscribe);
+  $('kcYear').addEventListener('change', e => { if (Cloud.isAdmin()) subscribe(e.target.value); });
+  document.addEventListener('cloud-change', () => subscribe());
+  document.addEventListener('year-change', () => subscribe());
   if (Cloud.ready) subscribe();
 })();

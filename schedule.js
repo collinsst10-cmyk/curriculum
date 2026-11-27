@@ -189,7 +189,7 @@ function scheduleConflict(entries, candidate, editing) {
         return `<td class="${marked ? 'schedule-conflict' : ''}${selected?.weekday === weekday && selected.period === period ? ' schedule-selected' : ''}" ${view !== 'all' ? `data-slot="${weekday}:${period}"` : ''}><div class="schedule-square">
           ${marked ? '<span class="pill err">중복</span>' : ''}
           ${cells.map(entry => `<button class="btn schedule-item area-${colorOf(areaOf(entry))}" data-entry="${entry.index}"
-          title="${esc(entry.title)} · ${classLabel(entry)} · ${entry.start}~${entry.end}교시${scheduleFacility(entry) ? ' · ' + esc(scheduleFacility(entry)) : ''}"><span class="sbadge">${esc(shortTitle(entry))}</span><span class="sdash"> - </span><span class="nowrap">${classLabel(entry)}</span></button>`).join('')}
+          title="${esc(entry.title)} · ${classLabel(entry)} · ${entry.start}~${entry.end}교시${scheduleFacility(entry) ? ' · ' + esc(scheduleFacility(entry)) : ''}"><span class="sbadge">${esc(shortTitle(entry))}</span><span class="sdash"> - </span><span class="nowrap">${classLabel(entry)}</span>${(window.StaffLinks?.forEntry(entry) || []).map(name => `<small class="ptime">${esc(name)}</small>`).join('')}</button>`).join('')}
           ${view !== 'all' && !cells.length ? `<button class="schedule-slot" type="button" aria-label="${days[weekday]}요일 ${period}교시 배치">+</button>` : ''}
         </div></td>`;
       }).join('')}</tr>`);
@@ -283,5 +283,6 @@ function scheduleConflict(entries, candidate, editing) {
   });
   form.elements.namedItem('grade').addEventListener('change', () => renderClassOptions(''));
   $('scheduleGrade').addEventListener('change', render);
+  document.addEventListener('staff-schedule-change', () => { if (curTab === 'schedule') render(); });
   RENDER.schedule = () => { view = 'all'; reset(); render(); };
 })();

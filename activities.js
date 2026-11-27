@@ -126,18 +126,19 @@
     stop();
     const { F } = Cloud.fb, db = Cloud.fb.db;
     subYear = y;
-    const start = `${y}-03-01`, end = `${y + 1}-02-29`;
-    const q = F.query(F.collection(db, 'activityDays'), F.where(F.documentId(), '>=', start), F.where(F.documentId(), '<=', end));
+    const { start, end } = OperatingCalendar.range();
+    const q = F.query(F.collection(db, 'activityDays'), F.where(F.documentId(), '>=', start), F.where(F.documentId(), '<', end));
     unsubDays = F.onSnapshot(q, snap => {
+      if (subYear !== y) return;
       items = {};
-      snap.docs.forEach(d => { items[d.id] = (d.data().items || []); });
+      snap.docs.forEach(d => { if (!d.data().year || d.data().year === y) items[d.id] = d.data().items || []; });
       loaded = true;
       if (curTab === 'act') $('actNotice').innerHTML = '';
       refresh();
       notifyNew();
     }, err => { console.warn(err); notice('일정을 불러오지 못했습니다: ' + err.message); });
     unsubKsl = F.onSnapshot(F.doc(db, 'config', 'ksl'), d => {
-      ksl = d.exists() ? { slots: d.data().slots || {}, teachers: d.data().teachers || [] } : { slots: {}, teachers: [] };
+      ksl = d.exists() ? { slots: d.data().year === y ? d.data().slots || {} : {}, teachers: d.data().teachers || [] } : { slots: {}, teachers: [] };
       refresh(true);
       notifyNew();
     }, err => console.warn(err));
@@ -190,19 +191,22 @@
 
   document.addEventListener('cloud-change', subscribe);
   document.addEventListener('kclass-change', () => refresh(false));
+  document.addEventListener('year-period-change', () => { stop(); month = null; subscribe(); });
   document.addEventListener('year-change', () => { month = null; subscribe(); });
 
   /* =========================================================
    * 트랜잭션: 등록·수정·상태변경·삭제 (겹침 재확인)
    * ========================================================= */
   async function txDay(date, mutate) {
+    if (!OperatingCalendar.canWrite(date)) throw new Error('운영 학년도의 날짜만 수정할 수 있습니다.');
+    const year = state.school.year;
     const { F } = Cloud.fb, db = Cloud.fb.db;
     const ref = F.doc(db, 'activityDays', date);
     await F.runTransaction(db, async tx => {
       const snap = await tx.get(ref);
       const list = snap.exists() ? (snap.data().items || []) : [];
       const next = mutate(list.slice());
-      tx.set(ref, { items: next, updatedAt: F.serverTimestamp() });
+      tx.set(ref, { year, items: next, updatedAt: F.serverTimestamp() });
     });
   }
   function conflictError(list) {
@@ -211,14 +215,22 @@
 
   async function saveItem(item) {
     const oldDate = editing && editing.date !== item.date ? editing.date : null;
-    await txDay(item.date, list => {
-      const rest = list.filter(x => x.id !== item.id);
-      const c = rest.filter(x => conflicts(x, item));
-      if (c.length) throw conflictError(c);
-      const prev = list.find(x => x.id === item.id);
-      return [...rest, prev ? { ...prev, ...item } : item];
+    if (![item.date, ...(oldDate ? [oldDate] : [])].every(OperatingCalendar.canWrite)) {
+      throw new Error('운영 학년도의 날짜만 수정할 수 있습니다.');
+    }
+    const { F, db } = Cloud.fb, year = state.school.year;
+    const ref = date => F.doc(db, 'activityDays', date);
+    await F.runTransaction(db, async tx => {
+      const target = await tx.get(ref(item.date));
+      const origin = oldDate ? await tx.get(ref(oldDate)) : null;
+      const rows = target.data()?.items || [];
+      const rest = rows.filter(row => row.id !== item.id);
+      const overlaps = rest.filter(row => conflicts(row, item));
+      if (overlaps.length) throw conflictError(overlaps);
+      const prior = (origin?.data()?.items || rows).find(row => row.id === item.id);
+      tx.set(ref(item.date), { year, items: [...rest, { ...prior, ...item }], updatedAt: F.serverTimestamp() });
+      if (origin?.exists()) tx.set(ref(oldDate), { year, items: origin.data().items.filter(row => row.id !== item.id), updatedAt: F.serverTimestamp() });
     });
-    if (oldDate) await txDay(oldDate, list => list.filter(x => x.id !== item.id));
   }
 
   async function patchItem(date, id, patch, recheck) {
@@ -236,9 +248,8 @@
    * ========================================================= */
   function ensureMonth() {
     if (month) return;
-    const now = new Date(), y = state.school.year;
-    const inYear = fmt(now) >= `${y}-03-01` && fmt(now) <= `${y + 1}-02-28`;
-    month = inYear ? new Date(now.getFullYear(), now.getMonth(), 1) : new Date(y, 2, 1);
+    const date = parse(OperatingCalendar.activeDate());
+    month = new Date(date.getFullYear(), date.getMonth(), 1);
   }
 
   function renderAct() {

@@ -6,14 +6,14 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=operations-brief-2">
-<link rel="stylesheet" href="behavior.css?v=1">
+<link rel="stylesheet" href="style.css?v=20261127224336">
+<link rel="stylesheet" href="behavior.css?v=20261127224336">
 </head>
 <body>
 <header class="topbar">
   <a class="brand" href="#home" title="HOME">
     <img class="brand-logo" src="assets/logo-transparent.webp" alt="용원초등학교 YONGWON ELEMENTARY">
-    <span id="hdrSchool" class="sub" hidden></span>
+    <span id="hdrSchool" class="sub" aria-live="polite"></span>
   </a>
   <nav class="mainnav" id="mainNav">
     <button data-go="home">HOME</button>
@@ -293,6 +293,13 @@
           <label>반 <select id="trClass"></select></label>
           <label>성별 <select id="trSex"><option value="m">남</option><option value="f">여</option></select></label>
           <label class="tr-note">메모 (선택) <input id="trNote" maxlength="100" placeholder="예: 다문화, 한국어학급 연계 필요 (학생 이름은 적지 마세요)"></label>
+          <details id="trRosterPrivate" hidden>
+            <summary>학년도별 학생 명단 연결</summary>
+            <label><input type="checkbox" id="trRosterLink"> 이 학생의 학년도별 소속도 반영</label>
+            <label>기존 학생 ID <input id="trStudentId" maxlength="128"></label>
+            <label>신규 학생 이름 <input id="trStudentName" maxlength="20"></label>
+            <label>전입 번호 <input id="trStudentNo" type="number" min="1" max="99"></label>
+          </details>
           <label class="tr-check"><input type="checkbox" id="trApply" checked> 학생 현황 인원에 반영</label>
           <div class="row"><button class="btn primary" id="trAdd" type="submit">등록</button><span id="trStatus" class="hint" role="status"></span></div>
         </form>
@@ -406,6 +413,7 @@
 
   <!-- 이주배경학생 › 한국어학급 (1·2·3반을 안에서 고름) -->
   <section id="tab-kclass" class="tab">
+    <label class="hint">학년도 <input id="kcYear" type="number" min="2000" max="2099"></label>
     <div class="kc-switch" id="kcSwitch" role="tablist" aria-label="한국어학급 반 고르기"><button type="button" class="on" data-kc="1">1반</button><button type="button" data-kc="2">2반</button><button type="button" data-kc="3">3반</button></div>
     <div class="card kc-panel" data-kc-panel="1">
       <h2>한국어학급 1 주간 시간표 <small class="hint">1~3교시</small></h2>
@@ -443,6 +451,42 @@
   </section>
   <!-- 학급관리 › 우리 반 학생 (담임: 자기 반 / 관리자: 모든 반) -->
   <section id="tab-roster" class="tab">
+    <details id="yearRoster" class="card" hidden>
+      <summary>학년도별 학생 명단</summary>
+      <div id="yrPicker" class="form">
+        <label>조회 학년도<input id="yrYear" type="number" min="2000" max="2099"></label>
+        <label>학년<select id="yrGrade"></select></label>
+        <label>반<select id="yrClass"></select></label>
+      </div>
+      <p id="yrStatus" class="hint" role="status"></p>
+      <ul id="yrRows"></ul>
+<div id="yrAdminFields">
+      <div class="form">
+        <label>기존 학생 ID<input id="yrId" maxlength="128"></label>
+        <label>신규 학생 이름<input id="yrName" maxlength="20"></label>
+        <label>번호<input id="yrNo" type="number" min="1" max="99"></label>
+        <label>재학 상태<select id="yrState"><option value="enrolled">재학</option><option value="transferred">전출</option><option value="graduated">졸업</option><option value="deferred">유예</option></select></label>
+      </div>
+      <button type="button" id="yrSave" class="btn small primary">소속 저장</button>
+      <details>
+        <summary>기존 명단 이전</summary><label>원본 학년도 <input id="yrSource" type="number" min="2000" max="2099"></label>
+        <p class="hint">원본 명단의 실제 학년도와 반을 선택하고 미리 확인하세요.</p>
+        <button type="button" id="yrInspect" class="btn small">이전 결과 미리보기</button>
+        <p id="yrPreview" class="hint" role="status"></p>
+        <label><input type="checkbox" id="yrBackup"> 운영 데이터 전체 백업을 확인했습니다.</label>
+        <button type="button" id="yrApply" class="btn small" disabled>확인한 명단 이전</button>
+      </details>
+          <div class="row">
+        <label>담임 이메일 <input id="yrTeacher" type="email"></label>
+        <button type="button" id="yrAssign" class="btn small">담임 배정</button>
+        <button type="button" id="yrExport" class="btn small">학년도 명단 엑셀 저장</button>
+        <button type="button" id="yrExportClass" class="btn small">학급 명단 엑셀 저장</button>
+        <label>학급 명단 엑셀 <input id="yrWorkbook" type="file" accept=".xlsx"></label>
+        <button type="button" id="yrImport" class="btn small" disabled>미리 본 명단 저장</button>
+      </div>
+      <p id="yrImportPreview" class="hint" role="status"></p>
+      </div>
+</details>
     <div id="rsMain"></div>
     <section id="behaviorPanel" class="card behavior-panel" aria-label="행동특성 및 종합의견" hidden></section>
   </section>
@@ -487,6 +531,7 @@
 
   <!-- 관리자 -->
   <section id="tab-admin" class="tab">
+    <details id="staffAdmin" class="card" hidden></details>
     <div id="adminBody"></div>
   </section>
 
@@ -528,7 +573,7 @@
       <div class="form school-form">
         <label>학교명 <input id="inSchool" type="text" placeholder="예: ○○초등학교"></label>
         <label>NEIS 학교코드 <input id="inNeis" type="text" inputmode="numeric" maxlength="10" placeholder="예: 7380xxx (7자리)"></label>
-        <label>학년도 <select id="inYear"></select></label>
+        <label>운영 학년도 <select id="inYear" aria-describedby="operatingYearStatus"></select><small id="operatingYearStatus" role="status" class="hint"></small></label>
       </div>
       <p class="hint" id="neisHint">NEIS 학교코드는 나이스·학교알리미 등에서 학교를 구분하는 7자리 번호입니다.</p>
       <div class="school-details">
@@ -907,6 +952,13 @@
   <div class="row kc-actions">
     <button class="btn primary" id="kcSave" type="button">저장</button>
     <button class="btn" id="kcClear" type="button">이 시간 비우기</button>
+    <details>
+      <summary>학생별 학습·지도 기록</summary>
+      <label>참여 학생 <select id="kcRecordStudent"></select></label>
+      <label>학습·지도 기록 <textarea id="kcRecordNote" rows="3" maxlength="2000" disabled></textarea></label>
+      <button type="button" id="kcRecordSave" class="btn small" disabled>학생 기록 저장</button>
+      <p id="kcRecordStatus" class="hint" role="status"></p>
+    </details>
     <span id="kcDlgStatus" role="status"></span>
   </div>
 </dialog>
@@ -918,33 +970,42 @@
   <div id="cloudBody"></div>
 </dialog>
 
-<script src="data.js?v=202611271457"></script>
-<script src="app.js?v=school-address-copy-1"></script>
-<script src="features.js?v=subject-assignment-1"></script>
-<script src="cloud-config.js?v=202611271457"></script>
-<script src="cloud.js?v=202611271457"></script>
-<script src="shopping-accounts.js?v=202611271457"></script>
-<script src="activities.js?v=202611271457"></script>
-<script src="haksa.js?v=202611271457"></script>
-<script src="menus.js?v=202611271457"></script>
-<script src="schedule.js?v=202611271457"></script>
-<script src="kclass.js?v=202611271457"></script>
-<script src="hwpx.js?v=202611271457"></script>
-<script src="home.js?v=operations-brief-2"></script>
-<script src="status.js?v=202611271457"></script>
-<script src="log.js?v=operations-brief-1"></script>
-<script src="cover.js?v=202611271457"></script>
-<script src="transfer.js?v=202611271457"></script>
-<script src="migrant.js?v=202611271457"></script>
-<script src="behavior-data.js?v=1"></script>
-<script src="behavior-engine.js?v=1"></script>
-<script src="behavior-ui.js?v=1"></script>
-<script src="roster.js?v=student-behavior-1"></script>
-<script src="site.js?v=202611271457"></script>
-<script src="env.js?v=subject-assignment-1"></script>
-<script src="pyeonje.js?v=202611271457"></script>
-<script src="pyeonje-grade.js?v=202611271457"></script>
-<script src="calextra.js?v=202611271457"></script>
-<script src="savebar.js?v=202611271457"></script>
+<script src="data.js?v=20261127224336"></script>
+<script src="app.js?v=20261127224336"></script>
+<script src="features.js?v=20261127224336"></script>
+<script src="cloud-config.js?v=20261127224336"></script>
+<script src="cloud.js?v=20261127224336"></script>
+<script src="shopping-accounts.js?v=20261127224336"></script>
+<script src="activities.js?v=20261127224336"></script>
+<script src="operating-calendar.js?v=20261127224336"></script>
+<script src="haksa.js?v=20261127224336"></script>
+<script src="menus.js?v=20261127224336"></script>
+<script src="staff-model.js?v=20261127224336"></script>
+<script src="staff-sync-model.js?v=20261127224336"></script>
+<script src="staff-sync.js?v=20261127224336"></script>
+<script src="staff-links.js?v=20261127224336"></script>
+<script src="staff-admin.js?v=20261127224336"></script>
+<script src="schedule.js?v=20261127224336"></script>
+<script src="year-student-views.js?v=20261127224336"></script>
+<script src="kclass.js?v=20261127224336"></script>
+<script src="hwpx.js?v=20261127224336"></script>
+<script src="home.js?v=20261127224336"></script>
+<script src="status.js?v=20261127224336"></script>
+<script src="log.js?v=20261127224336"></script>
+<script src="cover.js?v=20261127224336"></script>
+<script src="transfer.js?v=20261127224336"></script>
+<script src="migrant.js?v=20261127224336"></script>
+<script src="behavior-data.js?v=20261127224336"></script>
+<script src="behavior-engine.js?v=20261127224336"></script>
+<script src="behavior-ui.js?v=20261127224336"></script>
+<script src="roster.js?v=20261127224336"></script>
+<script src="roster-workbook.js?v=20261127224336"></script>
+<script src="roster-years.js?v=20261127224336"></script>
+<script src="site.js?v=20261127224336"></script>
+<script src="env.js?v=20261127224336"></script>
+<script src="pyeonje.js?v=20261127224336"></script>
+<script src="pyeonje-grade.js?v=20261127224336"></script>
+<script src="calextra.js?v=20261127224336"></script>
+<script src="savebar.js?v=20261127224336"></script>
 </body>
 </html>

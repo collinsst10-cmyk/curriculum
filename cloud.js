@@ -244,6 +244,10 @@
     pushTimer = null;
     if (!cur) return;
     const s = window.App.getState();
+    if (window.Haksa?.operatingYear && Number(cur.meta.year) !== Number(s.school.year)) {
+      setStatus('☁ 다른 학년도 문서에는 저장되지 않았습니다. 이 PC에 보관했습니다.');
+      return;
+    }
     const json = JSON.stringify(s);
     if (json === lastPushed) { setStatus(`☁ 저장됨 ${hhmm()}`); return; }
     try {
@@ -259,6 +263,18 @@
       setStatus('☁ 저장 실패(권한·네트워크 확인)');
     }
   }
+
+  App.flushPlanForYearChange = async () => {
+    if (!pushTimer) return;
+    clearTimeout(pushTimer);
+    await push();
+  };
+  App.onOperatingYearChange = () => {
+    if (cur && Number(cur.meta.year) !== App.getState().school.year) {
+      closePlan();
+      localStorage.removeItem(LAST_PLAN_KEY);
+    }
+  };
 
   /* ---------- 문서 열기/닫기 ---------- */
   async function openPlan(id) {

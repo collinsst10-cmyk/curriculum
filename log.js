@@ -7,7 +7,7 @@
  * ========================================================= */
 (function () {
   'use strict';
-  let day = fmt(new Date());
+  let day = OperatingCalendar.activeDate();
   let unsubDay = null, subDay = null, current;
   let dirty = false;
 
@@ -141,13 +141,14 @@
 
   async function save() {
     if (!isWriter()) return '일지는 교무부장만 저장할 수 있습니다.';
+    if (!OperatingCalendar.canWrite(day)) { $('lgStatus').textContent = '과거 학년도 일지는 조회할 수 있습니다. 저장은 운영 학년도에서 가능합니다.'; return '운영 학년도 날짜를 확인해 주세요.'; }
     const f = readForm();
     if (isEmpty(f)) { $('lgStatus').textContent = '내용을 입력하세요.'; return '내용을 입력하세요.'; }
     const F = Cloud.fb.F;
     $('lgSave').disabled = true;
     try {
       await F.setDoc(ref(day), { ...Object.fromEntries(KEYS.map(k => [k, f[k] || ''])), duty: f.duty, covers, text: textOf(f).slice(0, 20000),
-        by: Cloud.email, byName: Cloud.profileName || '', updatedAt: F.serverTimestamp() });
+        year: state.school.year, by: Cloud.email, byName: Cloud.profileName || '', updatedAt: F.serverTimestamp() });
       dirty = false; renderEditor(); $('lgStatus').textContent = '저장했습니다. 선생님들이 HOME에서 볼 수 있습니다.';
       renderRecent(); HomeLog.refreshRecent();
       return '';
@@ -156,17 +157,18 @@
   }
   async function remove() {
     if (!isWriter() || !confirm(`${HomeLog.longDate(day)} 일지를 삭제할까요? 되돌릴 수 없습니다.`)) return;
+    if (!OperatingCalendar.canWrite(day)) return;
     try { await Cloud.fb.F.deleteDoc(ref(day)); dirty = false; fillForm(fieldsOf(null)); $('lgStatus').textContent = '삭제했습니다.'; renderRecent(); HomeLog.refreshRecent(); }
     catch (e) { $('lgStatus').textContent = '삭제 실패: ' + e.message; }
   }
 
   /** 한글 파일로 저장 — 화면에 적힌 내용(저장 전이어도) 그대로, 우리 학교 일지 양식에 채움. 학적현황은 학교 현황 자료로 */
-  async function getStats() {
-    if (window.SchoolStatus && SchoolStatus.stats) return SchoolStatus.stats;
-    try { const d = await Cloud.fb.F.getDoc(Cloud.fb.F.doc(Cloud.fb.db, 'config', 'stats')); return d.exists() ? d.data() : null; } catch (e) { return null; }
+  async function getStats(ds) {
+    if (OperatingCalendar.canWrite(ds) && window.SchoolStatus?.stats) return SchoolStatus.stats;
+    try { const d = await Cloud.fb.F.getDoc(OperatingCalendar.statsRef(Cloud.fb.F, Cloud.fb.db, OperatingCalendar.yearOf(ds))); return d.exists() ? d.data() : null; } catch (e) { return null; }
   }
   async function exportHwp(f, ds) {
-    const blob = await Hwp.logHwpx(f, { date: ds, stats: await getStats() });
+    const blob = await Hwp.logHwpx(f, { date: ds, stats: await getStats(ds) });
     Hwp.download(blob, `${HomeLog.longDate(ds).replace(/ \((.)\)/, '($1)')} 학교일지.hwpx`);
   }
   window.LogExport = { fieldsOf, exportHwp };
@@ -211,7 +213,7 @@
 
   $('lgPrev').addEventListener('click', () => go(HomeLog.stepDay(day, -1)));
   $('lgNext').addEventListener('click', () => go(HomeLog.stepDay(day, 1)));
-  $('lgToday').addEventListener('click', () => go(fmt(new Date())));
+  $('lgToday').addEventListener('click', () => go(OperatingCalendar.activeDate()));
   $('lgDate').addEventListener('change', e => { if (e.target.value) go(e.target.value); });
   $('lgRecent').addEventListener('click', e => { const b = e.target.closest('[data-day]'); if (b) go(b.dataset.day); });
   $('lgForm').addEventListener('input', () => { dirty = true; $('lgStatus').textContent = '저장하지 않은 변경이 있습니다.'; });
@@ -227,6 +229,14 @@
   window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 
   RENDER.log = render;
+  function resetOperatingDate() {
+    if (dirty) { $('lgStatus').textContent = '운영 학년도가 변경되었습니다. 저장하지 않은 작성 내용은 화면에 유지됩니다.'; return; }
+    day = OperatingCalendar.activeDate();
+    stopDay();
+    if (curTab === 'log' && isWriter()) { watchDay(); renderEditor(); renderRecent(); }
+  }
+  document.addEventListener('year-change', resetOperatingDate);
+  document.addEventListener('year-period-change', resetOperatingDate);
   document.addEventListener('cloud-change', () => { stopDay(); refreshNav(); document.dispatchEvent(new Event('roles-change')); });
   if (window.Cloud && Cloud.ready) refreshNav();
 })();

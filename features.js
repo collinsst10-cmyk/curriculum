@@ -167,18 +167,18 @@ function runWeeksHtml(g, forExport) {
 function renderJd() {
   const rows = state.jundam;
   const assignments = window.SubjectAssignments;
-  $('jdCards').innerHTML = assignments.assignmentCards();
+  $('jdCards').innerHTML = (window.StaffSubjectSync?.panel() || '') + assignments.assignmentCards();
   const by = Object.create(null);
   rows.forEach(r => {
     const t = r.teacher || '(미지정)';
-    by[t] = by[t] || { list: [], sum: 0 };
+    by[t] = by[t] || { list: [], sum: 0, label: window.StaffSubjectSync?.label(r) || t };
     const classes = assignments.activeClasses(r);
     const wk = assignments.rowHours(r);
     by[t].list.push(`${r.grade}학년 ${(subjectsOf(r.grade).find(x => x.key === r.subj) || {}).name || ''} ${r.hrs}×${classes.length}`);
     by[t].sum += wk;
   });
   $('tblJdTeacher').innerHTML = `<tr><th>전담교사</th><th class="l">담당</th><th>주당 시수</th></tr>` +
-    (Object.keys(by).length ? Object.entries(by).map(([t, v]) => `<tr><td>${esc(t)}</td><td class="l">${esc(v.list.join(', '))}</td><td class="num"><b>${v.sum}</b></td></tr>`).join('')
+    (Object.keys(by).length ? Object.entries(by).map(([t, v]) => `<tr><td>${esc(v.label || t)}</td><td class="l">${esc(v.list.join(', '))}</td><td class="num"><b>${v.sum}</b></td></tr>`).join('')
       : '<tr><td colspan="3" class="hint">입력된 전담 배정이 없습니다.</td></tr>');
 
   $('tblJdGrade').innerHTML = `<tr><th>학년</th><th>주당 총 시수</th><th>전담</th><th>담임</th><th class="l">기준</th></tr>` +

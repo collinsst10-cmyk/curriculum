@@ -47,13 +47,19 @@
     refreshNav();
     if (!window.Cloud || !Cloud.ready) { renderAll(); return; }
     const { F, db } = Cloud.fb;
-    unsubs.push(F.onSnapshot(F.doc(db, 'config', 'stats'), d => { stats = d.exists() ? d.data() : false; renderAll(); },
+    unsubs.push(F.onSnapshot(OperatingCalendar.statsRef(F, db), d => { stats = d.exists() ? d.data() : false; renderAll(); },
       e => { console.warn('학교 현황 불러오기 실패', e); stats = false; renderAll(); }));
     unsubs.push(F.onSnapshot(F.doc(db, 'config', 'migrant'), d => { migrant = d.exists() ? d.data() : false; renderAll(); },
       e => { console.warn('이주배경학생 현황 불러오기 실패', e); migrant = false; renderAll(); }));
     // 담임·한국어학급 담당이 이주배경학생 현황에 입력한 반별 합계 (학생 이름 없음)
-    unsubs.push(F.onSnapshot(F.collection(db, 'migrantClassSum'), s => { classSums = s.docs.map(d => d.data()); renderAll(); },
-      e => console.warn('반별 이주배경 합계 불러오기 실패', e)));
+    const year = String(state.school.year);
+    unsubs.push(F.onSnapshot(F.collection(db, 'rosterYears', year, 'migrantStats'), snap => {
+      classSums = snap.docs.map(d => {
+        const { type, country } = d.data();
+        return { [type]: 1, countries: country ? { [country]: 1 } : {} };
+      });
+      renderAll();
+    }, e => console.warn('학년도별 이주배경 합계 조회 실패', e)));
   }
   function renderAll() {
     renderHome();
@@ -121,7 +127,8 @@
     const sexSum = (sex, keys) => keys.reduce((t, k) => t + num(sf[sex]?.[k]), 0);
     const all = [...EDU_KEYS, ...STAFF_KEYS];
     const edu = EDU_KEYS.reduce((t, k) => t + n(k), 0), etc = STAFF_KEYS.reduce((t, k) => t + n(k), 0);
-    return `<div class="sx-kpis">${kpi(edu + etc, '명', '전체 교직원', 'main')}${kpi(edu, '명', '교원')}${kpi(etc, '명', '직원')}</div>
+    const registered = window.StaffLinks?.activeCount();
+    return `${Number.isInteger(registered) ? `<p class="hint">${state.school.year}학년도 교직원 관리 등록 재직 ${registered}명</p>` : ''}<div class="sx-kpis">${kpi(edu + etc, '명', '전체 교직원', 'main')}${kpi(edu, '명', '교원')}${kpi(etc, '명', '직원')}</div>
       ${ratio(sexSum('m', all), sexSum('f', all))}
       <ul class="sx-rows">${STAFF_GROUPS.map(([g, list]) => {
         const items = list.filter(([k]) => n(k));
@@ -284,7 +291,7 @@
       ? { asOf: data.asOf, foreign: data.foreign, domestic: data.domestic, midEntry: data.midEntry, nonMigrant: data.nonMigrant, countries: data.countries, note: data.note }
       : { asOf: data.asOf || '', students: data.students || blank().students, staff: data.staff || { m: {}, f: {} } };
     try {
-      await F.setDoc(F.doc(db, 'config', doc), { ...clean, updatedBy: Cloud.email, updatedAt: F.serverTimestamp() });
+      await F.setDoc((doc === 'stats' ? OperatingCalendar.statsRef(F, db) : F.doc(db, 'config', doc)), { ...clean, updatedBy: Cloud.email, updatedAt: F.serverTimestamp() });
       dirty[key] = false;
       say(st, '저장했습니다. HOME에 바로 반영됩니다.');
     } catch (e) { say(st, '저장 실패: ' + e.message); }
@@ -310,6 +317,8 @@
   RENDER.stats2 = () => { dirty.f = false; renderEditStaff(); };
   RENDER.stats3 = () => { dirty.m = false; renderEditMigrant(); };
 
+  document.addEventListener('year-change', subscribe);
+  document.addEventListener('staff-schedule-change', renderAll);
   document.addEventListener('cloud-change', subscribe);
   document.addEventListener('kclass-change', refreshNav);
   document.addEventListener('roles-change', refreshNav);

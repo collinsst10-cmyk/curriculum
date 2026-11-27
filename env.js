@@ -274,7 +274,9 @@
           }
         } else {
           if (subjectRows(key).some(row => Number(row.grade) === grade && activeClasses(row).includes(n))) return;
-          state.jundam.push({ teacher, grade, subj: subject, hrs: Number(model.hours), classes: [n], room: model.room, useSubjectRoom: model.override === '__inherit' });
+          const staff = env().teachers.find(person => person.name === teacher && person.staffId);
+          state.jundam.push({ teacher, grade, subj: subject, hrs: Number(model.hours), classes: [n], room: model.room,
+            useSubjectRoom: model.override === '__inherit', ...(staff ? { staffId: staff.staffId, staffName: staff.teacher } : {}) });
         }
       } else if (field === 'hours') {
         if (target.value === '' || !target.checkValidity()) { target.value = model.hours; return; }
@@ -316,7 +318,7 @@
       <table class="sm-list sm-grid"><colgroup><col>${isRoom ? '<col class="c-s">' : '<col class="c-t">'}<col class="c-h"><col class="c-d"></colgroup>
       <thead><tr><th>${L.col}</th><th class="c">${isRoom ? '연결 교과' : '담당 교과'}</th><th class="c">시수</th><th class="c">관리</th></tr></thead><tbody>
       ${items.map((n, i) => `<tr class="${i === sel ? 'sel' : ''}" data-pick="${kind}:${i}">
-        <td class="nm">${mode === 'rename' && i === sel ? `<input class="sm-in" data-rename="${kind}:${i}" maxlength="20" value="${esc(n)}">` : esc(n || '(이름 없음)')}</td>
+        <td class="nm">${mode === 'rename' && i === sel && (isRoom || !e.teachers[i].staffId) ? `<input class="sm-in" data-rename="${kind}:${i}" maxlength="20" value="${esc(n)}">` : esc((isRoom ? n : e.teachers[i].teacher || n) || '(이름 없음)')}</td>
         <td class="c">${isRoom ? roomSubjSel(i) : (`<select data-teacher-subject="${i}" aria-label="${esc(n)} 담당 교과" ${ro() ? 'disabled' : ''}>
           <option value="">자동 연결</option>${allSubj().filter(subject => e.jdSubjects.includes(subject.key) || subject.key === e.teachers[i].subject).map(subject =>
             `<option value="${subject.key}" ${e.teachers[i].subject === subject.key ? 'selected' : ''}>${esc(subject.name)}</option>`).join('')}</select>`)}</td>
@@ -349,6 +351,7 @@
       <section class="jd-subj${e.jdSubjects.length ? '' : ' empty'}"><div class="jd-subj-h"><b>① 우리 학교 전담 교과</b>
         <span class="hint">${e.jdSubjects.length ? '아래 배정표의 교과와 특별실 연결에는 고른 교과만 나옵니다.' : '먼저 전담 교과를 고르세요. 고르기 전에는 모든 교과가 나옵니다.'}</span></div>
         <div class="jd-chips">${allSubj().map(s => `<label class="tg${e.jdSubjects.includes(s.key) ? ' on' : ''}"><input type="checkbox" data-jdsub="${s.key}" ${e.jdSubjects.includes(s.key) ? 'checked' : ''} ${ro() ? 'disabled' : ''}>${esc(s.name)}</label>`).join('')}</div></section>
+      ${window.StaffSubjectSync?.panel() || ''}
       <div class="sm-two">${listCard('room')}${listCard('teacher')}</div>
       <p class="hint">특별실의 연결 교과와 전담교사의 담당 교과를 설정하세요. 기존 교사명과 배정 정보도 자동 연결에 사용됩니다.</p>
       <section class="env-sub"><h3>전담 과목 배정</h3>
@@ -372,6 +375,7 @@
     const E = env(), i = kind === 'room' ? selRoom : selT, list = kind === 'room' ? E.rooms : E.teachers;
     if (i < 0 || !list[i]) return;
     const name = list[i].name, used = state.jundam.filter(r => (kind === 'room' ? r.room : r.teacher) === name).length;
+    if (kind === 'teacher' && list[i].staffId && used) { alert('교직원 관리 배정을 비교하고 연결을 해제해 주세요.'); return; }
     if (!confirm(`'${name}'을(를) 삭제할까요?${used ? `\n배정표 ${used}줄에서 ${kind === 'room' ? '특별실' : '전담'}이 비워집니다.` : ''}`)) return;
     list.splice(i, 1);
     state.jundam.forEach(r => { if (kind === 'room' && r.room === name) r.room = ''; if (kind === 'teacher' && r.teacher === name) r.teacher = ''; });
@@ -385,6 +389,7 @@
   }
   function smRename(kind, i, value) {
     const E = env(), list = kind === 'room' ? E.rooms : E.teachers, name = value.trim(), old = list[i] && list[i].name;
+    if (kind === 'teacher' && list[i]?.staffId) { modeT = ''; render(); return; }
     if (!list[i] || !name || name === old) { if (kind === 'room') modeRoom = ''; else modeT = ''; render(); return; }
     if (list.some((x, k) => k !== i && x.name === name)) { alert('같은 이름이 이미 있습니다.'); return; }
     list[i].name = name;

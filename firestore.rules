@@ -91,7 +91,7 @@ service cloud.firestore {
     // 교육활동 일정(날짜별 1문서). 승인된 교직원 공용. 겹침 검사는 앱의 트랜잭션이 담당
     match /activityDays/{day} {
       allow read: if isApproved();
-      allow create, update: if isStaff() && day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+      allow create, update: if isStaff() && hasOperatingDateYear(request.resource.data, day)
         && request.resource.data.items is list && request.resource.data.items.size() <= 40;
       allow delete: if isAdmin();
     }
@@ -111,44 +111,32 @@ service cloud.firestore {
     // 학교 정보(학교명·학년도·학급 수). 선생님 화면이 이 값을 씀. 관리자만 수정
     match /config/school {
       allow read: if isApproved();
-      allow create, delete: if isAdmin() && (isDeveloper() || recentlyAuthenticated());
+      allow create: if isAdmin() && (isDeveloper() || recentlyAuthenticated())
+        && request.resource.data.year is int && request.resource.data.year >= 2000 && request.resource.data.year <= 2099;
       allow update: if isAdmin() && (
         isDeveloper() || recentlyAuthenticated()
         || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bell', 'updatedAt', 'updatedBy'])
-      );
+      ) && request.resource.data.year is int && request.resource.data.year >= 2000 && request.resource.data.year <= 2099;
     }
 
-    // 한국어학급 담임 지정(학급 1~3). 관리자만 지정·해제(빈 값이면 해제)
+    match /schoolYears/{year} {
+      allow read: if isApproved();
+      allow create, update: if isAdmin() && (isDeveloper() || recentlyAuthenticated()
+        || (request.method == 'update' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bell', 'updatedAt', 'updatedBy'])))
+        && request.resource.data.year is int && string(request.resource.data.year) == year;
+    }
+
+    // 이전 자료는 원본을 보존하고 승인된 데이터 이전에만 사용한다.
     match /kclassOwners/{classId} {
-      allow get: if isStaff() && classId.matches('^[1-3]$');
-      allow create, update: if isAdmin() && classId.matches('^[1-3]$')
-        && request.resource.data.keys().hasOnly(['email'])
-        && request.resource.data.email is string
-        && request.resource.data.email.size() <= 254
-        && (request.resource.data.email == '' || request.resource.data.email.matches('^[^@ ]+@[^@ ]+[.][^@ ]+$'));
+      allow get: if isAdmin();
     }
-
-    // 한국어학급 주간 시간표(담임교사·강사 이름 포함). 지정된 담임 또는 관리자가 수정
     match /kclassTimetables/{classId} {
-      allow get: if isStaff() && classId.matches('^[1-3]$');
-      allow create, update: if isStaff() && classId.matches('^[1-3]$')
-        && (isAdmin() || get(/databases/$(database)/documents/kclassOwners/$(classId)).data.email == myEmail())
-        && request.resource.data.keys().hasOnly(['slots', 'teacherName', 'instructorName'])
-        && (!('teacherName' in request.resource.data) || (request.resource.data.teacherName is string && request.resource.data.teacherName.size() <= 30))
-        && (!('instructorName' in request.resource.data) || (request.resource.data.instructorName is string && request.resource.data.instructorName.size() <= 30))
-        && request.resource.data.slots is map && request.resource.data.slots.size() <= 80;
-    }
-
-    // 한국어학급 담당(담임 지정 또는 연계 담당 교사)
-    function ownsKclass(n) {
-      return exists(/databases/$(database)/documents/kclassOwners/$(n))
-        && get(/databases/$(database)/documents/kclassOwners/$(n)).data.email == myEmail();
+      allow get: if isAdmin();
     }
     function isKclassStaff() {
-      return isStaff() && (ownsKclass('1') || ownsKclass('2') || ownsKclass('3')
-        || (exists(/databases/$(database)/documents/config/ksl)
-            && myEmail() in get(/databases/$(database)/documents/config/ksl).data.get('teachers', [])));
+      return isYearKclassStaff(activeRosterYear());
     }
+
     // 직위(allowed 문서의 posType·posCls·head). 관리자가 사용자 승인 관리에서 정함
     function myAllowed() {
       return get(/databases/$(database)/documents/allowed/$(myEmail())).data;
@@ -190,13 +178,14 @@ service cloud.firestore {
     match /transfers/{id} {
       allow read: if isStaff();
       allow create: if (isAdmin() || isLogWriter())
-        && request.resource.data.keys().hasOnly(['date', 'type', 'grade', 'cls', 'sex', 'note', 'applied', 'by', 'byName', 'createdAt'])
-        && request.resource.data.date is string && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.keys().hasOnly(['date', 'type', 'grade', 'cls', 'sex', 'note', 'applied', 'by', 'byName', 'createdAt', 'year'])
+        && request.resource.data.date is string && hasOperatingDateYear(request.resource.data, request.resource.data.date)
         && request.resource.data.type in ['in', 'out'] && request.resource.data.sex in ['m', 'f']
         && request.resource.data.grade is int && request.resource.data.grade >= 1 && request.resource.data.grade <= 6
         && request.resource.data.cls is int && request.resource.data.cls >= 1 && request.resource.data.cls <= 20
         && request.resource.data.note is string && request.resource.data.note.size() <= 100;
-      allow delete: if isAdmin() || isLogWriter();
+      allow delete: if (isAdmin() || isLogWriter()) && isOperatingDate(resource.data.date)
+        && !existsAfter(/databases/$(database)/documents/rosterTransferLinks/$(id));
       allow update: if false;
     }
 
@@ -216,70 +205,24 @@ service cloud.firestore {
         && request.resource.data.grade is int && request.resource.data.grade >= 1 && request.resource.data.grade <= 6
         && request.resource.data.cls is int && request.resource.data.cls >= 1 && request.resource.data.cls <= 20;
     }
-    function validMigrant(d) {
-      return d.keys().hasOnly(['grade', 'cls', 'no', 'name', 'country', 'type', 'updatedBy', 'updatedAt'])
-        && d.grade is int && d.grade >= 1 && d.grade <= 6 && d.cls is int && d.cls >= 1 && d.cls <= 20
-        && d.no is int && d.no >= 0 && d.no <= 99
-        && d.name is string && d.name.size() > 0 && d.name.size() <= 20
-        && d.country is string && d.country.size() <= 30
-        && d.type in ['foreign', 'mid', 'domestic'];
-    }
-    // 학급관리 › 우리 반 학생 명단(학생 이름 = 개인정보). 그 반 담임과 관리자만
-    function validStudent(d) {
-      return d.keys().hasOnly(['grade', 'cls', 'no', 'name', 'sex', 'mig', 'country', 'note', 'updatedBy', 'updatedAt'])
-        && d.grade is int && d.grade >= 1 && d.grade <= 6 && d.cls is int && d.cls >= 1 && d.cls <= 20
-        && d.no is int && d.no >= 0 && d.no <= 99
-        && d.name is string && d.name.size() > 0 && d.name.size() <= 20
-        && d.sex in ['', 'm', 'f'] && d.mig in ['', 'foreign', 'mid', 'domestic']
-        && d.country is string && d.country.size() <= 30 && d.note is string && d.note.size() <= 60;
-    }
+    // 구형 명단과 행동 기록은 이전 및 검증을 위한 관리자 조회만 허용한다.
     match /students/{id} {
-      allow read, delete: if isAdmin() || isHomeroomOf(resource.data.grade, resource.data.cls);
-      allow create: if validStudent(request.resource.data)
-        && (isAdmin() || isHomeroomOf(request.resource.data.grade, request.resource.data.cls));
-      allow update: if validStudent(request.resource.data)
-        && (isAdmin() || (isHomeroomOf(resource.data.grade, resource.data.cls)
-          && request.resource.data.grade == resource.data.grade && request.resource.data.cls == resource.data.cls));
+      allow read: if isAdmin();
     }
-    // 행동특성은 학생 명단보다 좁은 범위로 보호합니다. 직접 선택한 학급은 권한이 아닙니다.
     function canAccessBehavior(studentId) {
-      let path = /databases/$(database)/documents/students/$(studentId);
-      return isApproved() && exists(path) && (isAdmin() ||
-        (hasAllowed() && myAllowed().get('posType', '') == 'homeroom' &&
-          myAllowed().get('posCls', '') == string(get(path).data.grade) + '-' + string(get(path).data.cls)));
+      return isAdmin() && exists(/databases/$(database)/documents/students/$(studentId));
     }
     match /students/{studentId}/privateRecords/behavior {
       allow get: if canAccessBehavior(studentId);
-      allow create, update: if canAccessBehavior(studentId)
-        && request.resource.data.keys().hasOnly(['traits', 'opinion', 'target'])
-        && request.resource.data.get('traits', {}) is map
-        && request.resource.data.get('traits', {}).size() <= 100
-        && request.resource.data.get('opinion', '') is string
-        && request.resource.data.get('opinion', '').size() <= 4000
-        && request.resource.data.get('target', 300) is int
-        && request.resource.data.get('target', 300) >= 1
-        && request.resource.data.get('target', 300) <= 2000;
     }
-    // 이주배경학생 명단(학생 이름 = 개인정보). 그 반 담임, 관리자, 한국어학급 담당만
+    // 학년도 미확인 원본은 관리자에게만 읽기 허용한다.
     match /migrantStudents/{id} {
-      allow read, delete: if isAdmin() || isHomeroomOf(resource.data.grade, resource.data.cls) || isKclassStaff();
-      allow create: if validMigrant(request.resource.data)
-        && (isAdmin() || isHomeroomOf(request.resource.data.grade, request.resource.data.cls) || isKclassStaff());
-      allow update: if validMigrant(request.resource.data)
-        && (isAdmin() || isKclassStaff()
-          || (isHomeroomOf(resource.data.grade, resource.data.cls) && request.resource.data.grade == resource.data.grade && request.resource.data.cls == resource.data.cls));
+      allow read: if isAdmin();
     }
-    // 반별 이주배경학생 합계(이름 없음) → HOME·학교 현황. 승인된 선생님 읽기, 그 반 담임·관리자·한국어학급 담당 쓰기
     match /migrantClassSum/{key} {
-      allow read: if isStaff();
-      allow delete: if isAdmin() || isHomeroomOf(resource.data.grade, resource.data.cls) || isKclassStaff();
-      allow create, update: if (isAdmin() || isHomeroomOf(request.resource.data.grade, request.resource.data.cls) || isKclassStaff())
-        && key == string(request.resource.data.grade) + '-' + string(request.resource.data.cls)
-        && request.resource.data.keys().hasOnly(['grade', 'cls', 'foreign', 'mid', 'domestic', 'countries', 'updatedAt'])
-        && request.resource.data.countries is map && request.resource.data.countries.size() <= 40;
+      allow read: if isAdmin();
     }
 
-    // HOME 대표 사진(줄인 JPEG를 문서에 저장). 승인된 선생님은 보기, 관리자만 등록·삭제
     match /heroPhotos/{id} {
       allow read: if isApproved();
       allow create, update: if isAdmin()
@@ -304,10 +247,261 @@ service cloud.firestore {
     }
     match /dailyLogs/{day} {
       allow read: if isStaff();
-      allow write: if (isHeadAffairs() || isDeveloper()) && day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+      allow create, update: if (isHeadAffairs() || isDeveloper()) && hasOperatingDateYear(request.resource.data, day)
+        && (resource == null || resource.data.get('year', request.resource.data.year) == request.resource.data.year);
+      allow delete: if (isHeadAffairs() || isDeveloper()) && isOperatingDate(day);
+    }
+
+    function isOperatingDate(date) {
+      let year = get(/databases/$(database)/documents/config/school).data.year;
+      let cal = /databases/$(database)/documents/calendar/$(string(year));
+      let period = exists(cal) ? get(cal).data.get('operatingPeriod', {}) : {};
+      let start = period.get('start', string(year) + '-03-01');
+      let end = period.get('end', string(year + 1) + '-03-01');
+      return date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') && date >= start && date < end;
+    }
+    function hasOperatingDateYear(d, date) {
+      return isOperatingDate(date) && string(d.year) == activeRosterYear();
+    }
+    match /yearStats/{year} {
+      allow read: if isStaff();
+      allow create, update: if (isAdmin() || isLogWriter()) && year == activeRosterYear();
     }
 
     // 그 밖의 모든 경로는 차단
+    function activeRosterYear() {
+      return string(get(/databases/$(database)/documents/config/school).data.year);
+    }
+    function rosterAssignment(year) {
+      return /databases/$(database)/documents/rosterYears/$(year)/homerooms/$(myEmail());
+    }
+    function staffAccount(email) {
+      return /databases/$(database)/documents/staffAccounts/$(email);
+    }
+    function staffClass(year, classId) {
+      return /databases/$(database)/documents/staffYears/$(year)/classOwners/$(classId);
+    }
+    function managesStaffClass(year, classId) {
+      return exists(staffClass(year, classId));
+    }
+    function hasStaffClassAssignment(year, classId) {
+      return exists(staffAccount(myEmail()))
+        && get(staffClass(year, classId)).data.staffId == get(staffAccount(myEmail())).data.staffId;
+    }
+    function hasManagedHomeroom(year) {
+      let account = staffAccount(myEmail());
+      return exists(account) && exists(/databases/$(database)/documents/staffYears/$(year)/ownHomerooms/$(get(account).data.staffId));
+    }
+    function isYearHomeroom(year, classId) {
+      return isStaff() && year == activeRosterYear()
+        && (managesStaffClass(year, classId) ? hasStaffClassAssignment(year, classId)
+          : (!hasManagedHomeroom(year) && exists(rosterAssignment(year)) && get(rosterAssignment(year)).data.classId == classId));
+    }
+    match /staffProfiles/{staffId} {
+      allow read, create, update: if isAdmin();
+    }
+    match /staffNames/{staffId} {
+      allow read: if isStaff();
+      allow create, update: if isAdmin() && request.resource.data.keys().hasOnly(['name'])
+        && request.resource.data.name is string && request.resource.data.name.size() <= 60;
+    }
+    match /staffAccounts/{email} {
+      allow get: if isAdmin() || (isStaff() && myEmail() == email);
+      allow list, create, update, delete: if isAdmin();
+    }
+    match /staffYears/{year} {
+      allow read, create, update: if isAdmin();
+      match /classOwners/{classId} {
+        allow read, create, update: if isAdmin();
+      }
+      match /ownHomerooms/{staffId} {
+        allow get: if isAdmin() || (isStaff() && year == activeRosterYear()
+          && exists(staffAccount(myEmail())) && get(staffAccount(myEmail())).data.staffId == staffId);
+        allow create, update, delete: if isAdmin();
+      }
+    }
+    match /staffSchedule/{year} {
+      allow get: if isAdmin() || (isStaff() && year == activeRosterYear());
+      allow create, update: if isAdmin() && request.resource.data.keys().hasOnly(['subjects', 'activeCount', 'activeStaffIds'])
+        && request.resource.data.subjects is list && request.resource.data.subjects.size() <= 200
+        && request.resource.data.activeCount is int && request.resource.data.activeCount >= 0
+        && request.resource.data.get('activeStaffIds', []) is list && request.resource.data.get('activeStaffIds', []).size() <= 500;
+    }
+    match /rosterYears/{year}/homerooms/{email} {
+      allow get: if isAdmin() || (isStaff() && email == myEmail() && year == activeRosterYear());
+      allow list: if isAdmin();
+      allow create, update: if isAdmin() && request.resource.data.keys().hasOnly(['classId'])
+        && request.resource.data.classId.matches('^[1-6]-([1-9]|1[0-9]|20)$');
+      allow delete: if isAdmin();
+    }
+    function yearMember(year, studentId) {
+      return /databases/$(database)/documents/rosterYears/$(year)/memberships/$(studentId);
+    }
+    function yearClass(year, classId) {
+      return /databases/$(database)/documents/rosterYears/$(year)/classes/$(classId);
+    }
+    function studentProfile(studentId) {
+      return /databases/$(database)/documents/studentProfiles/$(studentId);
+    }
+    function canWriteYearProfile(studentId) {
+      let year = activeRosterYear();
+      let member = getAfter(yearMember(year, studentId)).data;
+      return isYearHomeroom(year, member.classId) && member.status == 'enrolled'
+        && member.displayName == request.resource.data.name && member.sex == request.resource.data.sex;
+    }
+    match /studentProfiles/{studentId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() || (canWriteYearProfile(studentId)
+        && request.resource.data.keys().hasOnly(['name', 'sex', 'createdAt']));
+      allow update: if isAdmin() || (canWriteYearProfile(studentId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'sex']));
+    }
+    match /rosterYears/{year}/classes/{classId} {
+      allow get: if isAdmin() || isYearHomeroom(year, classId);
+      allow list: if isAdmin();
+      allow create, update: if request.resource.data.year == year && (isAdmin()
+        || (isYearHomeroom(year, classId)
+          && request.resource.data.keys().hasOnly(['year', 'grade', 'cls', 'slots'])
+          && request.resource.data.slots is map
+          && request.resource.data.slots.size() <= 99
+          && classId == string(request.resource.data.grade) + '-' + string(request.resource.data.cls)));
+    }
+    match /rosterYears/{year}/memberships/{studentId} {
+      allow delete: if isAdmin() && resource.data.get('transferId', '') != '';
+      allow read: if isAdmin() || isYearHomeroom(year, resource.data.classId);
+      allow create, update: if (isAdmin() || (
+          isYearHomeroom(year, request.resource.data.classId)
+          && (resource == null ? (!exists(studentProfile(studentId)) && !request.resource.data.keys().hasAny(['legacyId', 'transferId']))
+            : (resource.data.classId == request.resource.data.classId && resource.data.status == 'enrolled'
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+                ['no', 'displayName', 'sex', 'mig', 'country', 'note', 'status', 'updatedAt', 'updatedBy'])))
+          && request.resource.data.status in ['enrolled', 'transferred']
+          && ((resource != null && resource.data.displayName == request.resource.data.displayName)
+            || getAfter(studentProfile(studentId)).data.name == request.resource.data.displayName)
+          && getAfter(yearClass(year, request.resource.data.classId)).data.slots.get(string(request.resource.data.no), '') ==
+            (request.resource.data.status == 'enrolled' ? studentId : '')
+        ))
+        && request.resource.data.year == year
+        && request.resource.data.studentId == studentId
+        && request.resource.data.keys().hasOnly(['year', 'studentId', 'grade', 'cls', 'classId', 'no',
+          'status', 'displayName', 'sex', 'mig', 'country', 'note', 'legacyId', 'transferId', 'updatedAt', 'updatedBy'])
+        && request.resource.data.classId == string(request.resource.data.grade) + '-' + string(request.resource.data.cls)
+        && request.resource.data.displayName is string && request.resource.data.displayName.size() <= 20
+        && request.resource.data.grade is int && request.resource.data.grade >= 1 && request.resource.data.grade <= 6
+        && request.resource.data.cls is int && request.resource.data.cls >= 1 && request.resource.data.cls <= 20
+        && request.resource.data.no is int && request.resource.data.no >= 1 && request.resource.data.no <= 99
+        && request.resource.data.status in ['enrolled', 'transferred', 'graduated', 'deferred'];
+    }
+
+    function validYearBehavior(d) {
+      return d.keys().hasOnly(['studentId', 'membershipId', 'year', 'grade', 'cls', 'no', 'classId', 'traits', 'opinion', 'target'])
+        && d.get('traits', {}) is map && d.get('traits', {}).size() <= 100
+        && d.get('opinion', '') is string && d.get('opinion', '').size() <= 4000
+        && d.get('target', 300) is int && d.get('target', 300) >= 1 && d.get('target', 300) <= 2000;
+    }
+    function canEditYearBehavior(year, studentId) {
+      let member = get(yearMember(year, studentId)).data;
+      return isAdmin() || (member.status == 'enrolled' && isYearHomeroom(year, member.classId));
+    }
+    match /rosterYears/{year}/behavior/{studentId} {
+      allow get: if canEditYearBehavior(year, studentId)
+        && (resource == null || isAdmin() || isYearHomeroom(year, resource.data.classId));
+      allow create: if canEditYearBehavior(year, studentId)
+        && validYearBehavior(request.resource.data)
+        && request.resource.data.year == year && request.resource.data.studentId == studentId
+        && request.resource.data.membershipId == studentId
+        && request.resource.data.grade == get(yearMember(year, studentId)).data.grade
+        && request.resource.data.cls == get(yearMember(year, studentId)).data.cls
+        && request.resource.data.no == get(yearMember(year, studentId)).data.no
+        && request.resource.data.classId == get(yearMember(year, studentId)).data.classId;
+      allow update: if canEditYearBehavior(year, studentId)
+        && (isAdmin() || isYearHomeroom(year, resource.data.classId))
+        && validYearBehavior(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['traits', 'opinion', 'target']);
+    }
+    function ownsYearKclass(year, classId) {
+      let owner = /databases/$(database)/documents/rosterYears/$(year)/kclassOwners/$(classId);
+      return year == activeRosterYear() && exists(owner) && get(owner).data.email == myEmail();
+    }
+    function isYearKclassStaff(year) {
+      let config = /databases/$(database)/documents/config/ksl;
+      return isStaff() && year == activeRosterYear()
+        && (ownsYearKclass(year, '1') || ownsYearKclass(year, '2') || ownsYearKclass(year, '3')
+          || (exists(config) && myEmail() in get(config).data.get('teachers', [])));
+    }
+    match /rosterYears/{year}/kclassOwners/{classId} {
+      allow get: if isAdmin() || (isStaff() && year == activeRosterYear());
+      allow create, update: if isAdmin() && classId.matches('^[1-3]$')
+        && request.resource.data.keys().hasOnly(['email'])
+        && request.resource.data.email is string && request.resource.data.email.size() <= 254;
+    }
+    match /rosterYears/{year}/kclassTimetables/{classId} {
+      allow get: if isAdmin() || (isStaff() && year == activeRosterYear());
+      allow create, update: if classId.matches('^[1-3]$') && (isAdmin() || (isStaff() && ownsYearKclass(year, classId)))
+        && request.resource.data.keys().hasOnly(['slots', 'teacherName', 'instructorName'])
+        && request.resource.data.slots is map && request.resource.data.slots.size() <= 80
+        && request.resource.data.teacherName is string && request.resource.data.teacherName.size() <= 30
+        && request.resource.data.instructorName is string && request.resource.data.instructorName.size() <= 30;
+    }
+    match /rosterYears/{year}/kclassParticipation/{classId} {
+      allow get: if isAdmin() || (isStaff() && ownsYearKclass(year, classId));
+      allow create, update: if classId.matches('^[1-3]$')
+        && (isAdmin() || (isStaff() && ownsYearKclass(year, classId)))
+        && request.resource.data.keys().hasOnly(['slots'])
+        && request.resource.data.slots is map && request.resource.data.slots.size() <= 30;
+    }
+    function validKclassStudentRecord(year, studentId, data) {
+      let pupil = get(/databases/$(database)/documents/rosterYears/$(year)/migrantRoster/$(studentId)).data;
+      return data.keys().hasOnly(['year', 'studentId', 'grade', 'cls', 'no', 'note'])
+        && data.year == year && data.studentId == studentId
+        && data.grade == pupil.grade && data.cls == pupil.cls && data.no == pupil.no
+        && data.note is string && data.note.size() <= 2000;
+    }
+    match /rosterYears/{year}/kclassParticipation/{classId}/studentRecords/{studentId} {
+      allow get: if isAdmin() || (isStaff() && ownsYearKclass(year, classId));
+      allow create: if (isAdmin() || (isStaff() && ownsYearKclass(year, classId)))
+        && validKclassStudentRecord(year, studentId, request.resource.data);
+      allow update: if (isAdmin() || (isStaff() && ownsYearKclass(year, classId)))
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['note'])
+        && request.resource.data.note is string && request.resource.data.note.size() <= 2000;
+    }
+    function agreesWithMigrantMember(year, studentId, d) {
+      let member = getAfter(yearMember(year, studentId)).data;
+      return d.keys().hasOnly(['year', 'studentId', 'classId', 'grade', 'cls', 'no', 'type', 'country', 'name'])
+        && d.year == year && d.studentId == studentId && d.classId == member.classId
+        && d.grade == member.grade && d.cls == member.cls && d.no == member.no
+        && d.type == member.mig && d.type in ['foreign', 'mid', 'domestic']
+        && d.country == member.get('country', '') && d.name == member.displayName && member.status == 'enrolled';
+    }
+    match /rosterYears/{year}/migrantRoster/{studentId} {
+      allow read: if isAdmin() || isYearKclassStaff(year) || isYearHomeroom(year, resource.data.classId);
+      allow create, update: if isAdmin() || (isYearHomeroom(year, request.resource.data.classId)
+        && agreesWithMigrantMember(year, studentId, request.resource.data));
+      allow delete: if isAdmin() || (isYearHomeroom(year, getAfter(yearMember(year, studentId)).data.classId)
+        && (getAfter(yearMember(year, studentId)).data.status != 'enrolled' || getAfter(yearMember(year, studentId)).data.get('mig', '') == ''));
+    }
+    function canWriteMigrantStat(year, studentId, deleting) {
+      let member = getAfter(yearMember(year, studentId)).data;
+      return isYearHomeroom(year, member.classId) && (deleting
+        ? (member.status != 'enrolled' || member.get('mig', '') == '')
+        : (member.status == 'enrolled' && member.mig in ['foreign', 'mid', 'domestic']
+          && request.resource.data.type == member.mig && request.resource.data.country == member.get('country', '')));
+    }
+    match /rosterYears/{year}/migrantStats/{rowId} {
+      allow read: if isAdmin() || (isStaff() && year == activeRosterYear());
+      allow delete: if isAdmin() || canWriteMigrantStat(year, rowId, true);
+      allow create, update: if request.resource.data.keys().hasOnly(['type', 'country'])
+        && request.resource.data.type in ['foreign', 'mid', 'domestic']
+        && request.resource.data.country is string && request.resource.data.country.size() <= 30
+        && (isAdmin() || canWriteMigrantStat(year, rowId, false));
+    }
+    match /rosterTransferLinks/{id} {
+      allow read, create, delete: if isAdmin();
+    }
+    match /rosterYears/{year}/records/{studentId} {
+      allow read, create: if isAdmin();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

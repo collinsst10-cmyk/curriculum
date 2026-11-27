@@ -113,6 +113,61 @@ function defaultState() {
   return s;
 }
 const MAX_PERIODS = 8;
+/* 학년도 전환 시 기존 형식의 편성 데이터를 학년도별로 보관한다. */
+const YEAR_PLAN_FIELDS = [
+  'sem', 'days', 'hours', 'satName', 'satNameB', 'timetable',
+  'jundam', 'env', 'chaMode', 'chaStd', 'shortDays', 'staffAssignmentLinks'
+];
+const YEAR_SCHOOL_FIELDS = ['classes', 'periods', 'kclass'];
+
+function captureYearPlan(plan) {
+  const copyFields = (source, fields) => Object.fromEntries(
+    fields.filter(key => Object.hasOwn(source, key)).map(key => [key, source[key]])
+  );
+  return structuredClone({
+    ...copyFields(plan, YEAR_PLAN_FIELDS),
+    school: copyFields(plan.school, YEAR_SCHOOL_FIELDS)
+  });
+}
+
+function switchPlanYear(plan, year) {
+  const previousYear = plan.school.year;
+  if (!Number.isInteger(year) || year < 1900 || year > 9998 || previousYear === year) return plan;
+
+  const yearPlans = { ...plan.yearPlans, [previousYear]: captureYearPlan(plan) };
+  const saved = yearPlans[year];
+  const next = saved || captureYearPlan(defaultState());
+  const priorHours = !saved && plan.yearArchive?.[year];
+  const priorEnvironment = !saved && plan.envArchive?.[year];
+  const result = { ...plan, yearPlans, school: { ...plan.school, year } };
+  for (const key of YEAR_PLAN_FIELDS) delete result[key];
+  for (const key of YEAR_SCHOOL_FIELDS) delete result.school[key];
+  const { school, ...fields } = structuredClone(next);
+  Object.assign(result, fields);
+  Object.assign(result.school, school);
+  if (!saved) {
+    result.sem = defaultSemesters(year);
+    // 구버전은 여러 학년도의 날짜를 한 객체에 저장했다.
+    const from = `${year}-03-01`, until = `${year + 1}-03-01`;
+    for (const archived of Object.values(yearPlans)) {
+      for (const [date, item] of Object.entries(archived.days || {})) {
+        if (date >= from && date < until) result.days[date] = structuredClone(item);
+      }
+    }
+    if (priorHours) {
+      for (const key of ['hours', 'satName', 'satNameB', 'chaMode']) {
+        if (Object.hasOwn(priorHours, key)) result[key] = structuredClone(priorHours[key]);
+      }
+      if (priorHours.classes) result.school.classes = structuredClone(priorHours.classes);
+    }
+    if (priorEnvironment) result.env = structuredClone(priorEnvironment);
+  }
+  // 활성 자료는 기존 모듈이 사용하므로 사본을 중복 보관하지 않는다.
+  delete yearPlans[year];
+  return normalize(result);
+}
+
+
 function emptyGrid() { return Array.from({ length: 5 }, () => Array(MAX_PERIODS).fill('')); }
 
 function load() {
@@ -204,7 +259,7 @@ function saveNow() {
 
 function updateTitles() {
   const t = `${state.school.name || '학교명 미입력'} · ${state.school.year}학년도`;
-  $('hdrSchool').textContent = t;
+  $('hdrSchool').textContent = state.school.year + '학년도 운영';
   $('printTitle').textContent = `${state.school.year}학년도 교육과정`;
   document.title = `${state.school.name || '초등학교'} 교육과정 편성 도우미`;
 }
@@ -213,13 +268,50 @@ function fitStickyTabs() { document.documentElement.style.setProperty('--hdr', (
 window.addEventListener('resize', fitStickyTabs);
 document.addEventListener('DOMContentLoaded', fitStickyTabs);
 
+function applyOperatingYear(year, settings) {
+  const previousYear = Number(state.school.year);
+  const changed = previousYear !== Number(year);
+  if (changed) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    state = switchPlanYear(state, Number(year));
+    App.onOperatingYearChange?.();
+  }
+  if (settings) {
+    if (settings.classes) state.school.classes = { ...state.school.classes, ...settings.classes };
+    if (settings.kclass !== undefined) state.school.kclass = settings.kclass;
+    if (Array.isArray(settings.bell)) {
+      state.env ||= {};
+      if (changed && JSON.stringify(state.env.bell?.rows || []) !== JSON.stringify(settings.bell)) delete state.env.bellCfg;
+      state.env.bell = { ...state.env.bell, rows: settings.bell };
+    }
+  }
+  _yearCache = null;
+  if (!isTeacherView()) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+    catch (error) { console.warn('학년도별 자료를 이 PC에 보관하지 못했습니다.', error); }
+  }
+  updateTitles();
+  if (changed) {
+    homeMonth = null;
+    document.dispatchEvent(new CustomEvent('year-change', { detail: { previousYear, year: Number(year) } }));
+  }
+  if (RENDER[curTab]) rerenderKeepFocus(() => RENDER[curTab]());
+}
+
+function alignImportedPlan(data) {
+  const plan = normalize(data);
+  const shared = window.Haksa?.operatingYear;
+  return shared ? switchPlanYear(plan, shared) : plan;
+}
+
 /** 다른 모듈(cloud.js)이 쓰는 상태 접근 API */
 window.App = {
   onSave: null,
   getState: () => state,
   /** 외부(클라우드)에서 받은 데이터로 교체. onSave 를 호출하지 않음 */
   setState(data) {
-    state = normalize(data);
+    state = alignImportedPlan(data);
     _yearCache = null;
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
     updateTitles();
@@ -482,6 +574,7 @@ function renderInfo() {
   const ys = $('inYear'); const y0 = new Date().getFullYear();
   ys.innerHTML = '';
   for (let y = y0 - 1; y <= y0 + 3; y++) ys.add(new Option(`${y}학년도${PRESET_HOLIDAYS[y] ? '' : ' (공휴일 직접 입력)'}`, y));
+  if (![...ys.options].some(option => Number(option.value) === state.school.year)) ys.add(new Option(state.school.year + '학년도', state.school.year));
   ys.value = state.school.year;
 
   // 한국어학급 수: 학급 현황 설정·한국어학급 운영에 쓰임 (지금 시간표는 최대 3개 학급)
@@ -1066,9 +1159,8 @@ const HOME_TAG = { holiday: ['공휴일', 'red'], closure: ['재량휴업일', '
 
 function renderHomeMonth() {
   if (!homeMonth) {
-    const now = new Date(), y = state.school.year;
-    const inYear = fmt(now) >= `${y}-03-01` && fmt(now) < `${y + 1}-03-01`;
-    homeMonth = inYear ? new Date(now.getFullYear(), now.getMonth(), 1) : new Date(y, 2, 1);
+    const date = parse(OperatingCalendar.activeDate());
+    homeMonth = new Date(date.getFullYear(), date.getMonth(), 1);
   }
   const y = homeMonth.getFullYear(), m = homeMonth.getMonth();
   $('monthTitle').textContent = (y === new Date().getFullYear() ? '' : `${y}년 `) + `${m + 1}월 주요 학사일정`;
@@ -1197,12 +1289,35 @@ function bind() {
     state.school.details[key] = field.value.trim();
     save();
   });
-  $('inYear').addEventListener('change', e => {
+  $('inYear').addEventListener('change', async e => {
     if (!canEditSchool()) return;
-    const y = Number(e.target.value);
-    if (!haksaShared() && Object.keys(state.days).length && !confirm('학년도를 바꾸면 학기 기간이 기본값으로 바뀝니다. 입력한 일정은 유지됩니다(날짜가 달라 표시되지 않을 수 있음). 계속할까요?')) { e.target.value = state.school.year; return; }
-    state.school.year = y; state.sem = defaultSemesters(y); _yearCache = null; save(); renderInfo();
-    document.dispatchEvent(new Event('year-change'));   // 학교 공용 학사일정·교육활동을 해당 학년도로 다시 불러옴
+    const input = e.target, year = Number(input.value);
+    if (year === state.school.year) return;
+    if (window.FIREBASE_CONFIG && !window.Haksa?.canEdit()) {
+      input.value = state.school.year;
+      return;
+    }
+    const online = !!window.FIREBASE_CONFIG;
+    if (online && !confirm(year + '학년도를 학교 공용 운영 학년도로 설정할까요?')) {
+      input.value = state.school.year;
+      return;
+    }
+    input.disabled = true;
+    try {
+      if (online) {
+        const next = switchPlanYear(state, year);
+        localStorage.setItem(STORE_KEY, JSON.stringify(state));
+        await App.flushPlanForYearChange?.();
+        await Haksa.setOperatingYear(year, next);
+      } else {
+        localStorage.setItem(STORE_KEY, JSON.stringify(state));
+        applyOperatingYear(year);
+      }
+      $('operatingYearStatus').textContent = year + '학년도로 전환했습니다.';
+    } catch (error) {
+      input.value = state.school.year;
+      $('operatingYearStatus').textContent = '학년도 전환 실패: ' + error.message;
+    } finally { updateSchoolEditControls(); }
   });
   // 학기·방학: 개학일, 여름방학, 겨울방학, 종업일
   ['s1Start', 'summerStart', 'summerEnd', 'winterStart', 'winterEnd', 's2End'].forEach(k => $(k).addEventListener('change', async () => {
@@ -1311,7 +1426,7 @@ function bind() {
         const data = JSON.parse(r.result);
         if (!data.school || !data.hours) throw new Error('형식 오류');
         if (!confirm('현재 입력을 불러온 백업으로 교체합니다. 계속할까요?')) return;
-        state = normalize(data); save(); showTab(curTab);
+        state = alignImportedPlan(data); saveNow(); showTab(curTab);
       } catch (err) { alert('백업 파일을 읽을 수 없습니다: ' + err.message); }
       e.target.value = '';
     };

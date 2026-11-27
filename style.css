@@ -2012,3 +2012,12 @@ th.kc-col { color: #5b21b6; }
 .jd-grade-note { grid-column: 2 / -1; margin: 0; color: var(--err); }
 
 .hl-deadline { color: #254e89; font-family: var(--f7), sans-serif; }
+
+#staffAdmin > summary { cursor: pointer; color: var(--nv-d); font-family: var(--f7); }
+#staffAdmin[open] > summary { margin-bottom: 14px; }
+#staffAdmin .staff-admin-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 16px; }
+#staffAdmin section { margin-top: 16px; }
+#staffAdmin select[multiple] { min-height: 85px; }
+#staffAdmin textarea { width: 100%; }
+
+#hdrSchool { white-space: nowrap; padding: 4px 8px; border-radius: 8px; background: var(--nv-pale); color: var(--nv-d); opacity: 1; }

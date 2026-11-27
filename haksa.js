@@ -14,10 +14,11 @@
   const H = window.Haksa = {
     active: false,          // 학교 공용 학사일정 사용 중
     loaded: false,
-    days: {}, sem: null, eventPlans: {},
+    days: {}, sem: null, eventPlans: {}, operatingPeriod: null,
     canEdit: () => !!(window.Cloud && Cloud.ready && Cloud.isAdmin()),
     canCreate: () => H.loaded && !H.active && H.canEdit(),
-    writeDays, writeSem, createFromLocal,
+    writeDays, writeSem, createFromLocal, setOperatingYear,
+    get operatingYear() { return operatingYear; },
   };
 
   const ref = () => Cloud.fb.F.doc(Cloud.fb.db, 'calendar', String(state.school.year));
@@ -29,19 +30,23 @@
     stop();
     subYear = y;
     unsub = Cloud.fb.F.onSnapshot(ref(), d => {
+      if (subYear !== y) return;
       const data = d.exists() ? d.data() : null;
+      const priorPeriod = JSON.stringify(H.operatingPeriod);
+      H.operatingPeriod = data?.operatingPeriod || null;
       H.active = !!data;
       H.days = (data && data.days) || {};
       H.eventPlans = data?.eventPlans || {};
       H.sem = (data && data.sem) || null;
       H.loaded = true;
+      if (priorPeriod !== JSON.stringify(H.operatingPeriod)) document.dispatchEvent(new Event('year-period-change'));
       rerender();
     }, err => { console.warn('학사일정 불러오기 실패', err); H.loaded = true; rerender(); });
   }
   function stop() {
     if (unsub) unsub();
     unsub = null; subYear = null;
-    H.active = false; H.loaded = false; H.days = {}; H.sem = null; H.eventPlans = {};
+    H.active = false; H.loaded = false; H.days = {}; H.sem = null; H.eventPlans = {}; H.operatingPeriod = null;
   }
   function rerender() {
     _yearCache = null;   // app.js 의 학년도 계산 캐시
@@ -72,48 +77,74 @@
 
   /* ---------- 학교 정보(학교명·학년도·학급 수) 공유: config/school ----------
    * 관리자가 고치면 저장되고, 선생님 화면은 이 값으로 학년도·학급 수를 맞춤(교육활동 대상 학급 등) */
-  let unsubSchool = null, lastSchool = '';
-  // 일과시간(교시 시각)도 함께 공유 → 선생님 화면의 시간표에도 시각 표시
-  const bellRows = () => ((state.env && state.env.bell && state.env.bell.rows) || []).map(r => ({ label: r.label, start: r.start, end: r.end, kind: r.kind }));
-  const schoolInfo = () => ({ name: state.school.name, neis: state.school.neis || '', year: state.school.year, classes: { ...state.school.classes }, kclass: Number(state.school.kclass ?? 3), bell: bellRows(),
-    ...(state.school.details ? { details: { ...state.school.details } } : {}),
-  });
+  let unsubSchool = null, lastSchool = '', operatingYear = null, schoolLoaded = false;
+  const infoRef = () => Cloud.fb.F.doc(Cloud.fb.db, 'config', 'school');
+  const annualRef = year => Cloud.fb.F.doc(Cloud.fb.db, 'schoolYears', String(year));
+  const validYear = year => Number.isInteger(year) && year >= 2000 && year <= 2099;
+  const bellRows = model => (model.env?.bell?.rows || []).map(({ label, start, end, kind }) => ({ label, start, end, kind }));
+  const annual = model => ({ classes: { ...model.school.classes }, kclass: Number(model.school.kclass ?? 3), bell: bellRows(model) });
+  const annualFields = data => ({ classes: data.classes || {}, kclass: Number(data.kclass ?? 3), bell: data.bell || [] });
+  const schoolInfo = () => ({ name: state.school.name, neis: state.school.neis || '', year: state.school.year, ...annual(state),
+    ...(state.school.details ? { details: { ...state.school.details } } : {}) });
+  const encodeSchool = data => JSON.stringify({ name: data.name, neis: data.neis || '', year: data.year,
+    ...annualFields(data), ...(data.details ? { details: data.details } : {}) });
+
   async function writeSchool(force) {
-    if (!H.canEdit()) return;
-    const json = JSON.stringify(schoolInfo());
+    if (!H.canEdit() || !schoolLoaded || (operatingYear && operatingYear !== state.school.year)) return;
+    const info = schoolInfo();
+    const json = encodeSchool(info);
     if (!force && json === lastSchool) return;
-    await Cloud.fb.F.setDoc(Cloud.fb.F.doc(Cloud.fb.db, 'config', 'school'), { ...JSON.parse(json), ...stamp() });
-    lastSchool = json;
+    const F = Cloud.fb.F;
+    await F.runTransaction(Cloud.fb.db, async tx => {
+      const existing = await tx.get(infoRef());
+      if (existing.exists() && existing.data().year !== info.year) return;
+      tx.set(infoRef(), { ...info, ...stamp() }, { merge: true });
+      tx.set(annualRef(info.year), { year: info.year, ...annualFields(info), ...stamp() }, { merge: true });
+    });
   }
-  H.onSaved = () => { if (window.Cloud && Cloud.ready && Cloud.isAdmin()) writeSchool().catch(e => console.warn('학교 정보 저장 실패', e)); };
+
+  async function setOperatingYear(year, nextPlan) {
+    guard();
+    if (!schoolLoaded || !validYear(year)) throw new Error('학교 공용 학년도 정보를 먼저 불러와 주세요.');
+    const F = Cloud.fb.F;
+    const result = await F.runTransaction(Cloud.fb.db, async tx => {
+      const shared = await tx.get(infoRef());
+      const current = shared.data() || {};
+      const previousYear = Number(current.year);
+      if (validYear(previousYear) && previousYear !== operatingYear) throw new Error('다른 관리자가 학년도를 변경했습니다. 새 학년도를 확인해 주세요.');
+      const nextRef = annualRef(year);
+      const target = await tx.get(nextRef);
+      const previousRef = validYear(previousYear) && previousYear !== year ? annualRef(previousYear) : null;
+      const previous = previousRef ? await tx.get(previousRef) : null;
+      const settings = target.exists() ? annualFields(target.data()) : annual(nextPlan);
+      if (previous && !previous.exists()) tx.set(previousRef, { year: previousYear, ...annualFields(current), ...stamp() });
+      if (!target.exists()) tx.set(nextRef, { year, ...settings, ...stamp() });
+      tx.set(infoRef(), { ...(!shared.exists() ? schoolInfo() : {}), ...settings, year, ...stamp() }, { merge: true });
+      return settings;
+    });
+    if (operatingYear !== year) {
+      operatingYear = year;
+      applyOperatingYear(year, result);
+    }
+  }
+
+  H.onSaved = () => { if (H.canEdit()) writeSchool().catch(e => console.warn('학교 정보 저장 실패', e)); };
   function subscribeSchool() {
     if (unsubSchool) { unsubSchool(); unsubSchool = null; }
-    if (!window.Cloud || !Cloud.ready) return;
-    unsubSchool = Cloud.fb.F.onSnapshot(Cloud.fb.F.doc(Cloud.fb.db, 'config', 'school'), d => {
+    schoolLoaded = false;
+    if (!window.Cloud || !Cloud.ready) { operatingYear = null; return; }
+    unsubSchool = Cloud.fb.F.onSnapshot(infoRef(), { includeMetadataChanges: true }, d => {
+      if (d.metadata.hasPendingWrites) return;
+      schoolLoaded = !d.metadata.fromCache || schoolLoaded;
       if (!d.exists()) return;
       const s = d.data();
-      if (Cloud.isAdmin()) {
-        lastSchool = JSON.stringify({ name: s.name, neis: s.neis || '', year: s.year, classes: s.classes,
-          kclass: Number(s.kclass ?? 3), bell: s.bell || [], ...(s.details ? { details: s.details } : {}),
-        });
-        if (s.details && !d.metadata.hasPendingWrites) {
-          state.school.details = { ...s.details };
-          if (curTab === 'school') rerenderKeepFocus(renderInfo);
-        }
-        return;
-      }
-      state.school.neis = s.neis || '';
-      state.school.details = { ...s.details };
-      // 선생님: 관리자가 정한 학교 정보 사용
-      const yearChanged = s.year && s.year !== state.school.year;
-      state.school.name = s.name || state.school.name;
-      if (s.year) state.school.year = s.year;
-      if (s.classes) state.school.classes = { ...state.school.classes, ...s.classes };
-      if (s.kclass !== undefined) state.school.kclass = Number(s.kclass);
-      if (Array.isArray(s.bell) && s.bell.length) { state.env = state.env || {}; state.env.bell = { ...(state.env.bell || {}), rows: s.bell }; }
-      updateTitles();
-      if (yearChanged) document.dispatchEvent(new Event('year-change'));
-      rerender();
+      if (!validYear(s.year)) return;
+      const changed = operatingYear !== s.year || state.school.year !== s.year;
+      operatingYear = s.year;
+      lastSchool = encodeSchool(s);
+      Object.assign(state.school, { name: s.name || state.school.name, neis: s.neis || '', details: { ...s.details } });
+      if (changed || !Cloud.isAdmin()) applyOperatingYear(s.year, annualFields(s));
+      else if (curTab === 'school') rerenderKeepFocus(renderInfo);
     }, err => console.warn('학교 정보 불러오기 실패', err));
   }
 

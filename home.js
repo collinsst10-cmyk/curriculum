@@ -5,7 +5,7 @@
  * ========================================================= */
 (function () {
   'use strict';
-  let logDate = fmt(new Date());
+  let logDate = OperatingCalendar.activeDate();
   let unsub = null, subDate = null, current, recent = [];
 
   const ref = ds => Cloud.fb.F.doc(Cloud.fb.db, 'dailyLogs', ds);
@@ -24,7 +24,8 @@
     if (unsub && subDate === logDate) return;
     if (unsub) unsub();
     subDate = logDate; current = undefined;
-    unsub = Cloud.fb.F.onSnapshot(ref(logDate), d => { current = d.exists() ? d.data() : null; render(); },
+    const watchedDate = logDate;
+    unsub = Cloud.fb.F.onSnapshot(ref(logDate), d => { if (subDate !== watchedDate) return; current = d.exists() ? d.data() : null; render(); },
       err => { console.warn('운영일지 불러오기 실패', err); current = null; render(); });
     loadRecent();
   }
@@ -33,11 +34,17 @@
   /** 최근 60일 일지 중 마지막 7개 (내림차순 정렬은 색인이 필요해 오름차순으로 받아 뒤집음) */
   async function recentDays(n = 7) {
     const F = Cloud.fb.F;
-    const q = F.query(F.collection(Cloud.fb.db, 'dailyLogs'), F.where(F.documentId(), '>=', fmt(addDays(new Date(), -60))), F.orderBy(F.documentId()));
-    return (await F.getDocs(q)).docs.map(d => d.id).slice(-n).reverse();
+    const term = OperatingCalendar.range();
+    const threshold = logDate < term.start || logDate >= term.end ? term.start
+      : fmt(addDays(parse(logDate), -60));
+    const start = threshold < term.start ? term.start : threshold;
+    const q = F.query(F.collection(Cloud.fb.db, 'dailyLogs'), F.where(F.documentId(), '>=', start),
+      F.where(F.documentId(), '<', term.end), F.orderBy(F.documentId(), 'desc'), F.limit(n));
+    return (await F.getDocs(q)).docs.filter(d => !d.data().year || Number(d.data().year) === state.school.year).map(d => d.id);
   }
   async function loadRecent() {
-    try { recent = await recentDays(); renderRecent(); } catch (e) { console.warn('최근 운영일지 목록 실패', e); }
+    const year = state.school.year;
+    try { const dates = await recentDays(); if (year !== state.school.year) return; recent = dates; renderRecent(); } catch (e) { console.warn('최근 운영일지 목록 실패', e); }
   }
 
   function renderRecent() {
@@ -148,7 +155,7 @@
   });
 
   $('logPrev').addEventListener('click', () => go(stepDay(logDate, -1)));
-  $('logToday').addEventListener('click', () => go(fmt(new Date())));
+  $('logToday').addEventListener('click', () => go(OperatingCalendar.activeDate()));
   $('logNext').addEventListener('click', () => go(stepDay(logDate, 1)));
   $('logDate').addEventListener('click', e => {
     try { e.currentTarget.showPicker?.(); } catch { /* Native date control fallback. */ }
@@ -162,6 +169,9 @@
   $('monthNext').addEventListener('click', () => moveMonth(1));
   $('monthNow').addEventListener('click', () => moveMonth(0));
 
+  function resetOperatingDate() { stop(); logDate = OperatingCalendar.activeDate(); if (curTab === 'home') render(); }
+  document.addEventListener('year-change', resetOperatingDate);
+  document.addEventListener('year-period-change', resetOperatingDate);
   document.addEventListener('cloud-change', () => { stop(); if (curTab === 'home') render(); });
   window.HomeLog = { render, stepDay, longDate, fmtTs, recentDays, refreshRecent: () => { if (Cloud.ready) loadRecent(); } };
 })();

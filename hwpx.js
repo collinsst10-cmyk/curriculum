@@ -392,5 +392,5 @@
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }
 
-  window.Hwp = { readBlocks, parseLog, logHwpx, download, _readHwpx: readHwpx, _readHwp: readHwp, _buildFrom: buildFrom, _unzip: unzip };
+  window.Hwp = { readBlocks, parseLog, logHwpx, download, _readHwpx: readHwpx, _readHwp: readHwp, _buildFrom: buildFrom, _unzip: unzip, _zipStore: zipStore };
 })();

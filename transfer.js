@@ -17,22 +17,24 @@
   const col = () => Cloud.fb.F.collection(Cloud.fb.db, 'transfers');
   const md = ds => { const d = parse(ds); return `${d.getMonth() + 1}.${d.getDate()}(${WD[d.getDay()]})`; };
   const isNew = ds => ds >= fmt(addDays(new Date(), -NEW_DAYS));
-  // 오늘이 속한 학년도의 시작(3월 1일). 계획 중인 학년도(state.school.year)와 다를 수 있음
-  const schoolYearStart = () => { const d = new Date(); return `${d.getMonth() >= 2 ? d.getFullYear() : d.getFullYear() - 1}-03-01`; };
 
   function subscribe() {
     [unsubRecent, unsubAll].forEach(u => u && u()); unsubRecent = unsubAll = null; recent = []; all = [];
     renderHome();
     if (!window.Cloud || !Cloud.ready) return;
     const F = Cloud.fb.F;
-    unsubRecent = F.onSnapshot(F.query(col(), F.where('date', '>=', fmt(addDays(new Date(), -RECENT_DAYS))), F.orderBy('date', 'desc')),
+    const range = OperatingCalendar.range();
+    const cutoff = fmt(addDays(parse(OperatingCalendar.activeDate()), -RECENT_DAYS));
+    const start = cutoff > range.start ? cutoff : range.start;
+    unsubRecent = F.onSnapshot(F.query(col(), F.where('date', '>=', start), F.where('date', '<', range.end), F.orderBy('date', 'desc')),
       snap => { recent = snap.docs.map(d => ({ id: d.id, ...d.data() })); renderHome(); },
       e => console.warn('전입·전출 불러오기 실패', e));
   }
   function watchAll() {
     if (unsubAll || !Cloud.ready) return;
     const F = Cloud.fb.F;
-    unsubAll = F.onSnapshot(F.query(col(), F.where('date', '>=', schoolYearStart()), F.orderBy('date', 'desc')),
+    const range = OperatingCalendar.range();
+    unsubAll = F.onSnapshot(F.query(col(), F.where('date', '>=', range.start), F.where('date', '<', range.end), F.orderBy('date', 'desc')),
       snap => { all = snap.docs.map(d => ({ id: d.id, ...d.data() })); renderList(); },
       e => { $('trList').innerHTML = `<p class="hint">불러오기 실패: ${esc(e.message)}</p>`; });
   }
@@ -60,7 +62,9 @@
   }
   function render() {
     if (!canEdit()) return;
-    if (!$('trDate').value) $('trDate').value = fmt(new Date());
+    if (!$('trDate').value) $('trDate').value = OperatingCalendar.activeDate();
+    $('trRosterPrivate').hidden = !isAdm();
+    if (!isAdm()) $('trRosterLink').checked = false;
     fillClassOptions();
     watchAll(); renderList();
   }
@@ -89,16 +93,21 @@
   async function add(e) {
     e.preventDefault();
     if (!canEdit()) return;
-    const t = { date: $('trDate').value, type: $('trType').value, grade: Number($('trGrade').value), cls: Number($('trClass').value),
+    const t = { year: state.school.year, date: $('trDate').value, type: $('trType').value, grade: Number($('trGrade').value), cls: Number($('trClass').value),
       sex: $('trSex').value, note: $('trNote').value.trim().slice(0, 100), applied: $('trApply').checked };
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(t.date) || !t.cls) { $('trStatus').textContent = '날짜와 학급을 확인하세요.'; return; }
+    if (!OperatingCalendar.canWrite(t.date) || !t.cls) { $('trStatus').textContent = '현재 운영 학년도에 속한 날짜와 학급을 확인하세요.'; return; }
     const { F, db } = Cloud.fb;
+    const requested = $('trRosterLink').checked ? {
+      id: $('trStudentId').value.trim(), name: $('trStudentName').value.trim(), no: Number($('trStudentNo').value)
+    } : null;
     $('trAdd').disabled = true;
     try {
       await F.runTransaction(db, async tx => {
-        const sref = F.doc(db, 'config', 'stats');
+        const sref = t.year ? OperatingCalendar.statsRef(F, db, t.year) : F.doc(db, 'config', 'stats');
         const cur = t.applied ? (await tx.get(sref)).data() : null;
-        tx.set(F.doc(col()), { ...t, by: Cloud.email, byName: Cloud.profileName || '', createdAt: F.serverTimestamp() });
+        const eventRef = F.doc(col());
+        if (requested) await YearRoster.stageTransfer(tx, eventRef, t, requested);
+        tx.set(eventRef, { ...t, by: Cloud.email, byName: Cloud.profileName || '', createdAt: F.serverTimestamp() });
         if (t.applied) {
           const next = adjust(cur || {}, t, t.type === 'in' ? 1 : -1);
           tx.set(sref, { ...next, updatedBy: Cloud.email, updatedAt: F.serverTimestamp() });
@@ -117,8 +126,9 @@
     const { F, db } = Cloud.fb;
     try {
       await F.runTransaction(db, async tx => {
-        const sref = F.doc(db, 'config', 'stats');
+        const sref = t.year ? OperatingCalendar.statsRef(F, db, t.year) : F.doc(db, 'config', 'stats');
         const cur = t.applied ? (await tx.get(sref)).data() : null;
+        if (isAdm()) await YearRoster.reverseTransfer(tx, id);
         tx.delete(F.doc(col(), id));
         if (t.applied && cur) tx.set(sref, { ...adjust(cur, t, t.type === 'in' ? -1 : 1), updatedBy: Cloud.email, updatedAt: F.serverTimestamp() });
       });
@@ -131,6 +141,13 @@
   $('trList').addEventListener('click', e => { const b = e.target.closest('[data-del]'); if (b) remove(b.dataset.del); });
 
   RENDER.stats4 = render;
+  function refreshOperatingDates() {
+    $('trDate').value = OperatingCalendar.activeDate();
+    subscribe();
+    if (curTab === 'stats4') render();
+  }
+  document.addEventListener('year-change', refreshOperatingDates);
+  document.addEventListener('year-period-change', refreshOperatingDates);
   document.addEventListener('cloud-change', subscribe);
   if (window.Cloud && Cloud.ready) subscribe();
   window.Transfers = { renderHome };
