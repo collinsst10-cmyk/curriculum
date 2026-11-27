@@ -140,6 +140,7 @@
     title.textContent = label;
     const code = document.createElement('code');
     code.textContent = value || '미등록';
+    if (value) code.tabIndex = 0;
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'btn small';
@@ -179,8 +180,8 @@
   const officialPurchaseIcons = {
     'coupang.com': ['https://image10.coupangcdn.com/image/mobile/v3/web_favicon.png',
       'https://image7.coupangcdn.com/image/coupang/favicon/favicon.ico'],
-    'i-screammall.co.kr': ['https://i-screammall.co.kr/images/icons/apple-touch-icon.png',
-      'https://i-screammall.co.kr/images/icons/favicon.ico'],
+    'i-screammall.co.kr': ['https://i-screammall.co.kr/images/icons/favicon.ico',
+      'https://i-screammall.co.kr/images/icons/apple-touch-icon.png'],
     's2b.kr': ['https://www.s2b.kr/gate/img/s2b.ico']
   };
 
