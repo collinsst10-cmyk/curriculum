@@ -37,14 +37,16 @@
   /* ---------- 관리자: '선생님 화면으로 보기' (이 탭에서만, 새로고침해도 유지) ---------- */
   let preview = sessionStorage.getItem('viewAsTeacher') === '1';
   /* 개발자: 어떤 권한으로 볼지 고름 (개발자·운영자 = 관리자 권한, 나머지 = 선생님 화면 + 그 직위) */
-  const VIEW_ROLES = [['dev', '개발자 (모든 권한)'], ['operator', '운영자'], ['applicant', '가입 신청자 (등록 화면)'], ['general', '일반 사용자'], ['교무부장', '교무부장'], ['연구부장', '연구부장'], ['homeroom', '담임교사'], ['subject', '전담교사'], ['teacher', '일반 선생님']];
+  const VIEW_ROLES = [['dev', '개발자 (모든 권한)'], ['operator', '운영자(연구부장)'], ['applicant', '가입 신청자 (등록 화면)'], ['general', '일반 사용자'], ['교무부장', '교무부장'], ['homeroom', '학급담임'], ['subject', '교과전담']];
   let viewRole = sessionStorage.getItem('viewRole') || 'dev';
+  if (!VIEW_ROLES.some(([role]) => role === viewRole)) viewRole = 'general';
+  const isRolePreview = () => preview || (developer && viewRole === 'operator');
   const effAdmin = () => admin && !preview;   // 화면에서 쓰는 관리자 여부
   const isGeneral = () => (developer && preview && viewRole === 'general') || (!admin && userType === 'general');
   /** 화면에서 쓰는 직위: 개발자가 다른 권한으로 볼 때는 그 직위로 흉내 냄 */
   function effPosition() {
-    if (!(developer && preview)) return position;
-    if (viewRole === '교무부장' || viewRole === '연구부장') return { ...position, head: viewRole };
+    if (!developer || !isRolePreview()) return position;
+    if (viewRole === '교무부장') return { posType: '', posCls: '', posSubj: '', head: viewRole };
     if (viewRole === 'homeroom') return { posType: 'homeroom', posCls: position.posCls || '1-1', posSubj: '', head: '' };
     if (viewRole === 'subject') return { posType: 'subject', posCls: '', posSubj: position.posSubj || '영어', head: '' };
     return { posType: '', posCls: '', posSubj: '', head: '' };
@@ -76,10 +78,11 @@
     const btn = $('btnCloud'), badge = $('whoBadge');
     if (!user) { btn.innerHTML = '👤 로그인'; badge.hidden = true; return; }
     const name = (profileName || user.displayName || myEmail()).split(' ')[0];
-    const p = position, pl = posLabel(p);
+    const p = effPosition(), pl = posLabel(p);
     btn.innerHTML = `${pl ? `<span class="who-pos">${esc(pl)}</span>` : ''}<span class="who-name">${esc(name)}</span>`;
     const tags = [];
-    if (admin) tags.push(developer ? ['dev', '개발자'] : ['op', '운영자']);
+    if (effAdmin()) tags.push(developer && !isRolePreview() ? ['dev', '개발자'] : ['op', '운영자(연구부장)']);
+    else if (isGeneral()) tags.push(['head', '일반 사용자']);
     if (p.head) tags.push(['head', p.head]);
     badge.innerHTML = tags.map(([c, t]) => `<span class="who-tag ${c}">${esc(t)}</span>`).join('');
     badge.hidden = !tags.length;
@@ -143,9 +146,9 @@
     $('btnPreview').textContent = preview ? '🛠 관리자 화면' : '👀 선생님 화면 보기';
     $('roleViewWrap').hidden = !(admin && developer && access === 'approved');
     $('roleView').innerHTML = VIEW_ROLES.map(([v, l]) => `<option value="${v}" ${v === (preview ? viewRole : (viewRole === 'operator' ? 'operator' : 'dev')) ? 'selected' : ''}>${l}</option>`).join('');
-    const roleName = developer && preview ? (VIEW_ROLES.find(r => r[0] === viewRole) || [, '선생님'])[1] : '선생님';
+    const roleName = developer && isRolePreview() ? (VIEW_ROLES.find(r => r[0] === viewRole) || [, '선생님'])[1] : '선생님';
     $('previewRole').textContent = roleName;
-    $('previewBar').hidden = !(admin && preview);
+    $('previewBar').hidden = !(admin && isRolePreview());
     document.body.classList.toggle('previewing', !!(admin && preview));
     document.body.classList.toggle('general-user', isGeneral());
     document.dispatchEvent(new Event('cloud-change'));
@@ -567,15 +570,16 @@
         <div class="row" style="margin-bottom:10px">
           <input id="admEmail" type="email" placeholder="추가할 구글 이메일" style="width:260px">
           <input id="admMemo" type="text" placeholder="이름(실명)" style="width:160px">
-          <button class="btn primary small" data-a="add">직접 추가</button>
+          <button class="btn primary small" data-a="add">일반 사용자로 추가</button>
         </div>
+        <p class="hint">운영자(연구부장)는 Firebase에서 지정한 관리자 계정입니다.</p>
         <div id="admAllowed" class="hint">불러오는 중…</div>
         <p class="hint">관리자 계정 추가·변경은 Firebase 콘솔의 <code>admins</code> 컬렉션에서 합니다.</p></div>
       <div class="card"><h2>내 계정</h2>
         <div class="row"><input id="admMyName" type="text" maxlength="30" value="${esc(profileName)}" placeholder="이름(실명)" style="width:160px">
         <button class="btn small primary" data-a="myname">저장</button>
         <span class="hint">관리자 계정의 사이트 표시 이름(일정 기록자 등)입니다.</span></div>
-        <div class="row adm-dev"><span>이 계정의 구분: <b class="who-tag ${developer ? 'dev' : 'op'}">${developer ? '개발자' : '운영자'}</b></span>
+        <div class="row adm-dev"><span>이 계정의 구분: <b class="who-tag ${developer ? 'dev' : 'op'}">${developer ? '개발자' : '운영자(연구부장)'}</b></span>
           ${developer ? '<button class="btn small" data-a="dev">운영자로 바꾸기</button>' : ''}
           <span class="hint">운영자는 사이트 전체를 관리하고 등록 신청을 승인합니다. 개발자는 언제나 운영자 권한을 함께 가지며, 오른쪽 위 '권한 보기'로 모든 직위의 화면과 '가입 신청자(등록 화면)'을 골라 볼 수 있습니다.</span></div></div>`;
     const F = fb.F;
@@ -584,19 +588,26 @@
       const [rq, al] = await Promise.all([F.getDocs(F.collection(fb.db, 'requests')), F.getDocs(F.collection(fb.db, 'allowed'))]);
       const reqs = rq.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.requestedAt?.seconds || 0) - (b.requestedAt?.seconds || 0));
       const allowed = al.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.id.localeCompare(b.id));
-      // 직위: 담임교사(학급) · 전담교사(과목) / 부장: 교무부장 · 연구부장
+      const roles = [['affairs', '교무부장'], ['homeroom', '학급담임'], ['subject', '교과전담'], ['general', '일반 사용자']];
+      const roleOf = a => a.userType === 'general' ? 'general' : a.head === '교무부장' ? 'affairs'
+        : ['homeroom', 'subject'].includes(a.posType) ? a.posType : '';
       allowed.forEach(a => { if (a.posType === 'homeroom' && a.posCls) taken[a.posCls] = { name: a.name || a.id, email: a.id }; });
       const clsOpts = (cur, grade) => '<option value="">학급 선택</option>' + GRADES.slice().sort((x, y) => (String(y) === String(grade)) - (String(x) === String(grade)))
         .map(g => Array.from({ length: Number(state.school.classes[g]) || 0 }, (_, i) => `${g}-${i + 1}`)
         .map(k => `<option value="${k}" ${k === cur ? 'selected' : ''}>${k}반${taken[k] && k !== cur ? ` (담임: ${esc(taken[k].name)})` : ''}</option>`).join('')).join('');
       const SUBJ = ['영어', '과학', '체육', '음악', '미술', '실과', '도덕', '사회', '수학', '국어', '정보'];
       const subjOpts = cur => '<option value="">과목</option>' + SUBJ.map(s => `<option ${s === cur ? 'selected' : ''}>${s}</option>`).join('');
-      const posCell = (a, grade) => `<div class="adm-pos" data-e="${esc(a.id)}">
-          <select class="adm-ut"><option value="staff">교내 교직원</option><option value="general" ${a.userType === 'general' ? 'selected' : ''}>일반 사용자</option></select>
-          <select class="adm-pt"><option value="">직위 없음</option><option value="homeroom" ${a.posType === 'homeroom' ? 'selected' : ''}>담임교사</option><option value="subject" ${a.posType === 'subject' ? 'selected' : ''}>전담교사</option></select>
-          <select class="adm-pc" ${a.posType === 'homeroom' ? '' : 'hidden'}>${clsOpts(a.posCls, grade)}</select>
-          <select class="adm-ps" ${a.posType === 'subject' ? '' : 'hidden'}>${subjOpts(a.posSubj)}</select>
-          <select class="adm-hd"><option value="">부장 아님</option><option ${a.head === '교무부장' ? 'selected' : ''}>교무부장</option><option ${a.head === '연구부장' ? 'selected' : ''}>연구부장</option></select></div>`;
+      const posCell = (a, grade, existing = false) => {
+        const role = roleOf(a);
+        if (existing && a.id === myEmail()) return `<span class="pill">${developer && !isRolePreview() ? '개발자' : '운영자(연구부장)'}</span>`;
+        const options = !role ? `<option value="" ${existing ? '' : 'disabled'}>${existing ? '기존 교직원 권한 유지' : '권한 선택'}</option>` : '';
+        return `<div class="adm-pos" data-e="${esc(a.id)}" ${existing ? `data-original-role="${role}" data-original-class="${esc(a.posCls || '')}" data-original-subject="${esc(a.posSubj || '')}"` : ''}>
+          <select class="adm-access-role" aria-label="사용자 권한">${options}${roles.map(([value, label]) =>
+            `<option value="${value}" ${value === role ? 'selected' : ''}>${label}</option>`).join('')}</select>
+          <select class="adm-pc" aria-label="담당 학급">${clsOpts(a.posCls, grade)}</select>
+          <select class="adm-ps" aria-label="담당 과목">${subjOpts(a.posSubj)}</select>
+        </div>`;
+      };
       // 등록 신청: 신청 내용을 보고 운영자가 이름·학급·직위를 정해 승인
       $('admReq').classList.remove('hint');
       $('admReq').innerHTML = reqs.length ? `<div class="adm-reqs">${reqs.map(r => {
@@ -612,32 +623,41 @@
           `
         : '대기 중인 신청이 없습니다.';
       $('admAllowed').classList.remove('hint');
-      $('admAllowed').innerHTML = allowed.length ? `<table class="tbl compact adm-users"><tr><th class="l">이메일</th><th>이름 (사이트 표시)</th><th>구분 · 직위 · 부장</th><th>담당(신청 때)</th><th>승인자</th><th>승인 시각</th><th></th></tr>` +
+      $('admAllowed').innerHTML = allowed.length ? `<table class="tbl compact adm-users"><tr><th class="l">이메일</th><th>이름 (사이트 표시)</th><th>권한</th><th>담당(신청 때)</th><th>승인자</th><th>승인 시각</th><th></th></tr>` +
         allowed.map(a => `<tr><td class="l">${esc(a.id)}</td>
           <td><input class="adm-name" data-e="${esc(a.id)}" value="${esc(a.name || '')}" style="width:110px"></td>
-          <td>${posCell(a)}<button class="btn small primary" data-a="rename" data-e="${esc(a.id)}">저장</button></td>
+          <td>${posCell(a, undefined, true)}<button class="btn small primary" data-a="rename" data-e="${esc(a.id)}">저장</button></td>
           <td>${esc(a.role || '')}</td>
           <td>${esc(a.addedBy || '')}</td><td class="num">${fmtTime(a.addedAt)}</td>
           <td><button class="btn small danger" data-a="revoke" data-e="${esc(a.id)}">승인 해제</button></td></tr>`).join('') + '</table>'
         : '아직 허용된 사용자가 없습니다. (관리자는 별도로 항상 허용)';
     } catch (e) { el.insertAdjacentHTML('afterbegin', `<div class="notice">불러오기 실패: ${esc(e.message)}</div>`); }
 
-    // 직위를 바꾸면 학급·과목 칸 보이기
-    // 구분·직위에 따라 칸 보이기 (일반 사용자는 직위 없음)
     const syncPos = box => {
-      const gen = box.querySelector('.adm-ut').value === 'general', pt = box.querySelector('.adm-pt').value;
-      box.querySelector('.adm-pt').hidden = gen; box.querySelector('.adm-hd').hidden = gen;
-      box.querySelector('.adm-pc').hidden = gen || pt !== 'homeroom'; box.querySelector('.adm-ps').hidden = gen || pt !== 'subject';
+      const role = box.querySelector('.adm-access-role').value;
+      box.querySelector('.adm-pc').hidden = role !== 'homeroom';
+      box.querySelector('.adm-ps').hidden = role !== 'subject';
     };
     el.querySelectorAll('.adm-pos').forEach(syncPos);
     el.onchange = e => { const box = e.target.closest('.adm-pos'); if (box) syncPos(box); };
     /** 직위 칸 읽기 + 확인(학급·과목 빠짐, 같은 반 담임 겹침) → 직위 또는 null */
     const readPos = email => {
       const box = el.querySelector(`.adm-pos[data-e="${CSS.escape(email)}"]`);
-      const posType = box.querySelector('.adm-pt').value;
-      const pos = { posType, posCls: posType === 'homeroom' ? box.querySelector('.adm-pc').value : '', posSubj: posType === 'subject' ? box.querySelector('.adm-ps').value : '', head: box.querySelector('.adm-hd').value };
-      pos.userType = box.querySelector('.adm-ut').value;
-      if (pos.userType === 'general') Object.assign(pos, { posType: '', posCls: '', posSubj: '', head: '' });   // 일반 사용자는 직위 없음
+      if (!box && email === myEmail()) return {};
+      const role = box.querySelector('.adm-access-role').value;
+      if (!role) {
+        if (el.querySelector(`.adm-name[data-e="${CSS.escape(email)}"]`)) return {};
+        alert('권한을 선택하세요.');
+        return null;
+      }
+      const posType = role === 'homeroom' || role === 'subject' ? role : '';
+      const pos = { userType: role === 'general' ? 'general' : 'staff',
+        posType, posCls: posType === 'homeroom' ? box.querySelector('.adm-pc').value : '',
+        posSubj: posType === 'subject' ? box.querySelector('.adm-ps').value : '',
+        head: role === 'affairs' ? '교무부장' : '' };
+      if (box.dataset.originalRole === role
+        && (role !== 'homeroom' || box.dataset.originalClass === pos.posCls)
+        && (role !== 'subject' || box.dataset.originalSubject === pos.posSubj)) return {};
       if (pos.posType === 'homeroom' && !pos.posCls) { alert('담임 학급을 고르세요.'); return null; }
       if (pos.posType === 'subject' && !pos.posSubj) { alert('전담 과목을 고르세요.'); return null; }
       const t = pos.posCls && taken[pos.posCls];
@@ -672,7 +692,7 @@
           const pos = readPos(email); if (!pos) return;
           await freeClass(pos, email);
           await F.setDoc(D('allowed', email), { name: v, ...pos }, { merge: true });
-          if (email === myEmail()) { profileName = v; position = pos; refreshUi(); }
+          if (email === myEmail()) { profileName = v; position = { ...position, ...pos }; refreshUi(); }
         } else if (b.dataset.a === 'dev') {
           if (!developer) return;
           lockSchool();
@@ -684,7 +704,7 @@
         } else if (b.dataset.a === 'add') {
           const v = $('admEmail').value.trim().toLowerCase();
           if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) { alert('이메일 형식을 확인하세요.'); return; }
-          await F.setDoc(D('allowed', v), { email: v, name: $('admMemo').value.trim(), addedBy: myEmail(), addedAt: F.serverTimestamp() });
+          await F.setDoc(D('allowed', v), { email: v, name: $('admMemo').value.trim(), ...(!document.querySelector(`.adm-name[data-e="${CSS.escape(v)}"]`) ? { userType: 'general' } : {}), addedBy: myEmail(), addedAt: F.serverTimestamp() }, { merge: true });
           await F.deleteDoc(D('requests', v)).catch(() => {});
         }
         renderAdmin();
