@@ -21,6 +21,7 @@
   const purchaseRef = (id = 'catalog') => Cloud.fb.F.doc(Cloud.fb.db, 'shoppingSites', id);
   let editingSite = null;
   let savingSite = false;
+  let readingPurchaseIcon = false;
 
   const isAdm = () => !!(window.Cloud && Cloud.ready && Cloud.isAdmin());
   TAB_GUARDS.site = () => isAdm();
@@ -143,7 +144,7 @@
     button.type = 'button';
     button.className = 'btn small';
     button.textContent = label + ' 복사';
-    button.prepend(outlineIcon('copy'));
+    button.prepend(copyIcon());
     button.disabled = !value;
     button.addEventListener('click', async () => {
       if (!canReadPurchase()) return;
@@ -159,7 +160,7 @@
     return row;
   }
 
-  function outlineIcon(kind) {
+  function copyIcon() {
     const ns = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(ns, 'svg');
     svg.setAttribute('viewBox', '0 0 24 24');
@@ -170,10 +171,70 @@
     svg.setAttribute('stroke-linejoin', 'round');
     svg.setAttribute('aria-hidden', 'true');
     const path = document.createElementNS(ns, 'path');
-    path.setAttribute('d', kind === 'copy' ? 'M9 9h11v11H9z M5 15H4V4h11v1'
-      : 'M4 9h16l-1 11H5L4 9z M9 10V6a3 3 0 0 1 6 0v4');
+    path.setAttribute('d', 'M9 9h11v11H9z M5 15H4V4h11v1');
     svg.append(path);
     return svg;
+  }
+
+  const officialPurchaseIcons = {
+    'coupang.com': ['https://image10.coupangcdn.com/image/mobile/v3/web_favicon.png',
+      'https://image7.coupangcdn.com/image/coupang/favicon/favicon.ico'],
+    'i-screammall.co.kr': ['https://i-screammall.co.kr/images/icons/apple-touch-icon.png',
+      'https://i-screammall.co.kr/images/icons/favicon.ico'],
+    's2b.kr': ['https://www.s2b.kr/gate/img/s2b.ico']
+  };
+
+  function validPurchaseIcon(value) {
+    return typeof value === 'string' && value.length <= 24000 &&
+      /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value);
+  }
+
+  function purchaseIcon(site) {
+    const frame = document.createElement('span');
+    frame.className = 'purchase-brand-icon';
+    frame.setAttribute('aria-hidden', 'true');
+    const initials = document.createElement('span');
+    initials.textContent = Array.from(site.name.trim()).slice(0, 2).join('');
+    const img = document.createElement('img');
+    img.alt = '';
+    img.hidden = true;
+    img.referrerPolicy = 'no-referrer';
+    img.decoding = 'async';
+    const url = safeLink(site.url);
+    const domain = Object.keys(officialPurchaseIcons).find(host =>
+      url.hostname === host || url.hostname.endsWith('.' + host));
+    const candidates = [...new Set([
+      ...(validPurchaseIcon(site.icon) ? [site.icon] : []),
+      ...(officialPurchaseIcons[domain] || []),
+      new URL('/favicon.ico', url.origin).href
+    ])];
+    img.addEventListener('load', () => {
+      if (!img.naturalWidth) return;
+      img.hidden = false;
+      initials.hidden = true;
+    });
+    img.addEventListener('error', () => {
+      const next = candidates.shift();
+      if (next) img.src = next;
+    });
+    img.src = candidates.shift();
+    frame.append(initials, img);
+    return frame;
+  }
+
+  async function readPurchaseIcon(file) {
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+      throw new Error('PNG, JPG 또는 WebP 파일을 5MB 이하로 선택해 주세요.');
+    }
+    const img = await loadImage(file);
+    const ratio = 64 / Math.max(img.naturalWidth, img.naturalHeight);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(img.naturalWidth * ratio));
+    canvas.height = Math.max(1, Math.round(img.naturalHeight * ratio));
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    const data = canvas.toDataURL('image/png');
+    if (!validPurchaseIcon(data)) throw new Error('아이콘 파일을 처리할 수 없습니다.');
+    return data;
   }
 
   function renderPurchaseLinks() {
@@ -185,7 +246,7 @@
       const header = document.createElement('header');
       const details = document.createElement('div');
       details.append(title);
-      header.append(outlineIcon('store'), details);
+      header.append(purchaseIcon(site), details);
       card.append(header);
       if (site.purpose) {
         const purpose = document.createElement('p');
@@ -249,6 +310,7 @@
   function resetPurchaseForm() {
     editingSite = null;
     $('purchaseSiteForm').reset();
+    $('purchaseSiteIconResetRow').hidden = true;
     $('purchaseSiteOrder').value = Math.min(999, (purchaseSites.at(-1)?.order || 0) + 1);
     $('purchaseSiteSave').textContent = '사이트 추가';
     $('purchaseSiteReset').hidden = true;
@@ -279,8 +341,9 @@
     }
   }
 
-  $('purchaseSiteForm').addEventListener('submit', e => {
+  $('purchaseSiteForm').addEventListener('submit', async e => {
     e.preventDefault();
+    if (!isAdm() || savingSite || readingPurchaseIcon || !purchaseLoaded) return;
     const name = $('purchaseSiteName').value.trim();
     const url = safeLink($('purchaseSiteUrl').value.trim());
     if (!name || !url) { $('purchaseSiteStatus').textContent = '사이트 이름과 https:// 주소를 입력하세요.'; return; }
@@ -290,10 +353,30 @@
       purpose: $('purchaseSitePurpose').value.trim(), notes: $('purchaseSiteNotes').value.trim(),
       order: $('purchaseSiteOrder').valueAsNumber, active: $('purchaseSiteActive').value === 'yes' };
     if (!Number.isInteger(entry.order) || entry.order < 1 || entry.order > 999) return;
+    const selectedIcon = $('purchaseSiteIcon').files[0];
+    const resetIcon = $('purchaseSiteIconReset').checked;
+    if (selectedIcon) {
+      const uid = Cloud.user.uid;
+      readingPurchaseIcon = true;
+      $('purchaseSiteSave').disabled = true;
+      try { entry.icon = await readPurchaseIcon(selectedIcon); }
+      catch (error) {
+        if (isAdm() && Cloud.user.uid === uid) $('purchaseSiteStatus').textContent = error.message;
+        return;
+      } finally {
+        readingPurchaseIcon = false;
+        $('purchaseSiteSave').disabled = !purchaseLoaded || !isAdm();
+      }
+      if (!isAdm() || Cloud.user.uid !== uid || editingSite !== editing || $('purchaseSiteIcon').files[0] !== selectedIcon) return;
+    }
     changePurchaseSites(list => {
       if (editing) {
         if (!list.some(site => site.id === editing)) throw new Error('이 사이트가 이미 삭제됐습니다.');
-        return list.map(site => site.id === editing ? entry : site);
+        return list.map(site => {
+          if (site.id !== editing) return site;
+          if (!entry.icon && !resetIcon && validPurchaseIcon(site.icon)) return { ...entry, icon: site.icon };
+          return entry;
+        });
       }
       if (list.length >= 30) throw new Error('사이트는 30개까지 등록할 수 있습니다.');
       return [...list, entry];
@@ -309,6 +392,9 @@
       editingSite = site.id;
       $('purchaseSiteName').value = site.name;
       $('purchaseSiteUrl').value = site.url;
+      $('purchaseSiteIcon').value = '';
+      $('purchaseSiteIconReset').checked = false;
+      $('purchaseSiteIconResetRow').hidden = !validPurchaseIcon(site.icon);
       $('purchaseSiteId').value = site.loginId || '';
       $('purchaseSitePw').value = site.password || '';
       $('purchaseSitePurpose').value = site.purpose || '';

@@ -628,7 +628,7 @@ body { font-family: var(--f4); }
 .purchase-card h3 { color: var(--nv); }
 .purchase-card a { align-self: flex-start; margin-top: auto; text-decoration: none; }
 .purchase-credential { display: grid; grid-template-columns: 2em minmax(0, 1fr) auto; align-items: center; gap: 8px; min-width: 0; padding: 6px 8px; }
-.purchase-credential code { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--nv-d); }
+.purchase-credential code { font: 400 14px/1.5 var(--f5); letter-spacing: .005em; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--nv-d); }
 .purchase-notes { padding-top: 8px; border-top: 1px solid var(--line); white-space: pre-wrap; overflow-wrap: anywhere; }
 .calendar-view-heading { margin-bottom: 10px; }
 .calendar-view-heading h2 { margin: 0; color: var(--nv-d); font-size: clamp(21px, 2vw, 29px); }
@@ -2039,7 +2039,11 @@ th.kc-col { color: #5b21b6; }
 
 .purchase-card:hover, .purchase-card:focus-within { border-color: var(--primary); }
 .purchase-card header { display: flex; align-items: flex-start; gap: 10px; }
-.purchase-card header > svg { width: 34px; height: 34px; padding: 7px; flex: none; color: var(--nv); background: var(--nv-pale); border-radius: 8px; }
+.purchase-brand-icon { display: grid; place-items: center; flex: 0 0 20px; width: 20px; height: 20px; padding: 1px; margin-top: 1px; color: var(--nv); background: var(--nv-pale); border: 1px solid var(--line); border-radius: 4px; font-family: var(--f7); font-size: 9px; }
+.purchase-brand-icon img { width: 100%; height: 100%; object-fit: contain; }
+.purchase-icon-editor { min-width: 0; display: grid; gap: 5px; }
+.purchase-icon-editor input[type="file"] { max-width: 100%; }
+.purchase-icon-editor #purchaseSiteIconResetRow { flex-direction: row; align-items: center; }
 .purchase-card header > div { min-width: 0; overflow-wrap: anywhere; }
 .purchase-card header p { margin-top: 2px; }
 .purchase-credentials { background: #f7f9fc; border: 1px solid var(--line); border-radius: 8px; }

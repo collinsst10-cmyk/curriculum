@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=school-history-1">
+<link rel="stylesheet" href="style.css?v=purchase-icons-2">
 <link rel="stylesheet" href="behavior.css?v=20261127224336">
 </head>
 <body>
@@ -327,6 +327,11 @@
       <form id="purchaseSiteForm" class="form school-form" autocomplete="off">
         <label>사이트 이름 <input id="purchaseSiteName" type="text" maxlength="60" required></label>
         <label>사이트 주소 <input id="purchaseSiteUrl" type="url" placeholder="https://" maxlength="350" required></label>
+        <div class="purchase-icon-editor">
+          <label>사이트 아이콘 교체 <input id="purchaseSiteIcon" type="file" accept="image/png,image/jpeg,image/webp"></label>
+          <label id="purchaseSiteIconResetRow" hidden><input id="purchaseSiteIconReset" type="checkbox"> 자동 아이콘으로 되돌리기</label>
+          <small class="hint">이미지를 선택하면 자동 아이콘 대신 표시합니다.</small>
+        </div>
         <label>로그인 ID <input id="purchaseSiteId" maxlength="200" spellcheck="false"></label>
         <label>로그인 PW <input id="purchaseSitePw" type="password" maxlength="300" autocomplete="new-password"></label>
         <label>사용 목적 <input id="purchaseSitePurpose" maxlength="150"></label>
@@ -1027,7 +1032,7 @@
 <script src="roster.js?v=20261127224336"></script>
 <script src="roster-workbook.js?v=20261127224336"></script>
 <script src="roster-years.js?v=20261127224336"></script>
-<script src="site.js?v=school-history-1"></script>
+<script src="site.js?v=purchase-icons-1"></script>
 <script src="school-history.js?v=1"></script>
 <script src="env.js?v=20261127224336"></script>
 <script src="pyeonje.js?v=20261127224336"></script>
