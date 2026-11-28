@@ -164,10 +164,10 @@
   const drafts = new Map();
   let editingId = null;
   const parentFields = ['fatherName', 'fatherPhone', 'motherName', 'motherPhone'];
-  const fields = ['no', 'name', 'englishName', 'sex', 'birthDate', 'mig', 'country', 'learningSupport', ...parentFields];
+  const fields = ['no', 'name', 'englishName', 'sex', 'birthDate', 'mig', 'country', 'learningBelowStandard', ...parentFields];
   const countryText = row => row.country || [...new Set([row.fatherCountry, row.motherCountry].filter(Boolean))].join(' / ');
   const rowValues = row => ({ ...row, birthDate: (row.birthDate || '').replaceAll('-', '.'),
-    country: countryText(row), learningSupport: row.learningSupport === true ? 'yes' : '' });
+    country: countryText(row), learningBelowStandard: row.learningBelowStandard === true ? 'yes' : '' });
   function optionList(items, selected) {
     return items.map(([value, label]) => `<option value="${esc(value)}" ${value === selected ? 'selected' : ''}>${esc(label)}</option>`).join('');
   }
@@ -189,7 +189,7 @@
       <td>${select('mig', '이주배경', MIG)}</td>
       <td><div class="rs-country-cell${flag ? ' has-flag' : ''}"><img class="rs-country-flag" alt="" ${flag ? 'src="' + esc(flag) + '"' : 'hidden'}>${input('country', '부모출신국', 'maxlength="30" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="' + esc(listId) + '"' + (draft.mig ? '' : ' disabled'))}
         <div id="${esc(listId)}" class="rs-country-options" role="listbox" hidden></div></div></td>
-      <td>${select('learningSupport', '기초학력', [['', '—'], ['yes', '지원 대상']])}</td>
+      <td>${select('learningBelowStandard', '기초학력', [['', '해당 없음'], ['yes', '미도달']])}</td>
       ${[['father', '아버지'], ['mother', '어머니']].map(([parent, label]) =>
         '<td><div class="rs-field-stack">' + input(parent + 'Name', label + ' 성함', 'placeholder="성함" maxlength="60"')
         + input(parent + 'Phone', label + ' 연락처', 'type="tel" placeholder="연락처" maxlength="40"') + '</div></td>').join('')}
@@ -221,7 +221,7 @@
       return `<tr data-roster-row="${esc(row.id)}"><td>${number}</td><td>${displayStack(row.name, row.englishName)}</td>
         <td><span class="rs-sex-value ${row.sex === 'm' || row.sex === 'f' ? row.sex : ''}">${row.sex === 'm' ? '남' : row.sex === 'f' ? '여' : '—'}</span></td>
         <td>${esc((row.birthDate || '—').replaceAll('-', '.'))}</td><td>${esc(MIG_L[row.mig] || '해당 없음')}</td><td>${displayCountry(row)}</td>
-        <td>${row.learningSupport === true ? '<span class="rs-support-label">지원 대상</span>' : '해당 없음'}</td>
+        <td>${row.learningBelowStandard === true ? '<span class="rs-support-label">미도달</span>' : '해당 없음'}</td>
         <td>${displayStack(row.fatherName, row.fatherPhone)}</td><td>${displayStack(row.motherName, row.motherPhone)}</td>
         <td>${editable ? '<div class="rs-row-actions"><button type="button" class="btn small primary" data-row-edit>수정</button><button type="button" class="btn small danger" data-row-delete>삭제</button></div>' : '—'}</td></tr>`;
     }).join('');
@@ -243,7 +243,7 @@
     const total = enrolled.length;
     const male = enrolled.filter(row => row.sex === 'm').length;
     const female = enrolled.filter(row => row.sex === 'f').length;
-    const support = enrolled.filter(row => row.learningSupport === true).length;
+    const belowStandard = enrolled.filter(row => row.learningBelowStandard === true).length;
     const types = ['foreign', 'domestic', 'mid'].map(type => ({
       type, label: MIG_L[type], count: enrolled.filter(row => row.mig === type).length
     }));
@@ -253,9 +253,10 @@
     const largest = Math.max(male, female, 1);
     return `<div class="rs-summary">
       <section class="card rs-summary-card">
-        <header><h3>학급 현황</h3><span>전체 <strong>${total}<small>명</small></strong></span></header>
-        <dl class="rs-children">${[['boy', '남학생', male], ['girl', '여학생', female]].map(([kind, label, count]) =>
-          `<div class="${kind}${count ? '' : ' is-empty'}"><img src="assets/roster-${kind}.svg" width="${Math.round(60 + 24 * count / largest)}" height="84" alt="">
+        <header><h3>학급 현황</h3></header>
+        <dl class="rs-children">${[['group', '전체 학생', total], ['boy', '남학생', male], ['girl', '여학생', female]].map(([kind, label, count]) =>
+          `<div class="${kind}${count ? '' : ' is-empty'}"><div class="rs-child-art"><img src="assets/roster-${kind}.png"
+            style="--art-scale:${kind === 'group' ? 1 : 0.8 + 0.2 * count / largest}" alt=""></div>
             <dt>${label}</dt><dd>${count}<small>명</small></dd></div>`).join('')}</dl>
       </section>
       <section class="card rs-summary-card rs-summary-migrant">
@@ -271,8 +272,8 @@
       </section>
       <section class="card rs-summary-card rs-summary-support">
         <header><h3>기초학력 현황</h3></header>
-        <dl class="rs-summary-metrics"><div><dt>기초학력 지원 대상</dt><dd>${support}<small>명</small></dd></div>
-          <div><dt>지원 대상 비율</dt><dd>${percent(support)}<small>%</small></dd></div></dl>
+        <dl class="rs-summary-metrics"><div><dt>기초학력 미도달 학생</dt><dd>${belowStandard}<small>명</small></dd></div>
+          <div><dt>미도달 비율</dt><dd>${percent(belowStandard)}<small>%</small></dd></div></dl>
       </section>
     </div>`;
   }
@@ -318,12 +319,12 @@
 
   function renderLearningSupport() {
     const rows = canView() && sel?.c ? sorted(list.filter(row => row.classId === roomId(sel)
-      && row.status === 'enrolled' && row.learningSupport === true)) : [];
+      && row.status === 'enrolled' && (row.learningBelowStandard === true || row.learningSupport === true))) : [];
     $('learningSupportRoster').innerHTML = `<div class="rs-top"><h2 class="km-title">기초학력 지원</h2>${classPicker()}</div>
       ${sel?.c ? `<p class="hint">${year}학년도 ${sel.g}학년 ${sel.c}반</p>` : ''}
-      <div class="card rs-card"><table class="rs-tbl"><thead><tr><th>번호</th><th>이름</th><th>학급</th></tr></thead><tbody>
-      ${rows.map(row => `<tr><td>${row.no}</td><td>${esc(row.name)}</td><td>${row.grade}학년 ${row.cls}반</td></tr>`).join('')
-        || `<tr><td colspan="3" class="km-empty">${rosterStatus || (loadingAccess ? '불러오는 중…' : '등록된 지원 대상 학생이 없습니다.')}</td></tr>`}
+      <div class="card rs-card"><table class="rs-tbl"><thead><tr><th>번호</th><th>이름</th><th>학급</th><th>구분</th></tr></thead><tbody>
+      ${rows.map(row => `<tr><td>${row.no}</td><td>${esc(row.name)}</td><td>${row.grade}학년 ${row.cls}반</td><td>${row.learningBelowStandard === true ? '미도달' : '기존 지원 대상'}</td></tr>`).join('')
+        || `<tr><td colspan="4" class="km-empty">${rosterStatus || (loadingAccess ? '불러오는 중…' : '등록된 기초학력 학생이 없습니다.')}</td></tr>`}
       </tbody></table></div>`;
   }
   const supportKeys = [...parentFields, 'englishName', 'mig', 'fatherCountry', 'motherCountry', 'learningSupport', 'country', 'note'];
@@ -334,7 +335,8 @@
     sex: ['m', 'f'].includes(s.sex) ? s.sex : '', mig: MIG_L[s.mig] !== undefined ? s.mig : '', country: s.mig ? String(s.country || '').trim().slice(0, 30) : '',
     fatherCountry: s.mig ? String(s.fatherCountry || '').trim().slice(0, 30) : '',
     motherCountry: s.mig ? String(s.motherCountry || '').trim().slice(0, 30) : '',
-    learningSupport: s.learningSupport === true || s.learningSupport === 'yes',
+    learningSupport: s.learningSupport === true,
+    learningBelowStandard: s.learningBelowStandard === 'yes',
     note: String(s.note || '').trim().slice(0, 60), updatedBy: Cloud.email, updatedAt: F().serverTimestamp() });
 
   async function writeRows(records) {
@@ -372,7 +374,8 @@
         const member = { ...old, ...Object.fromEntries(parentFields.map(key => [key, data[key]])), year: currentYear, studentId: profile.id, classId: group, grade: room.g, cls: room.c,
           no: data.no, displayName: data.name, englishName: data.englishName, sex: data.sex, birthDate: data.birthDate, mig: data.mig, country: data.mig ? data.country : '',
           fatherCountry: data.mig ? data.fatherCountry : '', motherCountry: data.mig ? data.motherCountry : '',
-          learningSupport: data.learningSupport, note: data.note,
+          learningSupport: entry.importFields?.includes('learningSupport') ? data.learningSupport : (old?.learningSupport === true),
+          learningBelowStandard: entry.importFields ? (old?.learningBelowStandard === true) : data.learningBelowStandard, note: data.note,
           status: 'enrolled', updatedAt: f.serverTimestamp(), updatedBy: Cloud.email };
         tx.set(entry.member, member);
         if (member.mig || old?.mig) YearStudentViews.stage(tx, Cloud.fb, member);
