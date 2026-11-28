@@ -20,6 +20,7 @@
     <button data-go="curr" class="admin-only">교육과정 편성</button>
     <button data-go="haksa">학사일정</button>
     <button data-go="cls">학급 관리</button>
+    <button data-go="learning" id="navLearning" hidden>기초학력관리</button>
     <button data-go="kclass">이주배경학생</button>
     <button data-go="data" class="admin-only">자료 관리</button>
     <button data-go="stats" id="navStats" hidden>학교 현황</button>
@@ -41,8 +42,9 @@
 
 <nav class="tabs" id="tabs">
   <button data-tab="roster" data-group="cls">학생 관리</button>
-  <button data-tab="learning-support" data-group="cls">기초학력 지원</button>
   <button data-tab="student-records" data-group="cls">학교생활기록부</button>
+  <button data-tab="learning-support" data-group="learning">기초학력 학생 관리</button>
+  <button data-tab="dodream" data-group="learning">두드림학교</button>
   <button data-tab="hview" data-group="haksa">학사일정</button>
   <button data-tab="act" data-group="haksa">신규 학사일정 등록</button>
   <button data-tab="ksl" data-group="haksa">한국어학급 연계</button>
@@ -472,6 +474,7 @@
   <section id="tab-learning-support" class="tab">
     <div id="learningSupportRoster"></div>
   </section>
+  <section id="tab-dodream" class="tab"><div id="dodreamRoster"></div></section>
   <section id="tab-student-records" class="tab">
     <div class="rs-top"><h2 class="km-title">학교생활기록부</h2><div id="recordClassPicker"></div></div>
     <p id="recordRosterStatus" class="hint" role="status" hidden></p>
@@ -985,7 +988,7 @@
 </dialog>
 
 <script src="data.js?v=20261127224336"></script>
-<script src="app.js?v=school-history-1"></script>
+<script src="app.js?v=learning-management-1"></script>
 <script src="features.js?v=20261127224336"></script>
 <script src="cloud-config.js?v=20261127224336"></script>
 <script src="cloud.js?v=school-roles-2"></script>
@@ -1011,9 +1014,9 @@
 <script src="behavior-data.js?v=20261127224336"></script>
 <script src="behavior-engine.js?v=20261127224336"></script>
 <script src="behavior-ui.js?v=20261127224336"></script>
-<script src="roster.js?v=roster-dashboard-2"></script>
+<script src="roster.js?v=learning-management-1"></script>
 <script src="roster-workbook.js?v=20261127224336"></script>
-<script src="roster-years.js?v=student-management-1"></script>
+<script src="roster-years.js?v=learning-management-1"></script>
 <script src="site.js?v=purchase-width-1"></script>
 <script src="school-history.js?v=1"></script>
 <script src="env.js?v=teacher-layout-1"></script>

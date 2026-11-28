@@ -137,7 +137,7 @@
         tx.update(previous, { slots: oldSlots });
       }
       tx.set(target, { ...destination, year, grade, cls, slots });
-      const next = { year, studentId: profile.id, grade, cls, classId: target.id, no, status: enrollmentStatus,
+      const next = { ...old, year, studentId: profile.id, grade, cls, classId: target.id, no, status: enrollmentStatus,
         displayName: old?.displayName || person.data()?.name || name,
         sex: old?.sex || person.data()?.sex || '', mig: old?.mig || '', country: old?.country || '', note: old?.note || '',
         ...(old?.legacyId ? { legacyId: old.legacyId } : {}), updatedAt: f.serverTimestamp(), updatedBy: Cloud.email };
@@ -309,7 +309,7 @@
     }
     delete slots[no];
     if (previous?.status === 'enrolled') slots[no] = studentId;
-    if (previous) tx.set(member, previous);
+    if (previous) tx.set(member, { ...previous, ...(typeof current.dodreamParticipating === 'boolean' ? { dodreamParticipating: current.dodreamParticipating } : {}) });
     else tx.delete(member);
     if (current.mig || previous?.mig) YearStudentViews.stage(tx, Cloud.fb, previous || { ...current, status: 'transferred' });
     tx.update(target, { slots });

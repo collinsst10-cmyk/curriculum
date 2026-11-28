@@ -418,6 +418,10 @@ service cloud.firestore {
     match /rosterYears/{year}/memberships/{studentId} {
       allow read: if isAdmin() || isRosterLead(year) || isYearHomeroom(year, resource.data.classId);
       allow delete: if isAdmin() && resource.data.get('transferId', '') != '';
+      allow update: if resource.data.status == 'enrolled'
+        && (isAdmin() || isYearHomeroom(year, resource.data.classId))
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['dodreamParticipating'])
+        && request.resource.data.dodreamParticipating is bool;
       allow create, update: if (isAdmin() || (
           isYearHomeroom(year, request.resource.data.classId)
           && (resource == null ? (!exists(studentProfile(studentId)) && !request.resource.data.keys().hasAny(['legacyId', 'transferId']))
@@ -433,10 +437,12 @@ service cloud.firestore {
         && request.resource.data.year == year
         && request.resource.data.studentId == studentId
         && request.resource.data.keys().hasOnly(['year', 'studentId', 'grade', 'cls', 'classId', 'no',
-          'status', 'displayName', 'englishName', 'fatherName', 'fatherPhone', 'motherName', 'motherPhone', 'sex', 'birthDate', 'mig', 'country', 'fatherCountry', 'motherCountry', 'learningSupport', 'learningBelowStandard', 'note', 'legacyId', 'transferId', 'updatedAt', 'updatedBy'])
+          'status', 'displayName', 'englishName', 'fatherName', 'fatherPhone', 'motherName', 'motherPhone', 'sex', 'birthDate', 'mig', 'country', 'fatherCountry', 'motherCountry', 'learningSupport', 'learningBelowStandard', 'dodreamParticipating', 'note', 'legacyId', 'transferId', 'updatedAt', 'updatedBy'])
         && validParentCountries(request.resource.data)
         && request.resource.data.get('learningSupport', false) is bool
         && request.resource.data.get('learningBelowStandard', false) is bool
+        && request.resource.data.get('dodreamParticipating', false) is bool
+        && request.resource.data.get('dodreamParticipating', false) == (resource == null ? false : resource.data.get('dodreamParticipating', false))
         && request.resource.data.get('englishName', '') is string
         && request.resource.data.get('englishName', '').size() <= 100
         && request.resource.data.get('fatherName', '') is string

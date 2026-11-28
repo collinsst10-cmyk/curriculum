@@ -1096,7 +1096,7 @@ function exportCal() {
  * 이벤트
  * ========================================================= */
 const RENDER = { home: renderHome, data: () => {}, admin: () => {}, info: renderInfo, cal: renderCal, days: renderDays, hours: renderHours, table: renderTable };
-const GROUP_FIRST = { home: 'home', haksa: 'hview', schoolinfo: 'school', curr: 'cal', tt: 'tt', act: 'act', kclass: 'kmig', cls: 'roster', stats: 'stats1', log: 'log', data: 'data', admin: 'admin' };
+const GROUP_FIRST = { home: 'home', haksa: 'hview', schoolinfo: 'school', curr: 'cal', tt: 'tt', act: 'act', kclass: 'kmig', cls: 'roster', learning: 'learning-support', stats: 'stats1', log: 'log', data: 'data', admin: 'admin' };
 // 화면별 접근 확인: false = HOME으로, 문자열 = 그 화면으로 (status.js·log.js가 등록)
 const TAB_GUARDS = {};
 const lastInGroup = {};

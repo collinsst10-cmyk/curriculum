@@ -21,7 +21,15 @@
   const canWrite = () => ready() && !!sel?.c && (isAdmin() || (!!myRoom && roomId(sel) === roomId(myRoom)));
   const canView = () => ready() && (isAdmin() || loadingAccess || lead || !!myRoom);
   TAB_GUARDS.roster = ready;
-  TAB_GUARDS['learning-support'] = TAB_GUARDS['student-records'] = canView;
+  TAB_GUARDS['student-records'] = canView;
+  const canManageLearning = () => ready() && (isAdmin() || lead || !!myRoom);
+  const canOpenLearning = () => ready() && (loadingAccess || canManageLearning());
+  const isLearningTab = () => ['learning-support', 'dodream'].includes(curTab);
+  TAB_GUARDS['learning-support'] = TAB_GUARDS.dodream = canOpenLearning;
+  let learningYear = '', learningGrade = '', learningClass = '', learningFilter = 'below';
+  let learningRows = [], learningUnsub, learningQueryKey = '', learningMessage = '', learningVersion = 0;
+  let dodreamPane = 'attendance';
+
   const say = (message, ok) => {
     const status = $('rsStatus');
     if (status) { status.textContent = message; status.classList.toggle('ok', !!ok); }
@@ -36,6 +44,9 @@
   function clearYear() {
     generation++;
     viewGeneration++;
+    clearLearningWatch();
+    learningYear = learningGrade = learningClass = '';
+    learningFilter = 'below';
     unsub?.(); unsubRoom?.(); unsubLead?.();
     unsub = unsubRoom = unsubLead = undefined;
     list = []; sel = myRoom = undefined; lead = false; roomChecked = leadChecked = false;
@@ -308,25 +319,146 @@
   function refresh() {
     if (curTab === 'student-records') renderRecords();
     else if (curTab === 'roster') render();
-    else if (curTab === 'learning-support') renderLearningSupport();
+    if (isLearningTab()) watchLearning();
+    else if (learningQueryKey && (!canManageLearning() || loadingAccess)) clearLearningWatch();
+    $('navLearning').hidden = !canManageLearning();
     const nav = $('tabs');
-    if (nav && ['roster', 'student-records', 'learning-support'].includes(curTab)) {
+    if (nav && ['roster', 'student-records'].includes(curTab)) {
       for (const tab of nav.querySelectorAll('[data-group="cls"]')) {
         tab.hidden = tab.dataset.tab === 'roster' ? !ready() : !canView();
       }
     }
   }
 
-  function renderLearningSupport() {
-    const rows = canView() && sel?.c ? sorted(list.filter(row => row.classId === roomId(sel)
-      && row.status === 'enrolled' && (row.learningBelowStandard === true || row.learningSupport === true))) : [];
-    $('learningSupportRoster').innerHTML = `<div class="rs-top"><h2 class="km-title">기초학력 지원</h2>${classPicker()}</div>
-      ${sel?.c ? `<p class="hint">${year}학년도 ${sel.g}학년 ${sel.c}반</p>` : ''}
-      <div class="card rs-card"><table class="rs-tbl"><thead><tr><th>번호</th><th>이름</th><th>학급</th><th>구분</th></tr></thead><tbody>
-      ${rows.map(row => `<tr><td>${row.no}</td><td>${esc(row.name)}</td><td>${row.grade}학년 ${row.cls}반</td><td>${row.learningBelowStandard === true ? '미도달' : '기존 지원 대상'}</td></tr>`).join('')
-        || `<tr><td colspan="4" class="km-empty">${rosterStatus || (loadingAccess ? '불러오는 중…' : '등록된 기초학력 학생이 없습니다.')}</td></tr>`}
-      </tbody></table></div>`;
+  function clearLearningWatch() {
+    learningVersion++;
+    learningUnsub?.();
+    learningUnsub = undefined;
+    learningQueryKey = learningMessage = '';
+    learningRows = [];
   }
+
+  const selectedLearningYear = () => isAdmin() && learningYear ? learningYear : year;
+
+  function watchLearning() {
+    const documentYear = selectedLearningYear();
+    const allClasses = isAdmin() || lead;
+    const classId = allClasses ? '' : roomId(myRoom);
+    if (!canManageLearning() || loadingAccess || !documentYear || (!allClasses && !classId)) {
+      if (learningQueryKey) clearLearningWatch();
+      renderLearningSupport();
+      return;
+    }
+    const key = documentYear + '/' + classId;
+    if (learningQueryKey === key) { renderLearningSupport(); return; }
+    clearLearningWatch();
+    learningQueryKey = key;
+    learningMessage = '불러오는 중…';
+    const version = learningVersion;
+    const f = F();
+    const memberships = f.collection(db(), 'rosterYears', documentYear, 'memberships');
+    const query = classId ? f.query(memberships, f.where('classId', '==', classId)) : memberships;
+    learningUnsub = f.onSnapshot(query, { includeMetadataChanges: true }, snapshot => {
+      if (version !== learningVersion || !canManageLearning() || snapshot.metadata.fromCache) return;
+      learningRows = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }))
+        .filter(row => row.status === 'enrolled')
+        .sort((a, b) => a.grade - b.grade || a.cls - b.cls || a.no - b.no);
+      learningMessage = '';
+      if (isLearningTab()) renderLearningSupport();
+    }, () => {
+      if (version !== learningVersion) return;
+      learningRows = [];
+      learningMessage = '학생 명단을 불러오지 못했습니다.';
+      if (isLearningTab()) renderLearningSupport();
+    });
+    renderLearningSupport();
+  }
+
+  function learningRowsForView(rows, grade, cls, filter) {
+    return rows.filter(row => (!grade || String(row.grade) === grade)
+      && (!cls || String(row.cls) === cls)
+      && (filter === 'all' || (filter === 'below' && row.learningBelowStandard === true)
+        || (filter === 'dodream' && row.dodreamParticipating === true)
+        || (filter === 'legacy' && row.learningSupport === true)));
+  }
+
+  function renderLearningSupport() {
+    const dodream = curTab === 'dodream';
+    const box = $(dodream ? 'dodreamRoster' : 'learningSupportRoster');
+    const title = dodream ? '두드림학교' : '기초학력 학생 관리';
+    if (!canManageLearning() || loadingAccess || !year) {
+      box.innerHTML = `<h2 class="km-title">${title}</h2><p class="hint">${loadingAccess ? '불러오는 중…' : '학생 명단에 접근할 수 없습니다.'}</p>`;
+      return;
+    }
+    const documentYear = selectedLearningYear();
+    const allClasses = isAdmin() || lead;
+    const classes = [...new Set(learningRows.filter(row => !learningGrade || String(row.grade) === learningGrade).map(row => row.cls))]
+      .sort((a, b) => a - b);
+    const select = (key, label, items, current) => `<select aria-label="${label}" data-learning-filter="${key}">${optionList(items, current)}</select>`;
+    const rows = learningRowsForView(learningRows, allClasses ? learningGrade : '', allClasses ? learningClass : '',
+      dodream ? 'dodream' : learningFilter);
+    const details = dodream ? `<div class="rs-pick" role="group" aria-label="두드림학교 운영 화면">
+        ${[['attendance', '출석부'], ['lesson', '수업일지']].map(([id, label]) => `<button type="button" class="km-pill${dodreamPane === id ? ' on' : ''}" data-dodream-pane="${id}" aria-pressed="${dodreamPane === id}">${label}</button>`).join('')}
+      </div>
+      <div class="card rs-card"><h3 class="km-title">${dodreamPane === 'attendance' ? '출석부' : '수업일지'}</h3><p class="hint">입력 양식 준비 중</p></div>` : '';
+    box.innerHTML = `<div class="rs-top"><h2 class="km-title">${title}</h2><div class="rs-pick">
+        ${isAdmin() ? '<label>학년도 <input type="number" min="2000" max="2099" data-learning-filter="year" value="' + documentYear + '"></label>' : '<span>' + documentYear + '학년도</span>'}
+        ${allClasses ? select('grade', '학년', [['', '전체 학년'], ...GRADES.map(g => [String(g), g + '학년'])], learningGrade)
+          + select('class', '학급', [['', '전체 학급'], ...classes.map(c => [String(c), c + '반'])], learningClass)
+          : '<span>' + myRoom.g + '학년 ' + myRoom.c + '반</span>'}
+        ${dodream ? '' : select('status', '학생 구분', [['below', '미도달'], ['dodream', '두드림학교 참여'], ['all', '전체 학생'], ['legacy', '기존 지원 대상']], learningFilter)}
+      </div></div>
+      ${details}
+      <div class="card rs-card">
+        ${dodream ? '<div class="rs-top"><h3 class="km-title">참여 학생</h3><button type="button" class="btn small" data-open-learning>참여 학생 관리</button></div>' : ''}
+        <p class="km-status" data-learning-status role="status" hidden></p>
+        <table class="rs-tbl"><thead><tr><th>학급</th><th>번호</th><th>이름</th><th>기초학력</th>${dodream ? '' : '<th>두드림학교 참여</th>'}</tr></thead><tbody>
+        ${rows.map(row => {
+          const canEdit = !dodream && (isAdmin() || (documentYear === year && row.classId === roomId(myRoom)));
+          return `<tr><td>${row.grade}학년 ${row.cls}반</td><td>${row.no}</td><td>${esc(row.displayName)}</td>
+            <td>${row.learningBelowStandard === true ? '미도달' : (learningFilter === 'legacy' && !dodream ? '기존 지원 대상' : '해당 없음')}</td>
+            ${dodream ? '' : '<td>' + (canEdit
+              ? '<label><input type="checkbox" data-dodream-student="' + esc(row.id) + '"' + (row.dodreamParticipating === true ? ' checked' : '') + '> 참여</label>'
+              : row.dodreamParticipating === true ? '참여' : '미참여') + '</td>'}</tr>`;
+        }).join('') || '<tr><td colspan="' + (dodream ? 4 : 5) + '" class="km-empty">' + (learningMessage || '해당 학생이 없습니다.') + '</td></tr>'}
+        </tbody></table>
+      </div>`;
+  }
+
+  function changeLearningFilter(event) {
+    const input = event.target;
+    switch (input.dataset.learningFilter) {
+      case 'year':
+        if (!isAdmin() || !/^20\d{2}$/.test(input.value)) { input.value = selectedLearningYear(); return; }
+        learningYear = input.value === year ? '' : input.value;
+        learningGrade = learningClass = '';
+        watchLearning();
+        break;
+      case 'grade': learningGrade = input.value; learningClass = ''; renderLearningSupport(); break;
+      case 'class': learningClass = input.value; renderLearningSupport(); break;
+      case 'status': learningFilter = input.value; renderLearningSupport(); break;
+    }
+  }
+
+  async function changeDodreamParticipation(input) {
+    const row = learningRows.find(item => item.id === input.dataset.dodreamStudent);
+    const documentYear = selectedLearningYear();
+    if (!row || !canManageLearning() || (!isAdmin() && (documentYear !== year || row.classId !== roomId(myRoom)))) return;
+    const version = learningVersion;
+    input.disabled = true;
+    try {
+      const f = F();
+      await f.updateDoc(f.doc(db(), 'rosterYears', documentYear, 'memberships', row.id), { dodreamParticipating: input.checked });
+    } catch {
+      if (version !== learningVersion) return;
+      input.checked = row.dodreamParticipating === true;
+      const status = $('learningSupportRoster').querySelector('[data-learning-status]');
+      if (!status || curTab !== 'learning-support') return;
+      status.textContent = '참여 여부를 저장하지 못했습니다.';
+      status.hidden = false;
+    } finally { input.disabled = false; }
+  }
+
   const supportKeys = [...parentFields, 'englishName', 'mig', 'fatherCountry', 'motherCountry', 'learningSupport', 'country', 'note'];
   const clean = s => ({ grade: sel.g, cls: sel.c, no: Math.max(0, Math.min(99, Number(s.no) || 0)), name: String(s.name || '').trim().slice(0, 20),
     ...Object.fromEntries(parentFields.map(key => [key, String(s[key] || '').trim().slice(0, key.endsWith('Phone') ? 40 : 60)])),
@@ -709,12 +841,20 @@
   picker.addEventListener('click', chooseClass);
 
   RENDER.roster = render;
-  $('learningSupportRoster').addEventListener('change', chooseClass);
-  $('learningSupportRoster').addEventListener('click', chooseClass);
-  RENDER['learning-support'] = () => {
-    if (searchAcrossClasses()) { search = ''; watch(); }
-    else renderLearningSupport();
-  };
+  $('learningSupportRoster').addEventListener('change', event => {
+    if (event.target.matches('[data-dodream-student]')) changeDodreamParticipation(event.target);
+    else changeLearningFilter(event);
+  });
+  $('dodreamRoster').addEventListener('change', changeLearningFilter);
+  $('dodreamRoster').addEventListener('click', event => {
+    const pane = event.target.closest('[data-dodream-pane]');
+    if (pane) { dodreamPane = pane.dataset.dodreamPane; renderLearningSupport(); }
+    if (event.target.closest('[data-open-learning]')) {
+      learningFilter = 'all';
+      showTab('learning-support');
+    }
+  });
+  RENDER['learning-support'] = RENDER.dodream = watchLearning;
   RENDER['student-records'] = () => {
     if (searchAcrossClasses()) { search = ''; watch(); }
     else renderRecords();
