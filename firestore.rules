@@ -45,7 +45,7 @@ service cloud.firestore {
     }
 
     match /admins/{email} {
-      allow read: if signedIn() && myEmail() == email;
+      allow get: if signedIn() && (myEmail() == email || isAdmin());
       allow write: if false;
     }
 
@@ -283,9 +283,9 @@ service cloud.firestore {
     }
     match /dailyLogs/{day} {
       allow read: if isStaff();
-      allow create, update: if (isHeadAffairs() || isDeveloper()) && hasOperatingDateYear(request.resource.data, day)
+      allow create, update: if (isAdmin() || isHeadAffairs()) && hasOperatingDateYear(request.resource.data, day)
         && (resource == null || resource.data.get('year', request.resource.data.year) == request.resource.data.year);
-      allow delete: if (isHeadAffairs() || isDeveloper()) && isOperatingDate(day);
+      allow delete: if (isAdmin() || isHeadAffairs()) && isOperatingDate(day);
     }
 
     function isOperatingDate(date) {
@@ -371,7 +371,8 @@ service cloud.firestore {
     }
     match /staffSchedule/{year} {
       allow get: if isAdmin() || (isStaff() && year == activeRosterYear());
-      allow create, update: if isAdmin() && request.resource.data.keys().hasOnly(['subjects', 'activeCount', 'activeStaffIds'])
+      allow create, update: if isAdmin() && request.resource.data.keys().hasOnly(['subjects', 'activeCount', 'activeStaffIds', 'rosterRoleVersion'])
+        && (request.resource.data.get('rosterRoleVersion', null) == null || request.resource.data.rosterRoleVersion == request.time)
         && request.resource.data.subjects is list && request.resource.data.subjects.size() <= 200
         && request.resource.data.activeCount is int && request.resource.data.activeCount >= 0
         && request.resource.data.get('activeStaffIds', []) is list && request.resource.data.get('activeStaffIds', []).size() <= 500;
@@ -399,22 +400,25 @@ service cloud.firestore {
         && member.displayName == request.resource.data.name && member.sex == request.resource.data.sex;
     }
     match /studentProfiles/{studentId} {
-      allow create: if (canWriteYearProfile(studentId)
+      allow read: if isAdmin();
+      allow create: if isAdmin() || (canWriteYearProfile(studentId)
         && request.resource.data.keys().hasOnly(['name', 'sex', 'createdAt']));
-      allow update: if (canWriteYearProfile(studentId)
+      allow update: if isAdmin() || (canWriteYearProfile(studentId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'sex']));
     }
     match /rosterYears/{year}/classes/{classId} {
-      allow get: if isRosterLead(year) || isYearHomeroom(year, classId);
-      allow create, update: if request.resource.data.year == year && ((isYearHomeroom(year, classId)
+      allow get: if isAdmin() || isRosterLead(year) || isYearHomeroom(year, classId);
+      allow list: if isAdmin();
+      allow create, update: if request.resource.data.year == year && (isAdmin() || (isYearHomeroom(year, classId)
           && request.resource.data.keys().hasOnly(['year', 'grade', 'cls', 'slots'])
           && request.resource.data.slots is map
           && request.resource.data.slots.size() <= 99
           && classId == string(request.resource.data.grade) + '-' + string(request.resource.data.cls)));
     }
     match /rosterYears/{year}/memberships/{studentId} {
-      allow read: if isRosterLead(year) || isYearHomeroom(year, resource.data.classId);
-      allow create, update: if ((
+      allow read: if isAdmin() || isRosterLead(year) || isYearHomeroom(year, resource.data.classId);
+      allow delete: if isAdmin() && resource.data.get('transferId', '') != '';
+      allow create, update: if (isAdmin() || (
           isYearHomeroom(year, request.resource.data.classId)
           && (resource == null ? (!exists(studentProfile(studentId)) && !request.resource.data.keys().hasAny(['legacyId', 'transferId']))
             : (resource.data.classId == request.resource.data.classId && resource.data.status == 'enrolled'

@@ -21,6 +21,17 @@
       result.employment[id] = { status: action.status, position: text(action.position, 60), note: text(action.note, 250) };
       return result;
     }
+    if (type === 'placement') {
+      const prior = result.employment[id] || { status: 'active', note: '' };
+      const existing = Object.entries(result.assignments).find(([, row]) => row.kind === 'homeroom' && row.primary === id);
+      result.employment[id] = { ...prior, position: text(action.position, 60) };
+      if (!action.room) {
+        if (existing) delete result.assignments[existing[0]];
+        return result;
+      }
+      return apply(result, { ...existing?.[1], type: 'assignment', kind: 'homeroom',
+        id: existing?.[0] || action.assignmentId, primary: id, room: action.room });
+    }
     if (type === 'group') {
       const name = text(action.name, 60);
       if (!name || !['gradeTeam', 'department'].includes(action.kind)) fail('학년부 또는 부서 이름을 확인해 주세요.');

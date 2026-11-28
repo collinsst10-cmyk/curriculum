@@ -63,8 +63,8 @@
   function render() {
     if (!canEdit()) return;
     if (!$('trDate').value) $('trDate').value = OperatingCalendar.activeDate();
-    $('trRosterPrivate').hidden = true;
-    $('trRosterLink').checked = false;
+    $('trRosterPrivate').hidden = !isAdm();
+    if (!isAdm()) $('trRosterLink').checked = false;
     fillClassOptions();
     watchAll(); renderList();
   }

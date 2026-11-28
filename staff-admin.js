@@ -8,7 +8,8 @@
   const $ = name => root.querySelector('[data-staff-field="' + name + '"]');
   const isAdmin = () => !!(window.Cloud?.ready && Cloud.isAdmin());
   const fb = () => Cloud.fb;
-  let profiles = new Map(), years = new Map(), selected = '', year = '', epoch = 0;
+  let profiles = new Map(), years = new Map(), classYears = new Map(), selected = '', year = '', epoch = 0;
+  let saving = false;
 
   const options = (values, blank = '') => (blank ? '<option value="">' + blank + '</option>' : '')
     + values.map(([value, label]) => '<option value="' + esc(value) + '">' + esc(label) + '</option>').join('');
@@ -16,10 +17,11 @@
   const selectedYear = () => years.get(year) || M.empty();
   const idOf = col => { const { F, db } = fb(); return F.doc(F.collection(db, col)).id; };
 
-  root.innerHTML = `<summary>교직원 학년도별 관리</summary>
+  root.innerHTML = `<summary>교직원 배정 관리</summary>
     <div class="row"><label>학년도 <input type="number" data-staff-field="year" min="2000" max="2099"></label>
     <label>교직원 <select data-staff-field="person"></select></label><button class="btn small" type="button" data-staff-action="new">신규 등록</button></div>
     <p class="hint" role="status" data-staff-field="status"></p>
+    <div class="tbl-scroll" data-staff-field="placements"></div>
     <div class="staff-admin-details">
       <section><h3>교직원 기본정보</h3><p class="hint" data-staff-field="identity"></p><form class="form" data-staff-form="profile">
         <label>이름 <input name="name" required maxlength="60"></label>
@@ -62,7 +64,7 @@
 
   function roomOptions() {
     const config = String(state.school.year) === year ? state.school.classes
-      : state.yearPlans?.[year]?.school?.classes || state.yearArchive?.[year]?.classes;
+      : classYears.get(year)?.classes || state.yearPlans?.[year]?.school?.classes || state.yearArchive?.[year]?.classes;
     if (!config) return [];
     return GRADES.flatMap(grade => Array.from({ length: Math.max(0, Math.min(20, Number(config[grade]) || 0)) },
       (_, i) => [M.roomKey(grade, i + 1), grade + '학년 ' + (i + 1) + '반']));
@@ -79,8 +81,33 @@
     if (groupEntries.some(([id]) => id === selectedGroup)) $('group').value = selectedGroup;
   }
 
+  function renderPlacements(data) {
+    const rooms = roomOptions();
+    const homerooms = M.homerooms(data);
+    $('placements').innerHTML = profiles.size ? `<table class="tbl">
+      <thead><tr><th>교직원명</th><th>로그인 계정 연결</th><th>담당 학급</th><th>직책</th><th>배정 저장</th></tr></thead>
+      <tbody>${[...profiles].map(([id, person]) => {
+        const position = data.employment[id]?.position || '';
+        const roles = [['연구부장', '연구부장'], ['교무부장', '교무부장']];
+        if (position && !roles.some(([value]) => value === position)) roles.push([position, position]);
+        const room = homerooms[id] || '';
+        const choices = room && !rooms.some(([key]) => key === room) ? [...rooms, [room, room + ' (기존 배정)']] : rooms;
+        return `<tr data-placement="${esc(id)}"><td>${esc(person.name)}</td>
+          <td><input name="email" type="email" maxlength="254" aria-label="${esc(person.name)} 로그인 계정" value="${esc(person.email || '')}"></td>
+          <td><select name="room" aria-label="${esc(person.name)} 담당 학급">${options(choices, '미배정')}</select></td>
+          <td><select name="position" aria-label="${esc(person.name)} 직책">${options(roles, '직책 없음')}</select></td>
+          <td><button class="btn small primary" type="button" data-staff-action="placement">저장</button></td></tr>`;
+      }).join('')}</tbody></table>` : '<p class="hint">등록된 교직원이 없습니다.</p>';
+    for (const row of $('placements').querySelectorAll('[data-placement]')) {
+      const id = row.dataset.placement;
+      row.querySelector('[name="room"]').value = homerooms[id] || '';
+      row.querySelector('[name="position"]').value = data.employment[id]?.position || '';
+    }
+  }
+
   function render() {
     const data = selectedYear();
+    renderPlacements(data);
     $('person').innerHTML = options([...profiles].map(([id, row]) => [id, row.name + (row.job ? ' · ' + row.job : '')]), '교직원 선택');
     $('person').value = selected;
     set('profile', { name: '', email: '', job: '', note: '', ...(profiles.get(selected) || {}) });
@@ -119,32 +146,45 @@
     if (!isAdmin() || !root.open) return;
     const token = ++epoch;
     const { F, db } = fb();
-    const [p, y] = await Promise.all([F.getDocs(F.collection(db, 'staffProfiles')), F.getDocs(F.collection(db, 'staffYears'))]);
+    const [p, y, school] = await Promise.all(['staffProfiles', 'staffYears', 'schoolYears'].map(name => F.getDocs(F.collection(db, name))));
     if (token !== epoch || !isAdmin()) return;
     profiles = new Map(p.docs.map(doc => [doc.id, doc.data()]));
     years = new Map(y.docs.map(doc => [doc.id, doc.data()]));
+    classYears = new Map(school.docs.map(doc => [doc.id, doc.data()]));
     render();
+  }
+
+  async function prepareAccount(tx, person, email) {
+    const { F, db } = fb();
+    const ref = F.doc(db, 'staffProfiles', person);
+    const previous = (await tx.get(ref)).data() || {};
+    const newLink = email ? F.doc(db, 'staffAccounts', email) : null;
+    const oldLink = previous.email && previous.email !== email ? F.doc(db, 'staffAccounts', previous.email) : null;
+    const old = oldLink ? await tx.get(oldLink) : null;
+    if (newLink) {
+      const [linked, account, adminAccount] = await Promise.all([
+        tx.get(newLink), tx.get(F.doc(db, 'allowed', email)), tx.get(F.doc(db, 'admins', email))
+      ]);
+      if (!adminAccount.exists() && (!account.exists() || account.data().userType === 'general')) {
+        throw new Error('승인된 교직원 또는 관리자 계정만 연결할 수 있습니다.');
+      }
+      if (linked.exists() && linked.data().staffId !== person) throw new Error('이미 다른 교직원에게 연결된 계정입니다.');
+    }
+    return { ref, previous, apply: () => {
+      if (newLink) tx.set(newLink, { staffId: person });
+      if (old?.data()?.staffId === person) tx.delete(oldLink);
+    }, removedEmail: old?.data()?.staffId === person ? previous.email : '' };
   }
 
   async function storeProfile(values) {
     const { F, db } = fb();
     const person = selected || idOf('staffProfiles');
-    const ref = F.doc(db, 'staffProfiles', person);
     const email = values.email.trim().toLowerCase(), name = values.name.trim();
     if (!name) throw new Error('이름을 입력해 주세요.');
     await F.runTransaction(db, async tx => {
-      const previous = (await tx.get(ref)).data() || {};
-      const newLink = email ? F.doc(db, 'staffAccounts', email) : null;
-      const oldLink = previous.email && previous.email !== email ? F.doc(db, 'staffAccounts', previous.email) : null;
-      const old = oldLink ? await tx.get(oldLink) : null;
-      if (newLink) {
-        const [linked, account] = await Promise.all([tx.get(newLink), tx.get(F.doc(db, 'allowed', email))]);
-        if (!account.exists() || account.data().userType === 'general') throw new Error('승인된 교직원 계정만 연결할 수 있습니다.');
-        if (linked.exists() && linked.data().staffId !== person) throw new Error('이미 다른 교직원에게 연결된 계정입니다.');
-        tx.set(newLink, { staffId: person });
-      }
-      if (old?.data()?.staffId === person) tx.delete(oldLink);
-      tx.set(ref, { name, email, job: values.job.trim(), note: values.note.trim() });
+      const account = await prepareAccount(tx, person, email);
+      account.apply();
+      tx.set(account.ref, { name, email, job: values.job.trim(), note: values.note.trim() });
       tx.set(F.doc(db, 'staffNames', person), { name });
     });
     selected = person;
@@ -160,16 +200,22 @@
         throw new Error('해당 학년도 학교 정보에 설정된 학급만 배정할 수 있습니다.');
       }
     }
+    if (action.type === 'placement' && action.room && !roomOptions().some(([key]) => key === action.room)) {
+      throw new Error('해당 학년에 설정된 학급을 선택해 주세요.');
+    }
     const ref = F.doc(db, 'staffYears', targetYear);
     await F.runTransaction(db, async tx => {
       const old = (await tx.get(ref)).data() || M.empty();
+      const account = action.type === 'placement' ? await prepareAccount(tx, action.id, action.email) : null;
+      if (account && !account.previous.name) throw new Error('등록된 교직원이 아닙니다.');
       const next = M.apply(old, action);
       const before = M.homerooms(old), after = M.homerooms(next);
       const allocations = M.subjects(next);
       if (allocations.length > 200) throw new Error('전담 배정은 200건까지 등록할 수 있습니다.');
       const owners = Object.fromEntries(Object.entries(after).map(([staff, room]) => [room, staff]));
-      for (const person of new Set([...Object.keys(before), ...Object.keys(after)])) {
-        if (before[person] === after[person]) continue;
+      const changedPerson = account ? action.id : '';
+      for (const person of new Set([...Object.keys(before), ...Object.keys(after), ...[changedPerson].filter(Boolean)])) {
+        if (before[person] === after[person] && person !== changedPerson) continue;
         const own = F.doc(db, 'staffYears', targetYear, 'ownHomerooms', person);
         // 빈 배정은 구형 이메일 배정이 다시 권한을 주지 않도록 남겨 둔다.
         tx.set(own, { classId: after[person] || '' });
@@ -178,22 +224,29 @@
         const prior = Object.keys(before).find(person => before[person] === room) || '';
         if ((owners[room] || '') !== prior) tx.set(F.doc(db, 'staffYears', targetYear, 'classOwners', room), { staffId: owners[room] || '' });
       }
+      if (account) {
+        account.apply();
+        tx.update(account.ref, { email: action.email });
+        if (account.removedEmail) tx.delete(F.doc(db, 'rosterYears', targetYear, 'homerooms', account.removedEmail));
+      }
       tx.set(ref, next);
       tx.set(F.doc(db, 'staffSchedule', targetYear), {
         subjects: allocations,
         activeCount: Object.values(next.employment).filter(row => row.status === 'active').length,
-        activeStaffIds: Object.keys(next.employment).filter(id => next.employment[id].status === 'active')
+        activeStaffIds: Object.keys(next.employment).filter(id => next.employment[id].status === 'active'),
+        rosterRoleVersion: F.serverTimestamp()
       });
     });
   }
 
   async function perform(action) {
-    if (!isAdmin()) return;
+    if (!isAdmin() || saving) return;
+    saving = true;
     const controls = [...root.querySelectorAll('button')];
     controls.forEach(button => { button.disabled = true; });
     try { await action(); await load(); show('저장했습니다.'); }
     catch (error) { show('처리 실패: ' + error.message); }
-    finally { controls.forEach(button => { button.disabled = false; }); }
+    finally { saving = false; controls.forEach(button => { button.disabled = false; }); }
   }
   root.addEventListener('submit', event => {
     event.preventDefault();
@@ -233,6 +286,15 @@
   });
   root.addEventListener('click', event => {
     const action = event.target.closest('[data-staff-action]')?.dataset.staffAction;
+    if (action === 'placement') {
+      const row = event.target.closest('[data-placement]');
+      const email = row.querySelector('[name="email"]');
+      if (!email.reportValidity()) return;
+      perform(() => storeYear({ type: 'placement', id: row.dataset.placement, email: email.value.trim().toLowerCase(),
+        room: row.querySelector('[name="room"]').value, position: row.querySelector('[name="position"]').value,
+        assignmentId: idOf('staffYears') }));
+      return;
+    }
     if (action === 'new') { selected = ''; render(); field('profile', 'name').focus(); }
     if (action === 'previous') {
       const work = years.get(String(Number(year) - 1))?.employment[selected];
@@ -248,7 +310,7 @@
   function refresh() {
     epoch++;
     root.hidden = !isAdmin();
-    if (!isAdmin()) { profiles.clear(); years.clear(); selected = ''; render(); return; }
+    if (!isAdmin()) { profiles.clear(); years.clear(); classYears.clear(); selected = ''; render(); return; }
     year = String(state.school.year);
     $('year').value = year;
     load().catch(error => show('조회 실패: ' + error.message));

@@ -17,8 +17,10 @@
   const classCnt = g => Math.min(20, Number(state.school.classes?.[g]) || 0);
   const collection = () => F().collection(db(), 'rosterYears', year, 'memberships');
   const roomId = room => room ? room.g + '-' + room.c : '';
-  const canWrite = () => ready() && !!myRoom && roomId(sel) === roomId(myRoom);
-  const canView = () => ready() && (loadingAccess || lead || !!myRoom);
+  const isAdmin = () => ready() && Cloud.isAdmin();
+  const mayEdit = row => isAdmin() || (!!myRoom && row.classId === roomId(myRoom));
+  const canWrite = () => ready() && !!sel?.c && (isAdmin() || (!!myRoom && roomId(sel) === roomId(myRoom)));
+  const canView = () => ready() && (isAdmin() || loadingAccess || lead || !!myRoom);
   TAB_GUARDS.roster = ready;
   TAB_GUARDS['learning-support'] = TAB_GUARDS['student-records'] = canView;
   const say = (message, ok) => {
@@ -58,20 +60,14 @@
     clearYear();
     year = /^20[0-9]{2}$/.test(String(next)) ? String(next) : '';
     if (!year) { loadingAccess = false; refresh(); return; }
+    if (isAdmin()) {
+      lead = true;
+      roomChecked = leadChecked = true;
+      accessChanged();
+      return;
+    }
     const token = generation;
     const email = Cloud.email.toLowerCase();
-    unsubRoom = StaffLinks.watchRoom(F(), db(), email, year, snapshot => {
-      if (token !== generation) return;
-      const [g, c] = String(snapshot.data()?.classId || '').split('-').map(Number);
-      myRoom = g && c ? { g, c } : null;
-      roomChecked = true;
-      accessChanged();
-    }, () => {
-      if (token !== generation) return;
-      myRoom = null;
-      roomChecked = true;
-      accessChanged();
-    });
     const setLead = allowed => {
       if (token !== generation || !ready()) return;
       if (leadChecked && lead === allowed) return;
@@ -79,10 +75,31 @@
       lead = allowed;
       accessChanged();
     };
-    unsubLead = F().onSnapshot(F().doc(db(), 'rosterYears', year, 'leadAccess', email),
+    const checkLead = () => {
+      const request = ++leadRequest;
+      F().getDocFromServer(F().doc(db(), 'rosterYears', year, 'leadAccess', email))
+        .then(() => { if (request === leadRequest) setLead(true); })
+        .catch(() => { if (request === leadRequest) setLead(false); });
+    };
+    let leadRequest = 0;
+    unsubRoom = StaffLinks.watchRoom(F(), db(), email, year, snapshot => {
+      if (token !== generation) return;
+      const [g, c] = String(snapshot.data()?.classId || '').split('-').map(Number);
+      myRoom = g && c ? { g, c } : null;
+      roomChecked = true;
+      accessChanged();
+      checkLead();
+    }, () => {
+      if (token !== generation) return;
+      myRoom = null;
+      roomChecked = true;
+      accessChanged();
+      checkLead();
+    });
+    unsubLead = F().onSnapshot(F().doc(db(), 'staffSchedule', year),
       { includeMetadataChanges: true }, snapshot => {
-        if (!snapshot.metadata.fromCache) setLead(true);
-      }, () => setLead(false));
+        if (!snapshot.metadata.fromCache && token === generation) checkLead();
+      }, () => { if (token === generation) setLead(false); });
     refresh();
   }
 
@@ -149,13 +166,13 @@
     if (!box) return;
     const rows = sorted(list.filter(row => !search || row.name.toLowerCase().includes(search)));
     box.innerHTML = rows.map(row => {
-      const editable = myRoom && row.classId === roomId(myRoom) && row.status === 'enrolled';
+      const editable = mayEdit(row) && row.status === 'enrolled';
       const detail = `data-student-detail="${esc(row.id)}"`;
       return `<tr><td>${lead && search ? row.grade + '-' + row.cls + ' · ' : ''}${row.no}</td>
         <td><button type="button" class="btn small rs-student-name" ${detail}>${esc(row.name)}</button></td>
         <td>${row.sex === 'm' ? '남' : row.sex === 'f' ? '여' : '—'}</td><td>${esc(row.birthDate || '—')}</td>
-        <td>${esc(MIG_L[row.mig] || '—')}</td><td>${row.learningSupport === true ? '지원 대상' : '—'}</td><td>${editable && !searchAcrossClasses()
-          ? `<button type="button" class="btn small" ${detail}>수정</button>` : ''}</td></tr>`;
+        <td>${esc(MIG_L[row.mig] || '—')}</td><td>${row.learningSupport === true ? '지원 대상' : '—'}</td><td>${editable
+          ? `<button type="button" class="btn small" ${detail} data-edit-student>수정</button>` : ''}</td></tr>`;
     }).join('') || `<tr><td colspan="7" class="km-empty">${rosterStatus || (search ? '검색 결과가 없습니다.' : '등록된 학생이 없습니다.')}</td></tr>`;
   }
 
@@ -486,6 +503,11 @@
     const student = event.target.closest('[data-student-detail]');
     if (student) {
       const row = list.find(item => item.id === student.dataset.studentDetail);
+      if (row && student.hasAttribute('data-edit-student') && mayEdit(row) && searchAcrossClasses()) {
+        sel = { g: row.grade, c: row.cls };
+        search = '';
+        watch();
+      }
       if (row) showDetail(row);
     } else if (event.target.closest('[data-student-add]')) showDetail(null);
     else if (event.target.closest('[data-close-student-dialog]')) event.target.closest('dialog')?.close();

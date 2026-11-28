@@ -14,9 +14,9 @@
   const PEOPLE = [['p', '교장'], ['v', '교감'], ['a', '행정실장']];
   const SECS = [['notice', '전달사항'], ['events', '주요행사 및 교육활동'], ['guidance', '생활지도 및 안전지도'], ['cover', '결보강'], ['preview', '교육활동 예고'], ['lecture', '외부강의 확인']];
   const KEYS = SECS.map(([k]) => k);
-  // 일지 작성: 직위가 교무부장인 선생님 (개발자는 '개발자' 권한으로 볼 때만)
+  // 학교운영일지 및 보결 관리: 관리자와 교무부장
   const isWriter = () => !!(window.Cloud && Cloud.ready && (
-    (Cloud.position && Cloud.position.head === '교무부장') || (Cloud.developer && !Cloud.viewRole && sessionStorage.getItem('viewRole') !== 'operator')));
+    Cloud.isAdmin() || Cloud.position?.head === '교무부장'));
   TAB_GUARDS.log = () => isWriter();
   window.LogRoles = { isWriter };
   const ref = ds => Cloud.fb.F.doc(Cloud.fb.db, 'dailyLogs', ds);
