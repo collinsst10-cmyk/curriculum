@@ -19,7 +19,8 @@
   const roomId = room => room ? room.g + '-' + room.c : '';
   const canWrite = () => ready() && !!myRoom && roomId(sel) === roomId(myRoom);
   const canView = () => ready() && (loadingAccess || lead || !!myRoom);
-  TAB_GUARDS.roster = TAB_GUARDS['learning-support'] = TAB_GUARDS['student-records'] = canView;
+  TAB_GUARDS.roster = ready;
+  TAB_GUARDS['learning-support'] = TAB_GUARDS['student-records'] = canView;
   const say = (message, ok) => {
     const status = $('rsStatus');
     if (status) { status.textContent = message; status.classList.toggle('ok', !!ok); }
@@ -164,7 +165,9 @@
     const box = $('rsMain');
     if (!ready() || loadingAccess || !sel?.c) {
       const message = !ready() ? '학생 명단에 접근할 수 없습니다.' : loadingAccess ? '불러오는 중…'
-        : lead ? '설정된 학급이 없습니다.' : '현재 학년도에 배정된 학급이 없습니다.';
+        : !year ? '현재 운영 학년도를 확인하지 못했습니다.'
+        : lead ? '설정된 학급이 없습니다.'
+        : '현재 운영 학년도에 등록된 담임 배정이나 연구부장·교무부장 보직이 없습니다. 교직원 관리의 학년도별 배정을 확인해 주세요.';
       box.innerHTML = `<div class="rs-top"><h2 class="km-title">학생 관리</h2></div><p class="hint">${message}</p>`;
       return;
     }
@@ -193,7 +196,9 @@
     else if (curTab === 'learning-support') renderLearningSupport();
     const nav = $('tabs');
     if (nav && ['roster', 'student-records', 'learning-support'].includes(curTab)) {
-      for (const tab of nav.querySelectorAll('[data-group="cls"]')) tab.hidden = !canView();
+      for (const tab of nav.querySelectorAll('[data-group="cls"]')) {
+        tab.hidden = tab.dataset.tab === 'roster' ? !ready() : !canView();
+      }
     }
   }
 
