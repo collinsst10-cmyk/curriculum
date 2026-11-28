@@ -2068,7 +2068,7 @@ th.kc-col { color: #5b21b6; }
 .school-history-list p { margin: 0; font-size: 13px; color: var(--muted); white-space: pre-wrap; }
 
 /* 학생 관리 */
-.rs-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 475px; }
+.rs-summary { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); max-width: 760px; }
 .rs-summary .sx-kpi { min-width: 0; padding: 8px 12px; }
 .rs-search { margin: 10px 0; }
 .rs-search label { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
@@ -2096,13 +2096,22 @@ th.kc-col { color: #5b21b6; }
 #rosterParentCountries [role="option"]:hover, #rosterParentCountries [aria-selected="true"] { background: var(--nv-pale); color: var(--nv); }
 #rosterLegacyCountry { grid-column: 1 / -1; margin: 0; }
 
-.rs-inline-table { table-layout: fixed; }
+.rs-inline-table { table-layout: fixed; min-width: 950px; }
 .rs-inline-table th { white-space: nowrap; padding: 6px 5px; }
 .rs-inline-table td { padding: 4px 5px; }
-.rs-inline-table th:nth-child(1), .rs-inline-table th:nth-child(3) { width: 56px; }
-.rs-inline-table th:nth-child(4) { width: 136px; }
-.rs-inline-table th:nth-child(5), .rs-inline-table th:nth-child(7) { width: 104px; }
-.rs-inline-table th:nth-child(8) { width: 112px; }
+.rs-inline-table th:nth-child(1) { width: 5%; }
+.rs-inline-table th:nth-child(2) { width: 12%; }
+.rs-inline-table th:nth-child(3) { width: 14%; }
+.rs-inline-table th:nth-child(4) { width: 7%; }
+.rs-inline-table th:nth-child(5) { width: 18%; }
+.rs-inline-table th:nth-child(6) { width: 11%; }
+.rs-inline-table th:nth-child(7) { width: 12%; }
+.rs-inline-table th:nth-child(8) { width: 10%; }
+.rs-inline-table th:nth-child(9) { width: 11%; }
+.rs-birth { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 3px; }
+.rs-sex { display: flex; gap: 3px; }
+.rs-sex button { flex: 1; min-width: 0; height: 30px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: white; color: inherit; font: inherit; cursor: pointer; }
+.rs-sex button[aria-pressed="true"] { background: var(--nv-pale); border-color: currentColor; font-weight: 700; }
 .rs-inline-table input, .rs-inline-table select { width: 100%; min-width: 0; height: 30px; padding: 3px 5px; font: 400 13px/1.3 var(--f4); border: 1px solid var(--line); border-radius: 6px; background: #fff; }
 .rs-inline-table input:disabled { background: #f5f7fa; }
 .rs-row-actions { white-space: nowrap; }
@@ -2111,3 +2120,8 @@ th.kc-col { color: #5b21b6; }
 .rs-country-options { position: absolute; top: 100%; left: 0; right: 0; min-width: 145px; z-index: 3; max-height: 150px; overflow: auto; background: #fff; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; }
 .rs-country-options [role="option"] { padding: 6px 8px; cursor: pointer; }
 .rs-country-options [role="option"]:hover, .rs-country-options [aria-selected="true"] { background: var(--nv-pale); }
+
+.rs-country-options [role="option"] { display: flex; align-items: center; gap: 7px; }
+.rs-country-options img, .rs-country-flag { width: 18px; height: 13px; object-fit: contain; }
+.rs-country-flag { position: absolute; left: 6px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.rs-country-cell.has-flag input { padding-left: 29px; }
