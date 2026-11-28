@@ -29,6 +29,7 @@
 
   function closeEditors() {
     drafts.clear();
+    editingId = null;
     importDialog.close();
   }
 
@@ -161,46 +162,51 @@
   }
 
   const drafts = new Map();
-  const fields = ['no', 'name', 'englishName', 'sex', 'birthYear', 'birthMonth', 'birthDay', 'mig', 'country', 'learningSupport'];
+  let editingId = null;
+  const parentFields = ['fatherName', 'fatherPhone', 'motherName', 'motherPhone'];
+  const fields = ['no', 'name', 'englishName', 'sex', 'birthDate', 'mig', 'country', 'learningSupport', ...parentFields];
   const countryText = row => row.country || [...new Set([row.fatherCountry, row.motherCountry].filter(Boolean))].join(' / ');
-  const rowValues = row => {
-    const [birthYear, birthMonth, birthDay] = (row.birthDate || '').split('-');
-    return { ...row, birthYear, birthMonth, birthDay, country: countryText(row), learningSupport: row.learningSupport === true ? 'yes' : '' };
-  };
+  const rowValues = row => ({ ...row, birthDate: (row.birthDate || '').replaceAll('-', '.'),
+    country: countryText(row), learningSupport: row.learningSupport === true ? 'yes' : '' });
   function optionList(items, selected) {
     return items.map(([value, label]) => `<option value="${esc(value)}" ${value === selected ? 'selected' : ''}>${esc(label)}</option>`).join('');
   }
-  const dateOptions = (length, label, valueAt = i => i + 1) => [['', label],
-    ...Array.from({ length }, (_, i) => {
-      const value = valueAt(i);
-      return [String(value).padStart(2, '0'), String(value)];
-    })];
-  const daysInMonth = (year, month) => month ? new Date(Number(year) || 2000, Number(month), 0).getDate() : 31;
-  const countryFlag = name => window.SchoolStatus?.flagUrl?.(name) || '';
+  const countryFlag = name => window.SchoolStatus?.flagUrl?.(window.SchoolStatus.canonicalCountry(name) || name) || '';
 
   function editableRow(row, isNew = false) {
     const key = isNew ? '' : row.id;
     const draft = drafts.get(key) || rowValues(row);
     const input = (name, label, attrs) => `<input data-field="${name}" aria-label="${label}" value="${esc(draft[name] ?? '')}" ${attrs}>`;
     const select = (name, label, values) => `<select data-field="${name}" aria-label="${label}">${optionList(values, draft[name] || '')}</select>`;
-    const latestYear = new Date().getFullYear();
-    const earliestYear = Math.min(latestYear - 100, Number(draft.birthYear) || latestYear);
     const flag = draft.mig ? countryFlag(draft.country) : '';
     const listId = isNew ? 'rsCountries-new' : 'rsCountries-' + row.id;
     return `<tr data-roster-row="${esc(key)}"${isNew ? ' class="rs-new"' : ''}>
       <td>${input('no', '번호', 'type="number" min="1" max="99" required')}</td>
-      <td>${input('name', '이름(한글)', 'maxlength="20" required')}</td>
-      <td>${input('englishName', '이름(영문)', 'maxlength="100"')}</td>
+      <td><div class="rs-field-stack">${input('name', '이름(한글)', 'maxlength="20" placeholder="한글 이름" required')}${input('englishName', '이름(영문)', 'maxlength="100" placeholder="영문 이름 (선택)"')}</div></td>
       <td><div class="rs-sex" role="group" aria-label="성별">${input('sex', '성별', 'type="hidden"')}
         ${[['m', '남'], ['f', '여']].map(([value, label]) => '<button type="button" data-roster-sex="' + value + '" aria-pressed="' + (draft.sex === value) + '">' + label + '</button>').join('')}</div></td>
-      <td><div class="rs-birth">${select('birthYear', '출생 연도', dateOptions(latestYear - earliestYear + 1, '연도', i => latestYear - i))}
-        ${select('birthMonth', '출생 월', dateOptions(12, '월'))}${select('birthDay', '출생 일', dateOptions(daysInMonth(draft.birthYear, draft.birthMonth), '일'))}</div></td>
+      <td>${input('birthDate', '생년월일', 'inputmode="numeric" placeholder="YYYY.MM.DD" maxlength="10"')}</td>
       <td>${select('mig', '이주배경', MIG)}</td>
       <td><div class="rs-country-cell${flag ? ' has-flag' : ''}"><img class="rs-country-flag" alt="" ${flag ? 'src="' + esc(flag) + '"' : 'hidden'}>${input('country', '부모출신국', 'maxlength="30" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="' + esc(listId) + '"' + (draft.mig ? '' : ' disabled'))}
         <div id="${esc(listId)}" class="rs-country-options" role="listbox" hidden></div></div></td>
       <td>${select('learningSupport', '기초학력', [['', '—'], ['yes', '지원 대상']])}</td>
-      <td class="rs-row-actions"><button type="button" class="btn small primary" data-row-save>저장</button>
-        <button type="button" class="btn small danger" data-row-delete ${isNew ? 'disabled' : ''}>삭제</button></td></tr>`;
+      ${[['father', '아버지'], ['mother', '어머니']].map(([parent, label]) =>
+        '<td><div class="rs-field-stack">' + input(parent + 'Name', label + ' 성함', 'placeholder="성함" maxlength="60"')
+        + input(parent + 'Phone', label + ' 연락처', 'type="tel" placeholder="연락처" maxlength="40"') + '</div></td>').join('')}
+      <td><div class="rs-row-actions"><button type="button" class="btn small primary" data-row-save>저장</button>
+        ${isNew ? '<button type="button" class="btn small danger" data-row-delete>삭제</button>'
+          : '<button type="button" class="btn small" data-row-cancel>취소</button>'}</div></td></tr>`;
+  }
+
+  function displayStack(primary, secondary) {
+    return `<div class="rs-field-stack">${esc(primary || (secondary ? '' : '—'))}${secondary ? '<small>' + esc(secondary) + '</small>' : ''}</div>`;
+  }
+
+  function displayCountry(row) {
+    return ((row.mig && countryText(row)) || '—').split(' / ').map(country => {
+      const url = countryFlag(country);
+      return `<span class="rs-country-read">${url ? '<img src="' + esc(url) + '" alt="">' : ''}${esc(country)}</span>`;
+    }).join(' ');
   }
 
   function renderRows() {
@@ -209,15 +215,18 @@
     const canEdit = canWrite() && !searchAcrossClasses();
     const shown = sorted(list.filter(row => !search || [row.name, row.englishName || ''].some(name => name.toLowerCase().includes(search))));
     let html = shown.map(row => {
-      if (canEdit && mayEdit(row) && row.status === 'enrolled') return editableRow(row);
+      const editable = canEdit && mayEdit(row) && row.status === 'enrolled';
+      if (editable && row.id === editingId) return editableRow(row);
       const number = searchAcrossClasses() ? row.grade + '-' + row.cls + ' · ' + row.no : row.no;
-      return `<tr><td>${number}</td><td>${esc(row.name)}</td><td>${esc(row.englishName || '—')}</td>
-        <td>${row.sex === 'm' ? '남' : row.sex === 'f' ? '여' : '—'}</td><td>${esc(row.birthDate || '—')}</td>
-        <td>${esc(MIG_L[row.mig] || '—')}</td><td>${esc(countryText(row) || '—')}</td>
-        <td>${row.learningSupport === true ? '지원 대상' : '—'}</td><td>—</td></tr>`;
+      return `<tr data-roster-row="${esc(row.id)}"><td>${number}</td><td>${displayStack(row.name, row.englishName)}</td>
+        <td><span class="rs-sex-value ${row.sex === 'm' || row.sex === 'f' ? row.sex : ''}">${row.sex === 'm' ? '남' : row.sex === 'f' ? '여' : '—'}</span></td>
+        <td>${esc((row.birthDate || '—').replaceAll('-', '.'))}</td><td>${esc(MIG_L[row.mig] || '해당 없음')}</td><td>${displayCountry(row)}</td>
+        <td>${row.learningSupport === true ? '<span class="rs-support-label">지원 대상</span>' : '해당 없음'}</td>
+        <td>${displayStack(row.fatherName, row.fatherPhone)}</td><td>${displayStack(row.motherName, row.motherPhone)}</td>
+        <td>${editable ? '<div class="rs-row-actions"><button type="button" class="btn small primary" data-row-edit>수정</button><button type="button" class="btn small danger" data-row-delete>삭제</button></div>' : '—'}</td></tr>`;
     }).join('');
     if (!html && (rosterStatus || search || !canEdit)) {
-      html = `<tr><td colspan="9" class="km-empty">${rosterStatus || (search ? '검색 결과가 없습니다.' : '등록된 학생이 없습니다.')}</td></tr>`;
+      html = `<tr><td colspan="10" class="km-empty">${rosterStatus || (search ? '검색 결과가 없습니다.' : '등록된 학생이 없습니다.')}</td></tr>`;
     }
     if (canEdit && !rosterStatus) {
       const used = new Set(list.filter(row => row.status === 'enrolled').map(row => row.no));
@@ -239,25 +248,31 @@
       type, label: MIG_L[type], count: enrolled.filter(row => row.mig === type).length
     }));
     const migrantTotal = types.reduce((sum, { count }) => sum + count, 0);
-    const percentage = total ? (migrantTotal / total * 100).toFixed(1) : '0.0';
+    const segments = [...types, { type: 'non', label: '비이주배경', count: total - migrantTotal }];
+    const percent = count => (total ? count / total * 100 : 0).toFixed(1);
+    const largest = Math.max(male, female, 1);
     return `<div class="rs-summary">
       <section class="card rs-summary-card">
-        <h3>학급 현황</h3>
-        <dl class="rs-summary-metrics">${[['총원', total], ['남', male], ['여', female]].map(([label, count]) =>
-          `<div><dt>${label}</dt><dd>${count}<small>명</small></dd></div>`).join('')}</dl>
+        <header><h3>학급 현황</h3><span>전체 <strong>${total}<small>명</small></strong></span></header>
+        <dl class="rs-children">${[['boy', '남학생', male], ['girl', '여학생', female]].map(([kind, label, count]) =>
+          `<div class="${kind}${count ? '' : ' is-empty'}"><img src="assets/roster-${kind}.svg" width="${Math.round(60 + 24 * count / largest)}" height="84" alt="">
+            <dt>${label}</dt><dd>${count}<small>명</small></dd></div>`).join('')}</dl>
       </section>
       <section class="card rs-summary-card rs-summary-migrant">
-        <header><h3>이주배경학생 현황</h3><span>이주배경학생 전체 <strong>${migrantTotal}명 (${percentage}%)</strong></span></header>
-        <div class="rs-summary-bar" aria-hidden="true">${types.filter(item => item.count).map(({ type, count }) =>
-          `<span class="km-dot ${type}" style="flex-grow:${count}"></span>`).join('')}</div>
-        <ul class="rs-summary-legend">${types.map(({ type, label }) =>
-          `<li><i class="km-dot ${type}" aria-hidden="true"></i>${label}</li>`).join('')}</ul>
+        <header><h3>이주배경학생 현황</h3><span>이주배경학생 전체 <strong>${migrantTotal}<small>명</small></strong> (${percent(migrantTotal)}%)</span></header>
+        <div class="rs-summary-bar" role="img" aria-label="${total ? segments.map(({ label, count }) => label + ' ' + percent(count) + '%').join(', ') : '등록된 학생 없음'}">
+          ${segments.filter(item => item.count).map(({ type, label, count }) =>
+            `<span class="rs-chart-color ${type}" style="flex-grow:${count}" title="${label} ${percent(count)}%"><span>${percent(count)}%</span></span>`).join('')}
+        </div>
+        <ul class="rs-summary-legend">${segments.map(({ type, label }) =>
+          `<li><i class="rs-chart-color ${type}" aria-hidden="true"></i>${label}</li>`).join('')}</ul>
         <dl class="rs-summary-types">${types.map(({ label, count }) =>
-          `<div><dt>${label}</dt><dd>${count}명</dd></div>`).join('')}</dl>
+          `<div><dt>${label}</dt><dd>${count}<small>명</small></dd></div>`).join('')}</dl>
       </section>
-      <section class="card rs-summary-card">
-        <h3>기초학력 현황</h3>
-        <dl class="rs-summary-metrics"><div><dt>지원 대상</dt><dd>${support}<small>명</small></dd></div></dl>
+      <section class="card rs-summary-card rs-summary-support">
+        <header><h3>기초학력 현황</h3></header>
+        <dl class="rs-summary-metrics"><div><dt>기초학력 지원 대상</dt><dd>${support}<small>명</small></dd></div>
+          <div><dt>지원 대상 비율</dt><dd>${percent(support)}<small>%</small></dd></div></dl>
       </section>
     </div>`;
   }
@@ -273,13 +288,13 @@
       return;
     }
     const focus = document.activeElement?.id === 'rsSearch';
-    const enrolled = list.filter(row => row.status === 'enrolled');
+    const enrolled = list.filter(row => row.status === 'enrolled' && row.classId === roomId(sel));
     const canImport = canWrite() && !searchAcrossClasses();
     box.innerHTML = `<div class="rs-top"><h2 class="km-title">${year}학년도 ${searchAcrossClasses() ? '전체 학생 검색' : sel.g + '학년 ' + sel.c + '반 학생'}</h2>${classPicker()}</div>
       ${renderSummary(enrolled)}
-      <div class="rs-search"><label>학생 이름 <input id="rsSearch" type="search" value="${esc(search)}" placeholder="${lead ? '전체 학생 검색' : '이름 검색'}"></label></div>
+      <div class="card rs-card rs-list-card"><div class="rs-list-head"><h3>학생 목록</h3><div class="rs-search"><label>학생 이름 <input id="rsSearch" type="search" value="${esc(search)}" placeholder="${lead ? '전체 학생 검색' : '이름 검색'}"></label></div></div>
       <p id="rsStatus" class="km-status" role="status"></p>
-      <div class="card rs-card"><table class="rs-tbl rs-inline-table"><thead><tr><th>번호</th><th>이름(한글)</th><th>이름(영문)</th><th>성별</th><th>생년월일</th><th>이주배경</th><th>부모출신국</th><th>기초학력</th><th>관리</th></tr></thead><tbody id="rsRows"></tbody></table></div>
+      <table class="rs-tbl rs-inline-table"><thead><tr><th>번호</th><th>이름</th><th>성별</th><th>생년월일</th><th>이주배경</th><th>부모출신국</th><th>기초학력</th><th>아버지</th><th>어머니</th><th>관리</th></tr></thead><tbody id="rsRows"></tbody></table></div>
       ${canImport ? `<section class="rs-pdf-drop" id="rsPdfDrop">
         <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V3m-4 4 4-4 4 4M4 15v5h16v-5"/></svg>
         <div><h3>NEIS 학생 명단 가져오기</h3><p>PDF 파일을 끌어다 놓으세요.</p></div>
@@ -311,8 +326,9 @@
         || `<tr><td colspan="3" class="km-empty">${rosterStatus || (loadingAccess ? '불러오는 중…' : '등록된 지원 대상 학생이 없습니다.')}</td></tr>`}
       </tbody></table></div>`;
   }
-  const supportKeys = ['englishName', 'mig', 'fatherCountry', 'motherCountry', 'learningSupport', 'country', 'note'];
+  const supportKeys = [...parentFields, 'englishName', 'mig', 'fatherCountry', 'motherCountry', 'learningSupport', 'country', 'note'];
   const clean = s => ({ grade: sel.g, cls: sel.c, no: Math.max(0, Math.min(99, Number(s.no) || 0)), name: String(s.name || '').trim().slice(0, 20),
+    ...Object.fromEntries(parentFields.map(key => [key, String(s[key] || '').trim().slice(0, key.endsWith('Phone') ? 40 : 60)])),
     englishName: String(s.englishName || '').trim().slice(0, 100),
     birthDate: validDate(s.birthDate) ? (s.birthDate || '') : '',
     sex: ['m', 'f'].includes(s.sex) ? s.sex : '', mig: MIG_L[s.mig] !== undefined ? s.mig : '', country: s.mig ? String(s.country || '').trim().slice(0, 30) : '',
@@ -353,7 +369,7 @@
         slots[data.no] = profile.id;
         if (!entry.id) tx.set(profile, { name: data.name, sex: data.sex, createdAt: f.serverTimestamp() });
         else if (data.name !== old.displayName || data.sex !== (old.sex || '')) tx.update(profile, { name: data.name, sex: data.sex });
-        const member = { ...old, year: currentYear, studentId: profile.id, classId: group, grade: room.g, cls: room.c,
+        const member = { ...old, ...Object.fromEntries(parentFields.map(key => [key, data[key]])), year: currentYear, studentId: profile.id, classId: group, grade: room.g, cls: room.c,
           no: data.no, displayName: data.name, englishName: data.englishName, sex: data.sex, birthDate: data.birthDate, mig: data.mig, country: data.mig ? data.country : '',
           fatherCountry: data.mig ? data.fatherCountry : '', motherCountry: data.mig ? data.motherCountry : '',
           learningSupport: data.learningSupport, note: data.note,
@@ -431,12 +447,16 @@
     const key = row.dataset.rosterRow;
     const previous = list.find(item => item.id === key);
     if (key && !previous) return;
-    if (remove && (!key || !confirm('학생을 이 학급 명단에서 제외할까요? 누적 기록은 유지됩니다.'))) return;
-    const values = rowDraft(row);
-    const dateParts = [values.birthYear, values.birthMonth, values.birthDay];
-    values.birthDate = dateParts.some(Boolean) ? dateParts.join('-') : '';
+    if (remove && !key) {
+      drafts.delete('');
+      renderRows();
+      return;
+    }
+    if (remove && !confirm('학생을 이 학급 명단에서 제외할까요? 누적 기록은 유지됩니다.')) return;
+    const values = remove ? rowValues(previous) : rowDraft(row);
+    values.birthDate = values.birthDate.replaceAll('.', '-');
     if (!remove) {
-      if (!validDate(values.birthDate)) { say('생년월일의 연도, 월, 일을 모두 확인해 주세요.'); return; }
+      if (!validDate(values.birthDate)) { say('생년월일을 YYYY.MM.DD 형식의 실제 날짜로 입력해 주세요.'); return; }
       for (const input of row.querySelectorAll('input')) if (!input.reportValidity()) return;
       if (!values.name.trim()) { say('학생 이름을 입력해 주세요.'); return; }
     }
@@ -461,16 +481,15 @@
       await writeRows([{ id: key || undefined, data, leaving: remove }]);
       if (token !== viewGeneration) return;
       drafts.delete(key);
-      if (!key || remove) renderRows();
+      if (key === editingId) editingId = null;
+      renderRows();
       say(remove ? '학급 명단에서 제외했습니다.' : key ? '학생 정보를 저장했습니다.' : '학생을 등록했습니다.', true);
       if (!key) $('rsRows')?.querySelector('.rs-new [data-field="name"]')?.focus();
     } catch {
       if (token === viewGeneration) say('저장하지 못했습니다. 학생 번호 중복과 학급 배정을 확인해 주세요.');
     } finally {
       saving = false;
-      if (token === viewGeneration) row.querySelectorAll('button').forEach(button => {
-        button.disabled = !key && button.hasAttribute('data-row-delete');
-      });
+      if (token === viewGeneration) $('rsRows')?.querySelectorAll('button[disabled]').forEach(button => { button.disabled = false; });
     }
   }
 
@@ -581,6 +600,14 @@
       drafts.set(row.dataset.rosterRow, rowDraft(row));
       return;
     }
+    if (row && event.target.closest('[data-row-edit], [data-row-cancel]')) {
+      if (saving) return;
+      if (editingId) drafts.delete(editingId);
+      editingId = event.target.closest('[data-row-edit]') ? row.dataset.rosterRow : null;
+      renderRows();
+      if (editingId) [...$('rsRows').rows].find(item => item.dataset.rosterRow === editingId)?.querySelector('[data-field="name"]')?.focus();
+      return;
+    }
     if (row && event.target.closest('[data-row-save], [data-row-delete]')) {
       saveRow(row, !!event.target.closest('[data-row-delete]'));
     } else if (event.target.closest('[data-close-student-dialog]')) event.target.closest('dialog')?.close();
@@ -596,11 +623,10 @@
         dismissCountries(country);
         refreshCountryFlag(country);
       }
-      if (['birthYear', 'birthMonth'].includes(event.target.dataset.field)) {
-        const { birthYear, birthMonth, birthDay } = rowDraft(row);
-        const dayInput = row.querySelector('[data-field="birthDay"]');
-        const count = daysInMonth(birthYear, birthMonth);
-        dayInput.innerHTML = optionList(dateOptions(count, '일'), Number(birthDay) <= count ? birthDay : '');
+      if (event.target.dataset.field.endsWith('Phone')) {
+        const input = event.target;
+        const match = /^(01[016789])[- ]?(\d{3,4})[- ]?(\d{4})$/.exec(input.value.trim());
+        if (match) input.value = match.slice(1).join('-');
       }
       drafts.set(row.dataset.rosterRow, rowDraft(row));
     }
@@ -612,6 +638,9 @@
   root.addEventListener('input', event => {
     const row = event.target.closest('[data-roster-row]');
     if (row && event.target.matches('[data-field]')) {
+      if (event.target.dataset.field === 'birthDate' && /^\d{8}$/.test(event.target.value)) {
+        event.target.value = event.target.value.replace(/^(\d{4})(\d{2})(\d{2})$/, '$1.$2.$3');
+      }
       drafts.set(row.dataset.rosterRow, rowDraft(row));
       if (event.target.dataset.field === 'country') suggestCountries(event.target);
       return;

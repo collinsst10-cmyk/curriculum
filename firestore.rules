@@ -423,7 +423,7 @@ service cloud.firestore {
           && (resource == null ? (!exists(studentProfile(studentId)) && !request.resource.data.keys().hasAny(['legacyId', 'transferId']))
             : (resource.data.classId == request.resource.data.classId && resource.data.status == 'enrolled'
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
-                ['no', 'displayName', 'englishName', 'sex', 'birthDate', 'mig', 'country', 'fatherCountry', 'motherCountry', 'learningSupport', 'note', 'status', 'updatedAt', 'updatedBy'])))
+                ['no', 'displayName', 'englishName', 'fatherName', 'fatherPhone', 'motherName', 'motherPhone', 'sex', 'birthDate', 'mig', 'country', 'fatherCountry', 'motherCountry', 'learningSupport', 'note', 'status', 'updatedAt', 'updatedBy'])))
           && request.resource.data.status in ['enrolled', 'transferred']
           && ((resource != null && resource.data.displayName == request.resource.data.displayName)
             || getAfter(studentProfile(studentId)).data.name == request.resource.data.displayName)
@@ -433,11 +433,19 @@ service cloud.firestore {
         && request.resource.data.year == year
         && request.resource.data.studentId == studentId
         && request.resource.data.keys().hasOnly(['year', 'studentId', 'grade', 'cls', 'classId', 'no',
-          'status', 'displayName', 'englishName', 'sex', 'birthDate', 'mig', 'country', 'fatherCountry', 'motherCountry', 'learningSupport', 'note', 'legacyId', 'transferId', 'updatedAt', 'updatedBy'])
+          'status', 'displayName', 'englishName', 'fatherName', 'fatherPhone', 'motherName', 'motherPhone', 'sex', 'birthDate', 'mig', 'country', 'fatherCountry', 'motherCountry', 'learningSupport', 'note', 'legacyId', 'transferId', 'updatedAt', 'updatedBy'])
         && validParentCountries(request.resource.data)
         && request.resource.data.get('learningSupport', false) is bool
         && request.resource.data.get('englishName', '') is string
         && request.resource.data.get('englishName', '').size() <= 100
+        && request.resource.data.get('fatherName', '') is string
+        && request.resource.data.get('fatherName', '').size() <= 60
+        && request.resource.data.get('fatherPhone', '') is string
+        && request.resource.data.get('fatherPhone', '').size() <= 40
+        && request.resource.data.get('motherName', '') is string
+        && request.resource.data.get('motherName', '').size() <= 60
+        && request.resource.data.get('motherPhone', '') is string
+        && request.resource.data.get('motherPhone', '').size() <= 40
         && request.resource.data.get('birthDate', '') is string
         && request.resource.data.get('birthDate', '').matches('^([0-9]{4}-[0-9]{2}-[0-9]{2})?$')
         && request.resource.data.classId == string(request.resource.data.grade) + '-' + string(request.resource.data.cls)
