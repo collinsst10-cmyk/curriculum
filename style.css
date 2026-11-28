@@ -2095,3 +2095,19 @@ th.kc-col { color: #5b21b6; }
 #rosterParentCountries [role="option"] { display: block; padding: 6px 9px; cursor: pointer; }
 #rosterParentCountries [role="option"]:hover, #rosterParentCountries [aria-selected="true"] { background: var(--nv-pale); color: var(--nv); }
 #rosterLegacyCountry { grid-column: 1 / -1; margin: 0; }
+
+.rs-inline-table { table-layout: fixed; }
+.rs-inline-table th { white-space: nowrap; padding: 6px 5px; }
+.rs-inline-table td { padding: 4px 5px; }
+.rs-inline-table th:nth-child(1), .rs-inline-table th:nth-child(3) { width: 56px; }
+.rs-inline-table th:nth-child(4) { width: 136px; }
+.rs-inline-table th:nth-child(5), .rs-inline-table th:nth-child(7) { width: 104px; }
+.rs-inline-table th:nth-child(8) { width: 112px; }
+.rs-inline-table input, .rs-inline-table select { width: 100%; min-width: 0; height: 30px; padding: 3px 5px; font: 400 13px/1.3 var(--f4); border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+.rs-inline-table input:disabled { background: #f5f7fa; }
+.rs-row-actions { white-space: nowrap; }
+.rs-row-actions .btn.small { padding: 4px 6px; }
+.rs-country-cell { position: relative; }
+.rs-country-options { position: absolute; top: 100%; left: 0; right: 0; min-width: 145px; z-index: 3; max-height: 150px; overflow: auto; background: #fff; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; }
+.rs-country-options [role="option"] { padding: 6px 8px; cursor: pointer; }
+.rs-country-options [role="option"]:hover, .rs-country-options [aria-selected="true"] { background: var(--nv-pale); }

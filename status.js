@@ -29,6 +29,12 @@
     if (name && !Object.hasOwn(ISO, name)) ISO[name] = code.toLowerCase();
   }
 
+  const countryKey = value => String(value || '').normalize('NFC').replace(/\s+/g, '').toLocaleLowerCase();
+  const countryByKey = new Map(Object.keys(ISO).map(name => [countryKey(name), ISO[name]]));
+  const canonicalByCode = new Map();
+  for (const [name, code] of Object.entries(ISO)) if (!canonicalByCode.has(code)) canonicalByCode.set(code, name);
+  const canonicalCountry = value => canonicalByCode.get(countryByKey.get(countryKey(value))) || '';
+
   let stats = null, migrant = null, unsubs = [], classSums = [];
   const num = v => Math.max(0, Math.round(Number(v) || 0));
   const sum = a => a.reduce((t, v) => t + num(v), 0);
@@ -64,7 +70,8 @@
       classSums = snap.docs.map(d => {
         const { type, country, fatherCountry, motherCountry } = d.data();
         const parents = [fatherCountry, motherCountry].filter(Boolean);
-        const countries = new Set(parents.length ? parents : [country].filter(Boolean));
+        const origins = parents.length ? parents : [country].filter(Boolean);
+        const countries = new Set(origins.filter(name => name !== '미확인').map(name => canonicalCountry(name) || name));
         return { [type]: 1, countries: Object.fromEntries([...countries].map(name => [name, 1])) };
       });
       renderAll();
@@ -336,6 +343,7 @@
     get stats() { return stats || null; },   // 학교 일지 한글 파일의 학적현황에 씀
     renderHome,
     countries: Object.keys(ISO),
+    canonicalCountry,
     flagUrl: name => ISO[name] ? `https://flagcdn.com/w40/${ISO[name]}.png` : '',
     /** 학생 현황의 전체 학생 수 (반별 자료가 있으면 그 합) */
     totalStudents: () => { const st = stats && stats.students; return st ? G6.reduce((t, i) => { const g = gradeSum(st, i); return t + g.m + g.f; }, 0) : 0; },

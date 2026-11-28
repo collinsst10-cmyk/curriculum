@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=student-links-1">
+<link rel="stylesheet" href="style.css?v=inline-students-1">
 <link rel="stylesheet" href="behavior.css?v=20261127224336">
 </head>
 <body>
@@ -459,30 +459,6 @@
   <!-- 학급 관리 › 학생 관리 -->
   <section id="tab-roster" class="tab">
     <div id="rsMain"></div>
-    <dialog id="studentDetailDialog" class="rs-dialog" aria-labelledby="studentDetailTitle">
-      <form id="studentDetailForm">
-        <h2 id="studentDetailTitle">학생 상세정보</h2>
-        <p id="studentDetailState" class="hint"></p>
-        <div class="form">
-          <label>번호<input name="no" type="number" min="1" max="99" required></label>
-          <label>이름<input name="name" maxlength="20" required></label>
-          <label>성별<select name="sex"><option value="">미입력</option><option value="m">남</option><option value="f">여</option></select></label>
-          <label>생년월일<input name="birthDate" type="date"></label>
-          <label>이주배경 유형<select name="mig"><option value="">해당 없음</option><option value="foreign">외국인</option><option value="domestic">국내출생</option><option value="mid">중도입국</option></select></label>
-          <label>기초학력 지원 대상 여부<select name="learningSupport"><option value="">해당 없음</option><option value="yes">지원 대상</option></select></label>
-          <div id="rosterParentCountries" hidden>
-            <label>부 출신국<input name="fatherCountry" maxlength="30" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="fatherCountryOptions" aria-expanded="false"><span id="fatherCountryOptions" role="listbox" hidden></span></label>
-            <label>모 출신국<input name="motherCountry" maxlength="30" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="motherCountryOptions" aria-expanded="false"><span id="motherCountryOptions" role="listbox" hidden></span></label>
-            <p id="rosterLegacyCountry" class="hint" hidden></p>
-          </div>
-          <label>메모<input name="note" maxlength="60"></label>
-        </div>
-        <p id="studentDetailStatus" class="hint" role="status"></p>
-        <div class="row"><button id="studentDetailSave" class="btn primary" type="submit">저장</button>
-          <button id="studentDetailRemove" class="btn danger" type="button">명단에서 제외</button>
-          <button class="btn" type="button" data-close-student-dialog>닫기</button></div>
-      </form>
-    </dialog>
     <dialog id="neisImportDialog" class="rs-dialog" aria-label="NEIS 명단 미리보기">
       <form id="neisImportForm">
         <h2>NEIS 명단 미리보기</h2>
@@ -1027,7 +1003,7 @@
 <script src="kclass.js?v=20261127224336"></script>
 <script src="hwpx.js?v=20261127224336"></script>
 <script src="home.js?v=20261127224336"></script>
-<script src="status.js?v=student-links-1"></script>
+<script src="status.js?v=inline-students-1"></script>
 <script src="log.js?v=admin-roster-1"></script>
 <script src="cover.js?v=20261127224336"></script>
 <script src="transfer.js?v=admin-roster-1"></script>
@@ -1035,7 +1011,7 @@
 <script src="behavior-data.js?v=20261127224336"></script>
 <script src="behavior-engine.js?v=20261127224336"></script>
 <script src="behavior-ui.js?v=20261127224336"></script>
-<script src="roster.js?v=admin-roster-1"></script>
+<script src="roster.js?v=inline-students-1"></script>
 <script src="roster-workbook.js?v=20261127224336"></script>
 <script src="roster-years.js?v=student-management-1"></script>
 <script src="site.js?v=purchase-width-1"></script>
