@@ -1996,7 +1996,7 @@ th.kc-col { color: #5b21b6; }
 .school-address-copy-status:empty { display: none; }
 
 /* 교과별 전담 배정 */
-.jd-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 390px), 1fr)); gap: 12px; margin: 10px 0 16px; align-items: start; }
+.jd-card-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 10px 0 16px; align-items: start; }
 .jd-course { --jd-ink: #214b78; --jd-tint: #e9f2ff; min-width: 0; background: #fff; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
 .jd-course[data-tone="green"] { --jd-ink: #235b42; --jd-tint: #e7f5ed; }
 .jd-course[data-tone="amber"] { --jd-ink: #73500f; --jd-tint: #fff3d9; }
@@ -2005,7 +2005,6 @@ th.kc-col { color: #5b21b6; }
 .jd-course[data-tone="teal"] { --jd-ink: #235860; --jd-tint: #e5f5f4; }
 .jd-course header { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px; background: var(--jd-tint); color: var(--jd-ink); }
 .jd-course-title, .jd-metrics { display: flex; align-items: center; gap: 9px; }
-.jd-course-title > span { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 8px; background: #fff; flex: none; font-weight: 800; }
 .jd-course h3, .jd-course h4, .jd-course-title p { margin: 0; }
 .jd-course-title p { font-size: 12px; overflow-wrap: anywhere; }
 .jd-metrics b { text-align: center; font-size: 18px; white-space: nowrap; }
@@ -2013,16 +2012,19 @@ th.kc-col { color: #5b21b6; }
 .jd-teacher { padding: 8px 12px; }
 .jd-teacher + .jd-teacher { border-top: 1px solid var(--line); }
 .jd-course > .hint { padding: 0 12px; }
-.jd-grade { display: grid; grid-template-columns: 45px minmax(0, 1fr) auto; gap: 4px 8px; align-items: center; min-height: 42px; padding: 4px 0; }
+.jd-grade { display: grid; grid-template-columns: 48px minmax(0, 1fr) repeat(2, 96px); gap: 4px 8px; align-items: center; padding: 4px 0; }
+.jd-grade-heading { color: var(--muted); font-size: 12px; }
+.jd-grade select, .jd-grade input { width: 100%; min-width: 0; height: 30px; padding: 3px 6px; font-family: var(--f4); font-size: 13px; }
+.sm-teacher-card .sm-grid col.c-h { width: 70px; }
+.sm-teacher-card .sm-tool .sm-in, .sm-teacher-card .sm-tool .btn,
+.sm-teacher-card .sm-grid input, .sm-teacher-card .sm-grid select, .sm-teacher-card .sm-grid .sm-del { height: 30px; }
+.sm-teacher-card .sm-grid select { width: 100%; min-width: 0; font-family: var(--f4); }
 .jd-grade + .jd-grade { border-top: 1px solid #eef0f2; }
-.jd-grade label, .jd-course footer label { display: flex; align-items: center; gap: 5px; font-size: 12px; }
-.jd-grade input { width: 3.75em; }
+.jd-course footer label { display: flex; align-items: center; gap: 5px; font-size: 12px; }
 .jd-class-buttons { display: flex; flex-wrap: wrap; gap: 4px; }
 .jd-class-buttons button { min-width: 37px; min-height: 30px; border-radius: 6px; border: 1px solid var(--line); background: #f7f8fa; color: #273447; }
 .jd-class-buttons button[aria-pressed="true"] { background: var(--jd-tint); color: var(--jd-ink); border-color: var(--jd-ink); font-weight: 700; }
 .jd-class-buttons button:disabled { opacity: .55; }
-.jd-room-override { grid-column: 2 / -1; font-size: 11px; color: var(--muted); }
-.jd-room-override summary { cursor: pointer; }
 .jd-course footer { border-top: 1px solid var(--line); padding: 8px 12px; }
 .jd-course select { min-width: 0; max-width: 100%; }
 

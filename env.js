@@ -176,7 +176,7 @@
   const assignmentPrefs = () => (env().jdCards ||= { rooms: {}, grades: {} });
   const gradeKey = (teacher, subject, grade) => JSON.stringify([teacher, subject, grade]);
   const subjectRows = key => state.jundam.filter(row => subjGroup(row.subj) === key);
-  const paintTone = { eng: ['Aa', 'blue'], sci: ['⚗', 'green'], pe: ['◉', 'amber'], mus: ['♪', 'violet'], art: ['◈', 'rose'], cha: ['✦', 'teal'] };
+  const paintTone = { eng: 'blue', sci: 'green', pe: 'amber', mus: 'violet', art: 'rose', cha: 'teal' };
 
   function teacherSubjects(teacher) {
     if (teacher.subject) return [teacher.subject];
@@ -211,14 +211,15 @@
     return `<div class="jd-card-grid">${keys.map(key => {
       const rows = subjectRows(key);
       const teachers = [...new Set([...e.teachers.filter(t => teacherSubjects(t).includes(key)).map(t => t.name), ...rows.map(r => r.teacher || '')])];
-      const [icon, tone] = paintTone[key] || ['✦', 'blue'];
+      const tone = paintTone[key] || 'blue';
       const classCount = new Set(rows.flatMap(r => activeClasses(r).map(n => r.grade + '-' + n))).size;
       const defaultRoom = prefs.rooms[key] ?? (roomsFor(key).length === 1 && roomSubj(roomsFor(key)[0]) === key ? roomsFor(key)[0].name : '');
       return `<article class="jd-course" data-tone="${tone}" data-course="${esc(key)}">
-        <header><div class="jd-course-title"><span aria-hidden="true">${icon}</span><div><h3>${esc(subjName(key))}</h3><p>${esc(teachers.map(name => e.teachers.find(t => t.name === name)?.teacher || name || '담당 미지정').join(' · ') || '담당 미지정')}</p></div></div>
+        <header><div class="jd-course-title"><div><h3>${esc(subjName(key))}</h3><p>${esc(teachers.map(name => e.teachers.find(t => t.name === name)?.teacher || name || '담당 미지정').join(' · ') || '담당 미지정')}</p></div></div>
           <div class="jd-metrics"><b>${rows.reduce((sum, row) => sum + rowHours(row), 0)}<small>시수 / 주</small></b><b>${classCount}<small>학급</small></b></div></header>
         ${teachers.length ? teachers.map(name => `<section class="jd-teacher" data-teacher="${esc(name)}">
           ${teachers.length > 1 ? `<h4>${esc(e.teachers.find(t => t.name === name)?.teacher || name || '담당 미지정')}</h4>` : ''}
+          <div class="jd-grade jd-grade-heading" aria-hidden="true"><span>학년</span><span>담당 학급</span><span>특별실</span><span>반당 시수</span></div>
           ${GRADES.map(grade => {
             const legacy = rows.find(r => Number(r.grade) === grade && r.teacher === name);
             const subject = legacy?.subj || subjectsOf(grade).find(item => subjGroup(item.key) === key)?.key;
@@ -234,12 +235,12 @@
             return `<div class="jd-grade" data-grade="${grade}" data-subject="${esc(subject)}">
               <b>${grade}학년</b><div class="jd-class-buttons">${numbers.map(n =>
                 `<button type="button" data-assign-class="${n}" aria-label="${grade}학년 ${n}반${other.has(n) ? ' (다른 교사 배정)' : ''}" aria-pressed="${mine.has(n)}" ${locked || (other.has(n) && !mine.has(n) ? 'disabled' : '')}>${n}반</button>`).join('')}</div>
-              <label>반당 <input type="number" min="0" max="20" step="1" data-assignment="hours" value="${esc(model.hours)}" ${locked}>시간</label>
-              <details class="jd-room-override" ${model.override !== '__inherit' ? 'open' : ''}><summary>학년별 특별실</summary><select data-assignment="grade-room" aria-label="${grade}학년 특별실" ${locked}>${roomOptions(subject, model.override, true)}</select></details>
+              <select data-assignment="grade-room" aria-label="${grade}학년 특별실" ${locked}>${roomOptions(subject, model.override, true)}</select>
+              <input type="number" min="0" max="20" step="1" data-assignment="hours" aria-label="${grade}학년 반당 시수" value="${esc(model.hours)}" ${locked}>
               ${duplicate || mixedHours || over ? `<p class="hint jd-grade-note">${[duplicate && '기존 중복 배정을 확인하세요.', mixedHours && '기존 반별 시수가 다릅니다. 시수를 바꾸면 이 학년의 담당 반에 함께 적용됩니다.', over && '교과 배정 시수 초과'].filter(Boolean).join(' ')}</p>` : ''}
             </div>`;
           }).join('')}
-        </section>`).join('') : '<p class="hint">위 전담 설정에서 이 교과의 담당 교사를 지정하세요.</p>'}
+        </section>`).join('') : '<p class="hint">전담교사 관리에서 이 교과의 담당 교사를 지정하세요.</p>'}
         <footer><label>교과 기본 특별실 <select data-assignment="default-room" ${locked}>${roomOptions(key, defaultRoom)}</select></label></footer>
       </article>`;
     }).join('')}</div>`;
@@ -311,23 +312,26 @@
     const sel = isRoom ? selRoom : selT, mode = isRoom ? modeRoom : modeT;
     const hrs = isRoom ? roomHours : teacherHours;
     const L = isRoom ? { set: '특별실 설정', ren: '이름 변경', col: '특별실', ph: '예: 과학실', none: '특별실이 없습니다' }
-                     : { set: '전담 설정', ren: '전담명 변경', col: '전담명', ph: '예: 영어전담', none: '전담 교사가 없습니다' };
-    return `<section class="sm-card">
+                     : { set: '전담교사 관리', ren: '이름 수정', col: '교사명', ph: '', none: '전담 교사가 없습니다' };
+    const teacherOptions = [['eng', '영어'], ['pe', '체육'], ['mus', '음악'], ['sci', '과학'], ['cha', '창체']];
+    return `<section class="sm-card${isRoom ? '' : ' sm-teacher-card'}">
       <div class="sm-btns"><button type="button" class="btn${mode === 'set' ? ' on' : ''}" data-mode="${kind}:set">${L.set}</button>
         <button type="button" class="btn${mode === 'rename' ? ' on' : ''}" data-mode="${kind}:rename">${L.ren}</button></div>
       <table class="sm-list sm-grid"><colgroup><col>${isRoom ? '<col class="c-s">' : '<col class="c-t">'}<col class="c-h"><col class="c-d"></colgroup>
-      <thead><tr><th>${L.col}</th><th class="c">${isRoom ? '연결 교과' : '담당 교과'}</th><th class="c">시수</th><th class="c">관리</th></tr></thead><tbody>
+      <thead><tr><th>${L.col}</th><th class="c">${isRoom ? '연결 교과' : '담당 교과'}</th><th class="c">${isRoom ? '시수' : '주당 시수'}</th><th class="c">관리</th></tr></thead><tbody>
       ${items.map((n, i) => `<tr class="${i === sel ? 'sel' : ''}" data-pick="${kind}:${i}">
         <td class="nm">${mode === 'rename' && i === sel && (isRoom || !e.teachers[i].staffId) ? `<input class="sm-in" data-rename="${kind}:${i}" maxlength="20" value="${esc(n)}">` : esc((isRoom ? n : e.teachers[i].teacher || n) || '(이름 없음)')}</td>
         <td class="c">${isRoom ? roomSubjSel(i) : (`<select data-teacher-subject="${i}" aria-label="${esc(n)} 담당 교과" ${ro() ? 'disabled' : ''}>
-          <option value="">자동 연결</option>${allSubj().filter(subject => e.jdSubjects.includes(subject.key) || subject.key === e.teachers[i].subject).map(subject =>
-            `<option value="${subject.key}" ${e.teachers[i].subject === subject.key ? 'selected' : ''}>${esc(subject.name)}</option>`).join('')}</select>`)}</td>
+          <option value="">자동 연결</option>${teacherOptions.map(([key, name]) =>
+            `<option value="${key}" ${e.teachers[i].subject === key ? 'selected' : ''}>${name}</option>`).join('')}
+          ${e.teachers[i].subject && !teacherOptions.some(([key]) => key === e.teachers[i].subject)
+            ? `<option value="${esc(e.teachers[i].subject)}" selected disabled>${esc(subjName(e.teachers[i].subject))} (기존)</option>` : ''}</select>`)}</td>
         <td class="c num">${hrs(n)}</td><td class="c"><button type="button" class="sm-del" data-smrow="${kind}:${i}" title="${esc(n)} 삭제" aria-label="${esc(n)} 삭제">삭제</button></td></tr>`).join('') || `<tr><td colspan="4" class="hint">${L.none}</td></tr>`}
       </tbody></table>
-      ${mode === 'set' ? `<div class="sm-tool"><input class="sm-in" data-newname="${kind}" maxlength="20" placeholder="${L.ph}">
+      ${mode === 'set' ? `<div class="sm-tool"><input class="sm-in" data-newname="${kind}" maxlength="20" aria-label="${L.col}" ${L.ph ? `placeholder="${L.ph}"` : ''}>
           <button type="button" class="btn small primary" data-smadd="${kind}">추가</button>
-          <button type="button" class="btn small" data-smdel="${kind}" ${sel < 0 ? 'disabled' : ''}>선택 삭제</button></div>
-          <p class="hint">추가할 이름을 적고 '추가'(또는 Enter)를 누르세요. 지우려면 목록에서 고른 뒤 '선택 삭제'를 누릅니다.</p>` : ''}
+          ${isRoom ? `<button type="button" class="btn small" data-smdel="${kind}" ${sel < 0 ? 'disabled' : ''}>선택 삭제</button>` : ''}</div>
+          ${isRoom ? `<p class="hint">추가할 이름을 적고 '추가'(또는 Enter)를 누르세요. 지우려면 목록에서 고른 뒤 '선택 삭제'를 누릅니다.</p>` : ''}` : ''}
       ${mode === 'rename' ? `<p class="hint">${sel < 0 ? '목록에서 이름을 바꿀 줄을 고르세요.' : '새 이름을 적고 Enter를 누르세요. 배정표와 시간표 배치에도 함께 바뀝니다.'}</p>` : ''}
     </section>`;
   }
