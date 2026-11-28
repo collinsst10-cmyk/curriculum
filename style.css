@@ -2068,8 +2068,25 @@ th.kc-col { color: #5b21b6; }
 .school-history-list p { margin: 0; font-size: 13px; color: var(--muted); white-space: pre-wrap; }
 
 /* 학생 관리 */
-.rs-summary { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); max-width: 760px; }
-.rs-summary .sx-kpi { min-width: 0; padding: 8px 12px; }
+.rs-summary { display: grid; grid-template-columns: minmax(0, 3fr) minmax(305px, 4fr) minmax(0, 3fr); align-items: stretch; gap: 12px; margin-bottom: 12px; }
+.rs-summary-card { min-width: 0; margin: 0; padding: 16px; }
+.rs-summary-card h3 { margin: 0; font: 700 15px/1.3 var(--f7); color: var(--nv-d); }
+.rs-summary-migrant header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 8px; margin-bottom: 8px; }
+.rs-summary-migrant header span { margin-left: auto; color: #5b6478; font-size: 12px; white-space: nowrap; }
+.rs-summary-migrant header strong { color: var(--nv-d); }
+.rs-summary-bar { display: flex; height: 26px; overflow: hidden; border-radius: 6px; background: #eef1f7; }
+.rs-summary-bar .km-dot { flex-basis: 0; width: auto; height: auto; margin: 0; border-radius: 0; }
+.rs-summary-legend { display: flex; justify-content: flex-start; flex-wrap: wrap; gap: 4px 10px; list-style: none; margin: 6px 0; padding: 0; color: #5b6478; font-size: 12px; }
+.rs-summary-legend li { display: flex; align-items: center; gap: 4px; }
+.rs-summary-legend .km-dot { margin: 0; }
+.rs-summary-types, .rs-summary-metrics { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 5px; margin: 0; }
+.rs-summary-types > div { display: grid; gap: 2px; padding: 4px 5px; text-align: center; background: #f5f7fb; border-radius: 6px; }
+.rs-summary-types dt, .rs-summary-metrics dt { color: #5b6478; font-size: 12px; }
+.rs-summary-types dd, .rs-summary-metrics dd { margin: 0; color: var(--nv-d); font-family: var(--f7); }
+.rs-summary-types dd { font-size: 13px; }
+.rs-summary-metrics { margin-top: 12px; }
+.rs-summary-metrics dd { margin-top: 3px; font-size: 24px; line-height: 1.15; }
+.rs-summary-metrics small { margin-left: 2px; font: 400 12px var(--f4); }
 .rs-search { margin: 10px 0; }
 .rs-search label { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
 .rs-search input { width: 190px; }

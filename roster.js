@@ -230,6 +230,38 @@
 
   const searchAcrossClasses = () => lead && !!search;
 
+  function renderSummary(enrolled) {
+    const total = enrolled.length;
+    const male = enrolled.filter(row => row.sex === 'm').length;
+    const female = enrolled.filter(row => row.sex === 'f').length;
+    const support = enrolled.filter(row => row.learningSupport === true).length;
+    const types = ['foreign', 'domestic', 'mid'].map(type => ({
+      type, label: MIG_L[type], count: enrolled.filter(row => row.mig === type).length
+    }));
+    const migrantTotal = types.reduce((sum, { count }) => sum + count, 0);
+    const percentage = total ? (migrantTotal / total * 100).toFixed(1) : '0.0';
+    return `<div class="rs-summary">
+      <section class="card rs-summary-card">
+        <h3>학급 현황</h3>
+        <dl class="rs-summary-metrics">${[['총원', total], ['남', male], ['여', female]].map(([label, count]) =>
+          `<div><dt>${label}</dt><dd>${count}<small>명</small></dd></div>`).join('')}</dl>
+      </section>
+      <section class="card rs-summary-card rs-summary-migrant">
+        <header><h3>이주배경학생 현황</h3><span>이주배경학생 전체 <strong>${migrantTotal}명 (${percentage}%)</strong></span></header>
+        <div class="rs-summary-bar" aria-hidden="true">${types.filter(item => item.count).map(({ type, count }) =>
+          `<span class="km-dot ${type}" style="flex-grow:${count}"></span>`).join('')}</div>
+        <ul class="rs-summary-legend">${types.map(({ type, label }) =>
+          `<li><i class="km-dot ${type}" aria-hidden="true"></i>${label}</li>`).join('')}</ul>
+        <dl class="rs-summary-types">${types.map(({ label, count }) =>
+          `<div><dt>${label}</dt><dd>${count}명</dd></div>`).join('')}</dl>
+      </section>
+      <section class="card rs-summary-card">
+        <h3>기초학력 현황</h3>
+        <dl class="rs-summary-metrics"><div><dt>지원 대상</dt><dd>${support}<small>명</small></dd></div></dl>
+      </section>
+    </div>`;
+  }
+
   function render() {
     const box = $('rsMain');
     if (!ready() || loadingAccess || !sel?.c) {
@@ -242,12 +274,9 @@
     }
     const focus = document.activeElement?.id === 'rsSearch';
     const enrolled = list.filter(row => row.status === 'enrolled');
-    const m = enrolled.filter(row => row.sex === 'm').length, f = enrolled.filter(row => row.sex === 'f').length;
     const canImport = canWrite() && !searchAcrossClasses();
     box.innerHTML = `<div class="rs-top"><h2 class="km-title">${year}학년도 ${searchAcrossClasses() ? '전체 학생 검색' : sel.g + '학년 ' + sel.c + '반 학생'}</h2>${classPicker()}</div>
-      <div class="sx-kpis rs-kpis rs-summary">${[['총원', enrolled.length], ['남', m], ['여', f], ['이주배경학생', enrolled.filter(row => row.mig && Object.hasOwn(MIG_L, row.mig)).length],
-        ['기초학력 지원 대상', enrolled.filter(row => row.learningSupport === true).length]].map(([label, count]) =>
-        `<div class="sx-kpi"><b>${count}<small>명</small></b><span>${label}</span></div>`).join('')}</div>
+      ${renderSummary(enrolled)}
       <div class="rs-search"><label>학생 이름 <input id="rsSearch" type="search" value="${esc(search)}" placeholder="${lead ? '전체 학생 검색' : '이름 검색'}"></label></div>
       <p id="rsStatus" class="km-status" role="status"></p>
       <div class="card rs-card"><table class="rs-tbl rs-inline-table"><thead><tr><th>번호</th><th>이름(한글)</th><th>이름(영문)</th><th>성별</th><th>생년월일</th><th>이주배경</th><th>부모출신국</th><th>기초학력</th><th>관리</th></tr></thead><tbody id="rsRows"></tbody></table></div>
