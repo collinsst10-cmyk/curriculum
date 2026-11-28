@@ -412,6 +412,7 @@
     try { await action(); } catch (error) { status(error.message); }
     finally { button.disabled = (button.id === 'yrApply' && !preview) || (button.id === 'yrImport' && !workbookPreview); }
   };
+  if (!root) return;
   root.addEventListener('toggle', () => { if (root.open) load(); });
   ['yrYear', 'yrGrade', 'yrClass'].forEach(id => $(id).addEventListener('change', () => {
     if (id !== 'yrClass') fillClasses();

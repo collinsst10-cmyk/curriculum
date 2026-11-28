@@ -6,9 +6,10 @@ window.YearStudentViews = (() => {
     const ref = fb.F.doc(fb.db, 'rosterYears', String(row.year), 'migrantRoster', row.studentId);
     const stat = fb.F.doc(fb.db, 'rosterYears', String(row.year), 'migrantStats', row.studentId);
     if (row.status !== 'enrolled' || !row.mig) { tx.delete(ref); tx.delete(stat); return; }
-    const { studentId, year, classId, grade, cls, no, mig, country, displayName } = row;
-    tx.set(ref, { studentId, year, classId, grade, cls, no, type: mig, country: country || '', name: displayName });
-    tx.set(stat, { type: mig, country: country || '' });
+    const { studentId, year, classId, grade, cls, no, mig, displayName } = row;
+    const origin = { country: row.country || '', fatherCountry: row.fatherCountry || '', motherCountry: row.motherCountry || '' };
+    tx.set(ref, { studentId, year, classId, grade, cls, no, type: mig, ...origin, name: displayName });
+    tx.set(stat, { type: mig, ...origin });
   }
   return { stage };
 })();

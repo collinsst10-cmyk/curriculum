@@ -333,6 +333,19 @@ service cloud.firestore {
         && (managesStaffClass(year, classId) ? hasStaffClassAssignment(year, classId)
           : (!hasManagedHomeroom(year) && exists(rosterAssignment(year)) && get(rosterAssignment(year)).data.classId == classId));
     }
+    function isRosterLead(year) {
+      let account = staffAccount(myEmail());
+      let employment = /databases/$(database)/documents/staffYears/$(year);
+      return isStaff() && year == activeRosterYear() && exists(account) && exists(employment)
+        && hasRosterLeadPosition(get(employment).data.get('employment', {}).get(get(account).data.staffId, {}));
+    }
+    function hasRosterLeadPosition(assignment) {
+      return assignment.get('status', '') == 'active'
+        && assignment.get('position', '') in ['연구부장', '교무부장'];
+    }
+    match /rosterYears/{year}/leadAccess/{email} {
+      allow get: if signedIn() && myEmail() == email && isRosterLead(year);
+    }
     match /staffProfiles/{staffId} {
       allow read, create, update: if isAdmin();
     }
@@ -386,31 +399,27 @@ service cloud.firestore {
         && member.displayName == request.resource.data.name && member.sex == request.resource.data.sex;
     }
     match /studentProfiles/{studentId} {
-      allow read: if isAdmin();
-      allow create: if isAdmin() || (canWriteYearProfile(studentId)
+      allow create: if (canWriteYearProfile(studentId)
         && request.resource.data.keys().hasOnly(['name', 'sex', 'createdAt']));
-      allow update: if isAdmin() || (canWriteYearProfile(studentId)
+      allow update: if (canWriteYearProfile(studentId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'sex']));
     }
     match /rosterYears/{year}/classes/{classId} {
-      allow get: if isAdmin() || isYearHomeroom(year, classId);
-      allow list: if isAdmin();
-      allow create, update: if request.resource.data.year == year && (isAdmin()
-        || (isYearHomeroom(year, classId)
+      allow get: if isRosterLead(year) || isYearHomeroom(year, classId);
+      allow create, update: if request.resource.data.year == year && ((isYearHomeroom(year, classId)
           && request.resource.data.keys().hasOnly(['year', 'grade', 'cls', 'slots'])
           && request.resource.data.slots is map
           && request.resource.data.slots.size() <= 99
           && classId == string(request.resource.data.grade) + '-' + string(request.resource.data.cls)));
     }
     match /rosterYears/{year}/memberships/{studentId} {
-      allow delete: if isAdmin() && resource.data.get('transferId', '') != '';
-      allow read: if isAdmin() || isYearHomeroom(year, resource.data.classId);
-      allow create, update: if (isAdmin() || (
+      allow read: if isRosterLead(year) || isYearHomeroom(year, resource.data.classId);
+      allow create, update: if ((
           isYearHomeroom(year, request.resource.data.classId)
           && (resource == null ? (!exists(studentProfile(studentId)) && !request.resource.data.keys().hasAny(['legacyId', 'transferId']))
             : (resource.data.classId == request.resource.data.classId && resource.data.status == 'enrolled'
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
-                ['no', 'displayName', 'sex', 'mig', 'country', 'note', 'status', 'updatedAt', 'updatedBy'])))
+                ['no', 'displayName', 'sex', 'birthDate', 'mig', 'country', 'fatherCountry', 'motherCountry', 'learningSupport', 'note', 'status', 'updatedAt', 'updatedBy'])))
           && request.resource.data.status in ['enrolled', 'transferred']
           && ((resource != null && resource.data.displayName == request.resource.data.displayName)
             || getAfter(studentProfile(studentId)).data.name == request.resource.data.displayName)
@@ -420,7 +429,11 @@ service cloud.firestore {
         && request.resource.data.year == year
         && request.resource.data.studentId == studentId
         && request.resource.data.keys().hasOnly(['year', 'studentId', 'grade', 'cls', 'classId', 'no',
-          'status', 'displayName', 'sex', 'mig', 'country', 'note', 'legacyId', 'transferId', 'updatedAt', 'updatedBy'])
+          'status', 'displayName', 'sex', 'birthDate', 'mig', 'country', 'fatherCountry', 'motherCountry', 'learningSupport', 'note', 'legacyId', 'transferId', 'updatedAt', 'updatedBy'])
+        && validParentCountries(request.resource.data)
+        && request.resource.data.get('learningSupport', false) is bool
+        && request.resource.data.get('birthDate', '') is string
+        && request.resource.data.get('birthDate', '').matches('^([0-9]{4}-[0-9]{2}-[0-9]{2})?$')
         && request.resource.data.classId == string(request.resource.data.grade) + '-' + string(request.resource.data.cls)
         && request.resource.data.displayName is string && request.resource.data.displayName.size() <= 20
         && request.resource.data.grade is int && request.resource.data.grade >= 1 && request.resource.data.grade <= 6
@@ -501,16 +514,25 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['note'])
         && request.resource.data.note is string && request.resource.data.note.size() <= 2000;
     }
+    function validParentCountries(d) {
+      return d.get('fatherCountry', '') is string && d.get('fatherCountry', '').size() <= 30
+        && d.get('motherCountry', '') is string && d.get('motherCountry', '').size() <= 30;
+    }
+    function sameMigrantCountries(d, member) {
+      return d.country == member.get('country', '')
+        && d.get('fatherCountry', '') == member.get('fatherCountry', '')
+        && d.get('motherCountry', '') == member.get('motherCountry', '');
+    }
     function agreesWithMigrantMember(year, studentId, d) {
       let member = getAfter(yearMember(year, studentId)).data;
-      return d.keys().hasOnly(['year', 'studentId', 'classId', 'grade', 'cls', 'no', 'type', 'country', 'name'])
+      return d.keys().hasOnly(['year', 'studentId', 'classId', 'grade', 'cls', 'no', 'type', 'country', 'fatherCountry', 'motherCountry', 'name'])
         && d.year == year && d.studentId == studentId && d.classId == member.classId
         && d.grade == member.grade && d.cls == member.cls && d.no == member.no
         && d.type == member.mig && d.type in ['foreign', 'mid', 'domestic']
-        && d.country == member.get('country', '') && d.name == member.displayName && member.status == 'enrolled';
+        && sameMigrantCountries(d, member) && d.name == member.displayName && member.status == 'enrolled';
     }
     match /rosterYears/{year}/migrantRoster/{studentId} {
-      allow read: if isAdmin() || isYearKclassStaff(year) || isYearHomeroom(year, resource.data.classId);
+      allow read: if isYearHomeroom(year, resource.data.classId) || isAdmin() || isYearKclassStaff(year);
       allow create, update: if isAdmin() || (isYearHomeroom(year, request.resource.data.classId)
         && agreesWithMigrantMember(year, studentId, request.resource.data));
       allow delete: if isAdmin() || (isYearHomeroom(year, getAfter(yearMember(year, studentId)).data.classId)
@@ -521,12 +543,13 @@ service cloud.firestore {
       return isYearHomeroom(year, member.classId) && (deleting
         ? (member.status != 'enrolled' || member.get('mig', '') == '')
         : (member.status == 'enrolled' && member.mig in ['foreign', 'mid', 'domestic']
-          && request.resource.data.type == member.mig && request.resource.data.country == member.get('country', '')));
+          && request.resource.data.type == member.mig && sameMigrantCountries(request.resource.data, member)));
     }
     match /rosterYears/{year}/migrantStats/{rowId} {
       allow read: if isAdmin() || (isStaff() && year == activeRosterYear());
       allow delete: if isAdmin() || canWriteMigrantStat(year, rowId, true);
-      allow create, update: if request.resource.data.keys().hasOnly(['type', 'country'])
+      allow create, update: if request.resource.data.keys().hasOnly(['type', 'country', 'fatherCountry', 'motherCountry'])
+        && validParentCountries(request.resource.data)
         && request.resource.data.type in ['foreign', 'mid', 'domestic']
         && request.resource.data.country is string && request.resource.data.country.size() <= 30
         && (isAdmin() || canWriteMigrantStat(year, rowId, false));

@@ -22,6 +22,13 @@
     페루: 'pe', 나이지리아: 'ng', 이란: 'ir', 튀르키예: 'tr', 터키: 'tr', 이집트: 'eg', 동티모르: 'tl', 콜롬비아: 'co', 멕시코: 'mx', 뉴질랜드: 'nz', 가나: 'gh', 케냐: 'ke',
     사우디아라비아: 'sa', 예멘: 'ye', 시리아: 'sy', 요르단: 'jo', 홍콩: 'hk', 벨라루스: 'by', 아제르바이잔: 'az', 남아프리카공화국: 'za', 칠레: 'cl', 아르헨티나: 'ar' };
 
+  const regionNames = new Intl.DisplayNames('ko', { type: 'region', fallback: 'none' });
+  for (const code of 'AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW'.split(' ')) {
+    if (Object.values(ISO).includes(code.toLowerCase())) continue;
+    const name = regionNames.of(code);
+    if (name && !Object.hasOwn(ISO, name)) ISO[name] = code.toLowerCase();
+  }
+
   let stats = null, migrant = null, unsubs = [], classSums = [];
   const num = v => Math.max(0, Math.round(Number(v) || 0));
   const sum = a => a.reduce((t, v) => t + num(v), 0);
@@ -55,8 +62,10 @@
     const year = String(state.school.year);
     unsubs.push(F.onSnapshot(F.collection(db, 'rosterYears', year, 'migrantStats'), snap => {
       classSums = snap.docs.map(d => {
-        const { type, country } = d.data();
-        return { [type]: 1, countries: country ? { [country]: 1 } : {} };
+        const { type, country, fatherCountry, motherCountry } = d.data();
+        const parents = [fatherCountry, motherCountry].filter(Boolean);
+        const countries = new Set(parents.length ? parents : [country].filter(Boolean));
+        return { [type]: 1, countries: Object.fromEntries([...countries].map(name => [name, 1])) };
       });
       renderAll();
     }, e => console.warn('학년도별 이주배경 합계 조회 실패', e)));

@@ -2066,3 +2066,32 @@ th.kc-col { color: #5b21b6; }
 .school-history-list time { color: var(--nv); font-size: 13px; font-weight: 700; }
 .school-history-list strong { color: var(--nv-d); font-size: 14px; }
 .school-history-list p { margin: 0; font-size: 13px; color: var(--muted); white-space: pre-wrap; }
+
+/* 학생 관리 */
+.rs-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 475px; }
+.rs-summary .sx-kpi { min-width: 0; padding: 8px 12px; }
+.rs-search { margin: 10px 0; }
+.rs-search label { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
+.rs-search input { width: 190px; }
+.rs-tbl td { padding: 7px 8px; }
+.rs-student-name.btn { border-color: transparent; background: transparent; color: var(--nv); }
+.rs-student-name:hover { text-decoration: underline; }
+.rs-pdf-drop { display: flex; align-items: center; gap: 14px; min-height: 104px; margin-top: 12px; padding: 14px 18px; border: 1px dashed var(--line); border-radius: 12px; background: #f8fafd; }
+.rs-pdf-drop.is-over { border-color: var(--primary); background: var(--nv-pale); }
+.rs-pdf-drop svg { width: 26px; height: 26px; color: var(--nv); }
+.rs-pdf-drop div { flex: 1; }
+.rs-pdf-drop h3 { margin: 0 0 3px; font-size: 15px; }
+.rs-pdf-drop p { margin: 0; font-size: 13px; color: var(--muted); }
+.rs-pdf-drop label { cursor: pointer; }
+.rs-manual { margin-top: 8px; }
+.rs-dialog { padding: 18px; border: 1px solid var(--line); border-radius: 12px; width: min(650px, 94vw); }
+.rs-dialog h2 { margin: 0 0 10px; }
+.rs-dialog::backdrop { background: #14213b66; }
+.rs-dialog td input { width: 100%; }
+
+#rosterParentCountries { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+#rosterParentCountries label { position: relative; }
+#rosterParentCountries [role="listbox"] { position: absolute; top: 100%; left: 0; right: 0; z-index: 2; max-height: 160px; overflow: auto; background: #fff; border: 1px solid var(--line); border-radius: 8px; }
+#rosterParentCountries [role="option"] { display: block; padding: 6px 9px; cursor: pointer; }
+#rosterParentCountries [role="option"]:hover, #rosterParentCountries [aria-selected="true"] { background: var(--nv-pale); color: var(--nv); }
+#rosterLegacyCountry { grid-column: 1 / -1; margin: 0; }

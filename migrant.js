@@ -95,7 +95,7 @@
     renderPicker();
     if (!isWide() && !myRoom) { $('kmLead').textContent = ''; $('kmMain').innerHTML = '<div class="card km-setup"><h3>이 학년도에 배정된 학급이 없습니다</h3><p class="hint">관리자에게 이 학년도의 담임 배정을 요청하세요.</p><button type="button" class="btn primary" data-act="go-roster">학급관리로 가기</button></div>'; return; }
     if (!sel) { $('kmLead').textContent = '학년·반별 이주배경학생 수입니다. 반을 누르면 명단을 볼 수 있습니다. 등록·수정은 학급관리에서 합니다.'; $('kmMain').innerHTML = overview(); return; }
-    $('kmLead').textContent = isWide() ? '' : '우리 반 이주배경학생 명단입니다(조회). 등록·수정은 학급관리 › 우리 반 학생에서 합니다.';
+    $('kmLead').textContent = isWide() ? '' : '우리 반 이주배경학생 명단입니다(조회). 등록·수정은 학급 관리 › 학생 관리에서 합니다.';
     $('kmMain').innerHTML = classView(sel.g, sel.c);
   }
 
@@ -136,7 +136,7 @@
   const typeSeg = (cur, attr) => `<div class="km-seg" role="radiogroup">${TYPES.map(([k, l]) => `<button type="button" class="${k}${k === cur ? ' on' : ''}" data-${attr}="${k}" role="radio" aria-checked="${k === cur}">${l}</button>`).join('')}</div>`;
   const flag = name => { const u = window.SchoolStatus?.flagUrl(name); return u ? `<img src="${u}" alt="" width="22" height="16">` : ''; };
 
-  /** 학급 명단 보기(조회 전용). 등록·수정은 학급관리 › 우리 반 학생에서 */
+  /** 학급 명단 보기(조회 전용). 등록·수정은 학급 관리 › 학생 관리에서 */
   function classView(g, c) {
     if (!loaded) return '<p class="hint">불러오는 중…</p>';
     const ss = inClass(g, c);
@@ -145,7 +145,9 @@
     const row = s => `<li class="km-row" data-id="${s.id}">
         <span class="km-no">${s.no || '-'}</span>
         <span class="km-name">${esc(s.name)}</span>
-        <span class="km-country">${flag(s.country)}${esc(s.country || '출신국 미입력')}</span>
+        <span class="km-country">${s.fatherCountry || s.motherCountry
+          ? `부 ${flag(s.fatherCountry)}${esc(s.fatherCountry || '미입력')} · 모 ${flag(s.motherCountry)}${esc(s.motherCountry || '미입력')}`
+          : flag(s.country) + esc(s.country || '출신국 미입력')}</span>
         <span class="km-badge ${s.type}">${TYPE_L[s.type] || ''}</span><span></span></li>`;
     return `<div class="card km-classcard">
         <div class="km-class-h"><h3>${g}학년 ${c}반 <span>${ss.length}명</span></h3><div class="km-counts">${counts}</div></div>

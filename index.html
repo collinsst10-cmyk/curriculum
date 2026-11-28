@@ -6,7 +6,7 @@
 <title>용원초등학교 교육과정 편성 도우미</title>
 <link rel="icon" type="image/png" href="assets/emblem.png">
 <link rel="apple-touch-icon" href="assets/emblem.png">
-<link rel="stylesheet" href="style.css?v=teacher-layout-1">
+<link rel="stylesheet" href="style.css?v=student-links-1">
 <link rel="stylesheet" href="behavior.css?v=20261127224336">
 </head>
 <body>
@@ -19,7 +19,7 @@
     <button data-go="schoolinfo">학교 정보</button>
     <button data-go="curr" class="admin-only">교육과정 편성</button>
     <button data-go="haksa">학사일정</button>
-    <button data-go="cls">학급관리</button>
+    <button data-go="cls">학급 관리</button>
     <button data-go="kclass">이주배경학생</button>
     <button data-go="data" class="admin-only">자료 관리</button>
     <button data-go="stats" id="navStats" hidden>학교 현황</button>
@@ -40,7 +40,9 @@
 <div id="previewBar" class="preview-bar" hidden>👀 지금 <b id="previewRole">선생님</b> 화면을 미리 보고 있습니다. <button id="previewBack" class="btn small">관리자 화면으로 돌아가기</button></div>
 
 <nav class="tabs" id="tabs">
-  <button data-tab="roster" data-group="cls">우리 반 학생</button>
+  <button data-tab="roster" data-group="cls">학생 관리</button>
+  <button data-tab="learning-support" data-group="cls">기초학력 지원</button>
+  <button data-tab="student-records" data-group="cls">학교생활기록부</button>
   <button data-tab="hview" data-group="haksa">학사일정</button>
   <button data-tab="act" data-group="haksa">신규 학사일정 등록</button>
   <button data-tab="ksl" data-group="haksa">한국어학급 연계</button>
@@ -454,45 +456,49 @@
       <p id="kclassStatus3" role="status"></p>
     </div>
   </section>
-  <!-- 학급관리 › 우리 반 학생 (담임: 자기 반 / 관리자: 모든 반) -->
+  <!-- 학급 관리 › 학생 관리 -->
   <section id="tab-roster" class="tab">
-    <details id="yearRoster" class="card" hidden>
-      <summary>학년도별 학생 명단</summary>
-      <div id="yrPicker" class="form">
-        <label>조회 학년도<input id="yrYear" type="number" min="2000" max="2099"></label>
-        <label>학년<select id="yrGrade"></select></label>
-        <label>반<select id="yrClass"></select></label>
-      </div>
-      <p id="yrStatus" class="hint" role="status"></p>
-      <ul id="yrRows"></ul>
-<div id="yrAdminFields">
-      <div class="form">
-        <label>기존 학생 ID<input id="yrId" maxlength="128"></label>
-        <label>신규 학생 이름<input id="yrName" maxlength="20"></label>
-        <label>번호<input id="yrNo" type="number" min="1" max="99"></label>
-        <label>재학 상태<select id="yrState"><option value="enrolled">재학</option><option value="transferred">전출</option><option value="graduated">졸업</option><option value="deferred">유예</option></select></label>
-      </div>
-      <button type="button" id="yrSave" class="btn small primary">소속 저장</button>
-      <details>
-        <summary>기존 명단 이전</summary><label>원본 학년도 <input id="yrSource" type="number" min="2000" max="2099"></label>
-        <p class="hint">원본 명단의 실제 학년도와 반을 선택하고 미리 확인하세요.</p>
-        <button type="button" id="yrInspect" class="btn small">이전 결과 미리보기</button>
-        <p id="yrPreview" class="hint" role="status"></p>
-        <label><input type="checkbox" id="yrBackup"> 운영 데이터 전체 백업을 확인했습니다.</label>
-        <button type="button" id="yrApply" class="btn small" disabled>확인한 명단 이전</button>
-      </details>
-          <div class="row">
-        <label>담임 이메일 <input id="yrTeacher" type="email"></label>
-        <button type="button" id="yrAssign" class="btn small">담임 배정</button>
-        <button type="button" id="yrExport" class="btn small">학년도 명단 엑셀 저장</button>
-        <button type="button" id="yrExportClass" class="btn small">학급 명단 엑셀 저장</button>
-        <label>학급 명단 엑셀 <input id="yrWorkbook" type="file" accept=".xlsx"></label>
-        <button type="button" id="yrImport" class="btn small" disabled>미리 본 명단 저장</button>
-      </div>
-      <p id="yrImportPreview" class="hint" role="status"></p>
-      </div>
-</details>
     <div id="rsMain"></div>
+    <dialog id="studentDetailDialog" class="rs-dialog" aria-labelledby="studentDetailTitle">
+      <form id="studentDetailForm">
+        <h2 id="studentDetailTitle">학생 상세정보</h2>
+        <p id="studentDetailState" class="hint"></p>
+        <div class="form">
+          <label>번호<input name="no" type="number" min="1" max="99" required></label>
+          <label>이름<input name="name" maxlength="20" required></label>
+          <label>성별<select name="sex"><option value="">미입력</option><option value="m">남</option><option value="f">여</option></select></label>
+          <label>생년월일<input name="birthDate" type="date"></label>
+          <label>이주배경 유형<select name="mig"><option value="">해당 없음</option><option value="foreign">외국인</option><option value="domestic">국내출생</option><option value="mid">중도입국</option></select></label>
+          <label>기초학력 지원 대상 여부<select name="learningSupport"><option value="">해당 없음</option><option value="yes">지원 대상</option></select></label>
+          <div id="rosterParentCountries" hidden>
+            <label>부 출신국<input name="fatherCountry" maxlength="30" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="fatherCountryOptions" aria-expanded="false"><span id="fatherCountryOptions" role="listbox" hidden></span></label>
+            <label>모 출신국<input name="motherCountry" maxlength="30" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="motherCountryOptions" aria-expanded="false"><span id="motherCountryOptions" role="listbox" hidden></span></label>
+            <p id="rosterLegacyCountry" class="hint" hidden></p>
+          </div>
+          <label>메모<input name="note" maxlength="60"></label>
+        </div>
+        <p id="studentDetailStatus" class="hint" role="status"></p>
+        <div class="row"><button id="studentDetailSave" class="btn primary" type="submit">저장</button>
+          <button id="studentDetailRemove" class="btn danger" type="button">명단에서 제외</button>
+          <button class="btn" type="button" data-close-student-dialog>닫기</button></div>
+      </form>
+    </dialog>
+    <dialog id="neisImportDialog" class="rs-dialog" aria-label="NEIS 명단 미리보기">
+      <form id="neisImportForm">
+        <h2>NEIS 명단 미리보기</h2>
+        <table class="tbl"><thead><tr><th>번호</th><th>이름</th><th>성별</th><th>생년월일</th><th>처리</th></tr></thead><tbody id="neisImportRows"></tbody></table>
+        <p id="neisImportStatus" class="hint" role="status"></p>
+        <div class="row"><button id="neisImportSave" class="btn primary" type="submit">확인한 명단 등록</button>
+          <button class="btn" type="button" data-close-student-dialog>닫기</button></div>
+      </form>
+    </dialog>
+  </section>
+  <section id="tab-learning-support" class="tab">
+    <div id="learningSupportRoster"></div>
+  </section>
+  <section id="tab-student-records" class="tab">
+    <div class="rs-top"><h2 class="km-title">학교생활기록부</h2><div id="recordClassPicker"></div></div>
+    <p id="recordRosterStatus" class="hint" role="status" hidden></p>
     <section id="behaviorPanel" class="card behavior-panel" aria-label="행동특성 및 종합의견" hidden></section>
   </section>
 
@@ -1017,21 +1023,21 @@
 <script src="staff-links.js?v=20261127224336"></script>
 <script src="staff-admin.js?v=20261127224336"></script>
 <script src="schedule.js?v=20261127224336"></script>
-<script src="year-student-views.js?v=20261127224336"></script>
+<script src="year-student-views.js?v=student-links-1"></script>
 <script src="kclass.js?v=20261127224336"></script>
 <script src="hwpx.js?v=20261127224336"></script>
 <script src="home.js?v=20261127224336"></script>
-<script src="status.js?v=20261127224336"></script>
+<script src="status.js?v=student-links-1"></script>
 <script src="log.js?v=20261127224336"></script>
 <script src="cover.js?v=20261127224336"></script>
-<script src="transfer.js?v=20261127224336"></script>
-<script src="migrant.js?v=20261127224336"></script>
+<script src="transfer.js?v=student-management-1"></script>
+<script src="migrant.js?v=student-links-1"></script>
 <script src="behavior-data.js?v=20261127224336"></script>
 <script src="behavior-engine.js?v=20261127224336"></script>
 <script src="behavior-ui.js?v=20261127224336"></script>
-<script src="roster.js?v=20261127224336"></script>
+<script src="roster.js?v=student-links-1"></script>
 <script src="roster-workbook.js?v=20261127224336"></script>
-<script src="roster-years.js?v=20261127224336"></script>
+<script src="roster-years.js?v=student-management-1"></script>
 <script src="site.js?v=purchase-width-1"></script>
 <script src="school-history.js?v=1"></script>
 <script src="env.js?v=teacher-layout-1"></script>
